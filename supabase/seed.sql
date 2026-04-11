@@ -1,0 +1,20 @@
+-- Seed data is meant to be run after creating test users via Supabase Auth.
+-- Replace the UUIDs below with actual user IDs from your auth.users table.
+
+-- Example: After signing up two test users, grab their IDs and run:
+--
+-- INSERT INTO public.groups (name, created_by)
+-- VALUES ('Test Apartment', '<user-1-uuid>');
+--
+-- INSERT INTO public.group_members (group_id, user_id)
+-- VALUES
+--   ('<group-uuid>', '<user-1-uuid>'),
+--   ('<group-uuid>', '<user-2-uuid>');
+--
+-- INSERT INTO public.expenses (group_id, paid_by, amount, description, split_type)
+-- VALUES ('<group-uuid>', '<user-1-uuid>', 50.00, 'Groceries', 'equal');
+--
+-- INSERT INTO public.expense_splits (expense_id, user_id, amount)
+-- VALUES
+--   ('<expense-uuid>', '<user-1-uuid>', 25.00),
+--   ('<expense-uuid>', '<user-2-uuid>', 25.00);
