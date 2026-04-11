@@ -3,10 +3,9 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Link } from "expo-router";
@@ -18,23 +17,27 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handleSignUp = async () => {
+    setError("");
+    setSuccess("");
     if (!fullName || !email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      setError("Please fill in all fields");
       return;
     }
     if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+      setError("Password must be at least 6 characters");
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password, fullName);
+    const { error: authError } = await signUp(email, password, fullName);
     setLoading(false);
-    if (error) {
-      Alert.alert("Sign Up Error", error.message);
+    if (authError) {
+      setError(authError.message);
     } else {
-      Alert.alert("Success", "Check your email to verify your account!");
+      setSuccess("Account created! Check your email to verify, or sign in now.");
     }
   };
 
@@ -52,6 +55,20 @@ export default function SignUp() {
             Create your account
           </Text>
         </View>
+
+        {error ? (
+          <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+            <Text className="text-red-600 text-sm text-center">{error}</Text>
+          </View>
+        ) : null}
+
+        {success ? (
+          <View className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
+            <Text className="text-green-700 text-sm text-center">
+              {success}
+            </Text>
+          </View>
+        ) : null}
 
         <View className="gap-4">
           <View>
@@ -99,11 +116,11 @@ export default function SignUp() {
             />
           </View>
 
-          <TouchableOpacity
-            className="bg-primary-500 rounded-xl py-4 mt-2"
+          <Pressable
+            className="bg-primary-500 rounded-xl py-4 mt-2 active:bg-primary-600"
             onPress={handleSignUp}
             disabled={loading}
-            activeOpacity={0.8}
+            role="button"
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -112,15 +129,15 @@ export default function SignUp() {
                 Create Account
               </Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <View className="flex-row justify-center mt-8">
           <Text className="text-gray-500">Already have an account? </Text>
           <Link href="/(auth)/sign-in" asChild>
-            <TouchableOpacity>
+            <Pressable role="link">
               <Text className="text-primary-500 font-semibold">Sign In</Text>
-            </TouchableOpacity>
+            </Pressable>
           </Link>
         </View>
       </View>

@@ -3,10 +3,9 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { Link } from "expo-router";
@@ -17,17 +16,19 @@ export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSignIn = async () => {
+    setError("");
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      setError("Please fill in all fields");
       return;
     }
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error: authError } = await signIn(email, password);
     setLoading(false);
-    if (error) {
-      Alert.alert("Sign In Error", error.message);
+    if (authError) {
+      setError(authError.message);
     }
   };
 
@@ -45,6 +46,12 @@ export default function SignIn() {
             Split expenses with friends
           </Text>
         </View>
+
+        {error ? (
+          <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+            <Text className="text-red-600 text-sm text-center">{error}</Text>
+          </View>
+        ) : null}
 
         <View className="gap-4">
           <View>
@@ -78,11 +85,11 @@ export default function SignIn() {
             />
           </View>
 
-          <TouchableOpacity
-            className="bg-primary-500 rounded-xl py-4 mt-2"
+          <Pressable
+            className="bg-primary-500 rounded-xl py-4 mt-2 active:bg-primary-600"
             onPress={handleSignIn}
             disabled={loading}
-            activeOpacity={0.8}
+            role="button"
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -91,15 +98,15 @@ export default function SignIn() {
                 Sign In
               </Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <View className="flex-row justify-center mt-8">
           <Text className="text-gray-500">Don't have an account? </Text>
           <Link href="/(auth)/sign-up" asChild>
-            <TouchableOpacity>
+            <Pressable role="link">
               <Text className="text-primary-500 font-semibold">Sign Up</Text>
-            </TouchableOpacity>
+            </Pressable>
           </Link>
         </View>
       </View>
