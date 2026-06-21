@@ -1,6 +1,48 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
-import type { ExpenseWithSplits, SplitType } from "../types";
+import type { ExpenseWithSplits, Profile, SplitType } from "../types";
+import { useAuth } from "../auth";
+
+export interface ActivityExpense {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  paid_by: string;
+  payer: Profile | null;
+  groups: { name: string } | null;
+}
+
+// Recent expenses across every group the user belongs to. RLS limits results
+// to groups the current user is a member of.
+export function useRecentActivity() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["activity", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("expenses")
+        .select(
+          `
+          id,
+          description,
+          amount,
+          date,
+          paid_by,
+          payer:profiles!expenses_paid_by_fkey (*),
+          groups (name)
+        `
+        )
+        .order("date", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data as unknown as ActivityExpense[];
+    },
+    enabled: !!user,
+  });
+}
 
 export function useExpenses(groupId: string) {
   return useQuery({

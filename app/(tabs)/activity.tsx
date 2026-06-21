@@ -1,24 +1,13 @@
 import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
-import { useGroups } from "@/lib/queries/useGroups";
-import { useExpenses } from "@/lib/queries/useExpenses";
+import { useRecentActivity, type ActivityExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
 import { useState, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 
-interface ActivityItem {
-  id: string;
-  type: "expense";
-  description: string;
-  amount: number;
-  payerName: string;
-  groupName: string;
-  date: string;
-}
-
 export default function Activity() {
   const { user } = useAuth();
-  const { data: groups, refetch, isLoading } = useGroups();
+  const { data: activity, refetch, isLoading } = useRecentActivity();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -38,8 +27,8 @@ export default function Activity() {
   return (
     <View className="flex-1 bg-gray-50">
       <FlatList
-        data={[]}
-        keyExtractor={(item: ActivityItem) => item.id}
+        data={activity ?? []}
+        keyExtractor={(item: ActivityExpense) => item.id}
         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -55,26 +44,32 @@ export default function Activity() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <View className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-base font-semibold text-gray-900">
-                  {item.description}
-                </Text>
-                <Text className="text-sm text-gray-500 mt-0.5">
-                  {item.payerName} paid in {item.groupName}
+        renderItem={({ item }) => {
+          const payerName =
+            item.paid_by === user?.id
+              ? "You"
+              : item.payer?.full_name ?? "Someone";
+          return (
+            <View className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-gray-900">
+                    {item.description}
+                  </Text>
+                  <Text className="text-sm text-gray-500 mt-0.5">
+                    {payerName} paid in {item.groups?.name ?? "a group"}
+                  </Text>
+                </View>
+                <Text className="text-base font-bold text-gray-900">
+                  {formatCurrency(item.amount)}
                 </Text>
               </View>
-              <Text className="text-base font-bold text-gray-900">
-                {formatCurrency(item.amount)}
+              <Text className="text-xs text-gray-400 mt-2">
+                {new Date(item.date).toLocaleDateString()}
               </Text>
             </View>
-            <Text className="text-xs text-gray-400 mt-2">
-              {new Date(item.date).toLocaleDateString()}
-            </Text>
-          </View>
-        )}
+          );
+        }}
       />
     </View>
   );

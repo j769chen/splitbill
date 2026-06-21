@@ -10,6 +10,22 @@ ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expense_splits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
+-- Helper to check group membership WITHOUT triggering RLS on group_members.
+-- A SELECT policy on group_members that itself queries group_members causes
+-- "infinite recursion detected in policy". A SECURITY DEFINER function bypasses
+-- RLS and breaks the recursion.
+CREATE OR REPLACE FUNCTION public.is_group_member(p_group_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = p_group_id AND user_id = p_user_id
+  );
+$$;
+
 -- ---- PROFILES ----
 
 CREATE POLICY "Users can view any profile"
@@ -25,12 +41,7 @@ CREATE POLICY "Users can update own profile"
 
 CREATE POLICY "Members can view their groups"
   ON public.groups FOR SELECT
-  USING (
-    id IN (
-      SELECT group_id FROM public.group_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  USING (public.is_group_member(id, auth.uid()));
 
 CREATE POLICY "Authenticated users can create groups"
   ON public.groups FOR INSERT
@@ -48,20 +59,12 @@ CREATE POLICY "Group creator can delete group"
 
 CREATE POLICY "Members can view group members"
   ON public.group_members FOR SELECT
-  USING (
-    group_id IN (
-      SELECT group_id FROM public.group_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  USING (public.is_group_member(group_id, auth.uid()));
 
 CREATE POLICY "Group members can add new members"
   ON public.group_members FOR INSERT
   WITH CHECK (
-    group_id IN (
-      SELECT group_id FROM public.group_members
-      WHERE user_id = auth.uid()
-    )
+    public.is_group_member(group_id, auth.uid())
     OR auth.uid() = user_id
   );
 
@@ -73,21 +76,11 @@ CREATE POLICY "Members can leave group"
 
 CREATE POLICY "Members can view group expenses"
   ON public.expenses FOR SELECT
-  USING (
-    group_id IN (
-      SELECT group_id FROM public.group_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  USING (public.is_group_member(group_id, auth.uid()));
 
 CREATE POLICY "Members can create expenses"
   ON public.expenses FOR INSERT
-  WITH CHECK (
-    group_id IN (
-      SELECT group_id FROM public.group_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  WITH CHECK (public.is_group_member(group_id, auth.uid()));
 
 CREATE POLICY "Expense creator can update"
   ON public.expenses FOR UPDATE
@@ -104,8 +97,7 @@ CREATE POLICY "Members can view expense splits"
   USING (
     expense_id IN (
       SELECT e.id FROM public.expenses e
-      JOIN public.group_members gm ON gm.group_id = e.group_id
-      WHERE gm.user_id = auth.uid()
+      WHERE public.is_group_member(e.group_id, auth.uid())
     )
   );
 
@@ -114,8 +106,7 @@ CREATE POLICY "Members can create expense splits"
   WITH CHECK (
     expense_id IN (
       SELECT e.id FROM public.expenses e
-      JOIN public.group_members gm ON gm.group_id = e.group_id
-      WHERE gm.user_id = auth.uid()
+      WHERE public.is_group_member(e.group_id, auth.uid())
     )
   );
 
@@ -141,21 +132,11 @@ CREATE POLICY "Expense payer can delete splits"
 
 CREATE POLICY "Members can view group payments"
   ON public.payments FOR SELECT
-  USING (
-    group_id IN (
-      SELECT group_id FROM public.group_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  USING (public.is_group_member(group_id, auth.uid()));
 
 CREATE POLICY "Members can create payments"
   ON public.payments FOR INSERT
-  WITH CHECK (
-    group_id IN (
-      SELECT group_id FROM public.group_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  WITH CHECK (public.is_group_member(group_id, auth.uid()));
 
 CREATE POLICY "Payment creator can delete"
   ON public.payments FOR DELETE

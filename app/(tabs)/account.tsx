@@ -1,19 +1,18 @@
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth";
+import { confirm } from "@/lib/alert";
 
 export default function Account() {
   const { user, signOut } = useAuth();
 
   const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: signOut,
-      },
-    ]);
+    confirm(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      signOut,
+      { confirmText: "Sign Out", destructive: true }
+    );
   };
 
   return (
@@ -30,14 +29,14 @@ export default function Account() {
 
       <View className="mt-6 px-6">
         <View className="bg-white rounded-2xl overflow-hidden">
-          <TouchableOpacity className="flex-row items-center px-4 py-4 border-b border-gray-50">
+          <View className="flex-row items-center px-4 py-4 border-b border-gray-50">
             <Ionicons name="person-outline" size={22} color="#6B7280" />
             <Text className="flex-1 ml-3 text-base text-gray-700">
               Edit Profile
             </Text>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center px-4 py-4 border-b border-gray-50">
+          </View>
+          <View className="flex-row items-center px-4 py-4 border-b border-gray-50">
             <Ionicons
               name="notifications-outline"
               size={22}
@@ -47,8 +46,8 @@ export default function Account() {
               Notifications
             </Text>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center px-4 py-4">
+          </View>
+          <View className="flex-row items-center px-4 py-4">
             <Ionicons
               name="help-circle-outline"
               size={22}
@@ -58,18 +57,19 @@ export default function Account() {
               Help & Support
             </Text>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
+          </View>
         </View>
 
-        <TouchableOpacity
-          className="bg-white rounded-2xl mt-4 px-4 py-4 flex-row items-center"
+        <Pressable
+          role="button"
+          className="bg-white rounded-2xl mt-4 px-4 py-4 flex-row items-center active:bg-gray-50"
           onPress={handleSignOut}
         >
           <Ionicons name="log-out-outline" size={22} color="#EF4444" />
           <Text className="flex-1 ml-3 text-base text-red-500 font-medium">
             Sign Out
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <Text className="text-center text-gray-400 text-xs mt-8">

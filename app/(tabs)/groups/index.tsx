@@ -2,7 +2,7 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
   ActivityIndicator,
 } from "react-native";
@@ -51,7 +51,10 @@ export default function GroupsList() {
         }
         renderItem={({ item }) => (
           <Link href={`/(tabs)/groups/${item.id}`} asChild>
-            <TouchableOpacity className="bg-white rounded-2xl p-4 mb-3 flex-row items-center shadow-sm">
+            <Pressable
+              role="button"
+              className="bg-white rounded-2xl p-4 mb-3 flex-row items-center shadow-sm active:bg-gray-50"
+            >
               <View className="w-14 h-14 rounded-full bg-primary-100 items-center justify-center">
                 <Text className="text-primary-600 text-xl font-bold">
                   {item.name.charAt(0).toUpperCase()}
@@ -67,18 +70,18 @@ export default function GroupsList() {
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
+            </Pressable>
           </Link>
         )}
       />
 
-      <TouchableOpacity
-        className="absolute bottom-8 right-6 w-14 h-14 bg-primary-500 rounded-full items-center justify-center shadow-lg"
+      <Pressable
+        role="button"
+        className="absolute bottom-8 right-6 w-14 h-14 bg-primary-500 rounded-full items-center justify-center shadow-lg active:bg-primary-600"
         onPress={() => router.push("/(tabs)/groups/create")}
-        activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

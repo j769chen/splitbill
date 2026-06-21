@@ -3,24 +3,22 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useGroup } from "@/lib/queries/useGroups";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
 import { simplifyDebts, formatCurrency } from "@/lib/utils";
+import { notify } from "@/lib/alert";
 
 export default function SettleUp() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
-  const { data: group } = useGroup(groupId!);
   const { data: balances } = useGroupBalances(groupId!);
   const createPayment = useCreatePayment();
 
@@ -35,7 +33,7 @@ export default function SettleUp() {
 
   const handleSettle = async () => {
     if (selectedDebt === null) {
-      Alert.alert("Error", "Please select a payment to settle");
+      notify("Error", "Please select a payment to settle");
       return;
     }
 
@@ -43,7 +41,7 @@ export default function SettleUp() {
     const settleAmount = parseFloat(amount) || debt.amount;
 
     if (settleAmount <= 0) {
-      Alert.alert("Error", "Please enter a valid amount");
+      notify("Error", "Please enter a valid amount");
       return;
     }
 
@@ -55,10 +53,10 @@ export default function SettleUp() {
         amount: settleAmount,
         note: note.trim() || undefined,
       });
-      Alert.alert("Success", "Payment recorded!");
+      notify("Success", "Payment recorded!");
       router.back();
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      notify("Error", error.message);
     }
   };
 
@@ -83,8 +81,9 @@ export default function SettleUp() {
               {userDebts.map((debt, idx) => {
                 const isFrom = debt.from === user?.id;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={idx}
+                    role="button"
                     className={`p-4 rounded-xl border ${
                       selectedDebt === idx
                         ? "bg-primary-50 border-primary-300"
@@ -99,9 +98,7 @@ export default function SettleUp() {
                       {isFrom ? (
                         <>
                           You pay{" "}
-                          <Text className="font-semibold">
-                            {debt.to_name}
-                          </Text>
+                          <Text className="font-semibold">{debt.to_name}</Text>
                         </>
                       ) : (
                         <>
@@ -115,7 +112,7 @@ export default function SettleUp() {
                     <Text className="text-lg font-bold text-primary-500 mt-1">
                       {formatCurrency(debt.amount)}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -149,11 +146,11 @@ export default function SettleUp() {
                   />
                 </View>
 
-                <TouchableOpacity
-                  className="bg-accent-500 rounded-xl py-4 mt-8"
+                <Pressable
+                  role="button"
+                  className="bg-accent-500 rounded-xl py-4 mt-8 active:bg-accent-600"
                   onPress={handleSettle}
                   disabled={createPayment.isPending}
-                  activeOpacity={0.8}
                 >
                   {createPayment.isPending ? (
                     <ActivityIndicator color="#fff" />
@@ -162,7 +159,7 @@ export default function SettleUp() {
                       Record Payment
                     </Text>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               </>
             )}
           </>

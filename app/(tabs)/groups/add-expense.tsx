@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +15,7 @@ import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
 import { splitEqual } from "@/lib/utils";
+import { notify } from "@/lib/alert";
 import type { SplitType } from "@/lib/types";
 
 export default function AddExpense() {
@@ -28,15 +28,24 @@ export default function AddExpense() {
   const [amount, setAmount] = useState("");
   const [paidBy, setPaidBy] = useState(user?.id ?? "");
   const [splitType, setSplitType] = useState<SplitType>("equal");
-  const [customSplits, setCustomSplits] = useState<
-    Record<string, string>
-  >({});
-  const [selectedMembers, setSelectedMembers] = useState<string[]>(
-    group?.group_members.map((m) => m.user_id) ?? []
-  );
+  const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   const members = group?.group_members ?? [];
   const totalAmount = parseFloat(amount) || 0;
+
+  // group/user load asynchronously, so initialize selection once data arrives.
+  useEffect(() => {
+    if (group?.group_members) {
+      setSelectedMembers(group.group_members.map((m) => m.user_id));
+    }
+  }, [group?.group_members]);
+
+  useEffect(() => {
+    if (user?.id && !paidBy) {
+      setPaidBy(user.id);
+    }
+  }, [user?.id, paidBy]);
 
   const toggleMember = (userId: string) => {
     setSelectedMembers((prev) =>
@@ -48,15 +57,19 @@ export default function AddExpense() {
 
   const handleSubmit = async () => {
     if (!description.trim()) {
-      Alert.alert("Error", "Please enter a description");
+      notify("Error", "Please enter a description");
       return;
     }
     if (!totalAmount || totalAmount <= 0) {
-      Alert.alert("Error", "Please enter a valid amount");
+      notify("Error", "Please enter a valid amount");
       return;
     }
     if (selectedMembers.length === 0) {
-      Alert.alert("Error", "Please select at least one member");
+      notify("Error", "Please select at least one member");
+      return;
+    }
+    if (!paidBy) {
+      notify("Error", "Please select who paid");
       return;
     }
 
@@ -75,24 +88,35 @@ export default function AddExpense() {
       }));
       const sum = splits.reduce((acc, s) => acc + s.amount, 0);
       if (Math.abs(sum - totalAmount) > 0.01) {
-        Alert.alert(
+        notify(
           "Error",
           `Split amounts ($${sum.toFixed(2)}) don't add up to total ($${totalAmount.toFixed(2)})`
         );
         return;
       }
     } else {
-      splits = selectedMembers.map((userId) => {
-        const pct = parseFloat(customSplits[userId] || "0");
-        return { userId, amount: Math.round(totalAmount * pct) / 100 };
-      });
       const pctSum = selectedMembers.reduce(
         (acc, userId) => acc + parseFloat(customSplits[userId] || "0"),
         0
       );
       if (Math.abs(pctSum - 100) > 0.01) {
-        Alert.alert("Error", `Percentages must add up to 100% (currently ${pctSum.toFixed(1)}%)`);
+        notify(
+          "Error",
+          `Percentages must add up to 100% (currently ${pctSum.toFixed(1)}%)`
+        );
         return;
+      }
+      // Distribute by percentage, assigning any rounding remainder to the
+      // last member so splits always sum exactly to the total.
+      splits = selectedMembers.map((userId) => {
+        const pct = parseFloat(customSplits[userId] || "0");
+        return { userId, amount: Math.round(totalAmount * pct) / 100 };
+      });
+      const splitSum = splits.reduce((acc, s) => acc + s.amount, 0);
+      const remainder = Math.round((totalAmount - splitSum) * 100) / 100;
+      if (remainder !== 0 && splits.length > 0) {
+        const last = splits[splits.length - 1];
+        last.amount = Math.round((last.amount + remainder) * 100) / 100;
       }
     }
 
@@ -107,7 +131,7 @@ export default function AddExpense() {
       });
       router.back();
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      notify("Error", error.message);
     }
   };
 
@@ -152,8 +176,9 @@ export default function AddExpense() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View className="flex-row gap-2">
               {members.map((member) => (
-                <TouchableOpacity
+                <Pressable
                   key={member.user_id}
+                  role="button"
                   className={`px-4 py-2 rounded-full border ${
                     paidBy === member.user_id
                       ? "bg-primary-500 border-primary-500"
@@ -171,7 +196,7 @@ export default function AddExpense() {
                     {member.profiles?.full_name ??
                       (member.user_id === user?.id ? "You" : "Unknown")}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </ScrollView>
@@ -183,8 +208,9 @@ export default function AddExpense() {
           </Text>
           <View className="flex-row gap-2">
             {(["equal", "exact", "percentage"] as SplitType[]).map((type) => (
-              <TouchableOpacity
+              <Pressable
                 key={type}
+                role="button"
                 className={`flex-1 py-2.5 rounded-xl border ${
                   splitType === type
                     ? "bg-primary-500 border-primary-500"
@@ -199,7 +225,7 @@ export default function AddExpense() {
                 >
                   {type === "percentage" ? "%" : type}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
         </View>
@@ -215,13 +241,14 @@ export default function AddExpense() {
                 member.profiles?.full_name ??
                 (member.user_id === user?.id ? "You" : "Unknown");
               const perPerson =
-                splitType === "equal" && isSelected
+                splitType === "equal" && isSelected && selectedMembers.length > 0
                   ? totalAmount / selectedMembers.length
                   : 0;
 
               return (
                 <View key={member.user_id}>
-                  <TouchableOpacity
+                  <Pressable
+                    role="button"
                     className={`flex-row items-center p-3 rounded-xl border ${
                       isSelected
                         ? "bg-primary-50 border-primary-200"
@@ -230,11 +257,7 @@ export default function AddExpense() {
                     onPress={() => toggleMember(member.user_id)}
                   >
                     <Ionicons
-                      name={
-                        isSelected
-                          ? "checkbox"
-                          : "square-outline"
-                      }
+                      name={isSelected ? "checkbox" : "square-outline"}
                       size={22}
                       color={isSelected ? "#1B998B" : "#9CA3AF"}
                     />
@@ -246,14 +269,12 @@ export default function AddExpense() {
                         ${perPerson.toFixed(2)}
                       </Text>
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
 
                   {isSelected && splitType !== "equal" && (
                     <TextInput
                       className="mt-1 ml-8 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
-                      placeholder={
-                        splitType === "percentage" ? "%" : "$0.00"
-                      }
+                      placeholder={splitType === "percentage" ? "%" : "$0.00"}
                       placeholderTextColor="#9CA3AF"
                       value={customSplits[member.user_id] || ""}
                       onChangeText={(val) =>
@@ -271,11 +292,11 @@ export default function AddExpense() {
           </View>
         </View>
 
-        <TouchableOpacity
-          className="bg-primary-500 rounded-xl py-4 mt-8 mb-8"
+        <Pressable
+          role="button"
+          className="bg-primary-500 rounded-xl py-4 mt-8 mb-8 active:bg-primary-600"
           onPress={handleSubmit}
           disabled={createExpense.isPending}
-          activeOpacity={0.8}
         >
           {createExpense.isPending ? (
             <ActivityIndicator color="#fff" />
@@ -284,7 +305,7 @@ export default function AddExpense() {
               Add Expense
             </Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );

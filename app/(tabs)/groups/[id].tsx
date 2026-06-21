@@ -3,10 +3,8 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
-  ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +14,7 @@ import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
+import { confirm } from "@/lib/alert";
 
 type TabType = "expenses" | "balances";
 
@@ -38,15 +37,12 @@ export default function GroupDetail() {
   }, [refetchGroup, refetchExpenses, refetchBalances]);
 
   const handleDeleteExpense = (expenseId: string) => {
-    Alert.alert("Delete Expense", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () =>
-          deleteExpense.mutate({ expenseId, groupId: id! }),
-      },
-    ]);
+    confirm(
+      "Delete Expense",
+      "Are you sure?",
+      () => deleteExpense.mutate({ expenseId, groupId: id! }),
+      { confirmText: "Delete", destructive: true }
+    );
   };
 
   const debts = balances ? simplifyDebts(balances) : [];
@@ -56,7 +52,8 @@ export default function GroupDetail() {
       <Stack.Screen options={{ title: group?.name ?? "Group" }} />
       <View className="flex-1 bg-gray-50">
         <View className="flex-row bg-white border-b border-gray-200">
-          <TouchableOpacity
+          <Pressable
+            role="button"
             className={`flex-1 py-3 ${
               activeTab === "expenses" ? "border-b-2 border-primary-500" : ""
             }`}
@@ -71,8 +68,9 @@ export default function GroupDetail() {
             >
               Expenses
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </Pressable>
+          <Pressable
+            role="button"
             className={`flex-1 py-3 ${
               activeTab === "balances" ? "border-b-2 border-primary-500" : ""
             }`}
@@ -87,7 +85,7 @@ export default function GroupDetail() {
             >
               Balances
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -113,7 +111,7 @@ export default function GroupDetail() {
               ) : (
                 <View className="gap-3">
                   {expenses.map((expense) => (
-                    <TouchableOpacity
+                    <Pressable
                       key={expense.id}
                       className="bg-white rounded-2xl p-4 shadow-sm"
                       onLongPress={() => handleDeleteExpense(expense.id)}
@@ -131,9 +129,25 @@ export default function GroupDetail() {
                                 : "someone")}
                           </Text>
                         </View>
-                        <Text className="text-lg font-bold text-gray-900">
-                          {formatCurrency(expense.amount)}
-                        </Text>
+                        <View className="flex-row items-center">
+                          <Text className="text-lg font-bold text-gray-900">
+                            {formatCurrency(expense.amount)}
+                          </Text>
+                          {expense.paid_by === user?.id && (
+                            <Pressable
+                              role="button"
+                              className="ml-3 p-1"
+                              onPress={() => handleDeleteExpense(expense.id)}
+                              hitSlop={8}
+                            >
+                              <Ionicons
+                                name="trash-outline"
+                                size={18}
+                                color="#EF4444"
+                              />
+                            </Pressable>
+                          )}
+                        </View>
                       </View>
                       {expense.expense_splits &&
                         expense.expense_splits.length > 0 && (
@@ -156,7 +170,7 @@ export default function GroupDetail() {
                       <Text className="text-xs text-gray-400 mt-2">
                         {new Date(expense.date).toLocaleDateString()}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -239,34 +253,34 @@ export default function GroupDetail() {
         </ScrollView>
 
         <View className="flex-row px-4 pb-6 pt-2 gap-3">
-          <TouchableOpacity
-            className="flex-1 bg-primary-500 rounded-xl py-3.5"
+          <Pressable
+            role="button"
+            className="flex-1 bg-primary-500 rounded-xl py-3.5 active:bg-primary-600"
             onPress={() =>
               router.push({
                 pathname: "/(tabs)/groups/add-expense",
                 params: { groupId: id },
               })
             }
-            activeOpacity={0.8}
           >
             <Text className="text-white text-center font-semibold">
               Add Expense
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="flex-1 bg-accent-500 rounded-xl py-3.5"
+          </Pressable>
+          <Pressable
+            role="button"
+            className="flex-1 bg-accent-500 rounded-xl py-3.5 active:bg-accent-600"
             onPress={() =>
               router.push({
                 pathname: "/(tabs)/groups/settle-up",
                 params: { groupId: id },
               })
             }
-            activeOpacity={0.8}
           >
             <Text className="text-white text-center font-semibold">
               Settle Up
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </>

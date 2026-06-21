@@ -4,7 +4,7 @@ import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
 import { formatCurrency } from "@/lib/utils";
 import { Link } from "expo-router";
-import { TouchableOpacity } from "react-native";
+import { Pressable } from "react-native";
 import { useState, useCallback } from "react";
 
 export default function Dashboard() {
@@ -67,9 +67,12 @@ export default function Dashboard() {
               No groups yet. Create one to start splitting expenses!
             </Text>
             <Link href="/(tabs)/groups" asChild>
-              <TouchableOpacity className="bg-primary-500 rounded-xl px-6 py-3 mt-4">
+              <Pressable
+                role="button"
+                className="bg-primary-500 rounded-xl px-6 py-3 mt-4 active:bg-primary-600"
+              >
                 <Text className="text-white font-semibold">Create Group</Text>
-              </TouchableOpacity>
+              </Pressable>
             </Link>
           </View>
         ) : (
@@ -80,7 +83,10 @@ export default function Dashboard() {
                 href={`/(tabs)/groups/${group.id}`}
                 asChild
               >
-                <TouchableOpacity className="bg-white rounded-2xl p-4 flex-row items-center">
+                <Pressable
+                  role="button"
+                  className="bg-white rounded-2xl p-4 flex-row items-center active:bg-gray-50"
+                >
                   <View className="w-12 h-12 rounded-full bg-primary-100 items-center justify-center">
                     <Text className="text-primary-600 text-lg font-bold">
                       {group.name.charAt(0).toUpperCase()}
@@ -95,7 +101,7 @@ export default function Dashboard() {
                       {group.group_members.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               </Link>
             ))}
           </View>

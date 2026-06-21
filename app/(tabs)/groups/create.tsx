@@ -3,8 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
-  Alert,
+  Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +12,7 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCreateGroup } from "@/lib/queries/useGroups";
+import { notify } from "@/lib/alert";
 
 export default function CreateGroup() {
   const [name, setName] = useState("");
@@ -24,11 +24,11 @@ export default function CreateGroup() {
     const email = emailInput.trim().toLowerCase();
     if (!email) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address");
+      notify("Invalid Email", "Please enter a valid email address");
       return;
     }
     if (memberEmails.includes(email)) {
-      Alert.alert("Duplicate", "This email is already added");
+      notify("Duplicate", "This email is already added");
       return;
     }
     setMemberEmails([...memberEmails, email]);
@@ -41,7 +41,7 @@ export default function CreateGroup() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert("Error", "Please enter a group name");
+      notify("Error", "Please enter a group name");
       return;
     }
     try {
@@ -51,7 +51,7 @@ export default function CreateGroup() {
       });
       router.back();
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      notify("Error", error.message);
     }
   };
 
@@ -91,12 +91,13 @@ export default function CreateGroup() {
               onSubmitEditing={addEmail}
               returnKeyType="done"
             />
-            <TouchableOpacity
-              className="bg-primary-500 rounded-xl px-4 items-center justify-center"
+            <Pressable
+              role="button"
+              className="bg-primary-500 rounded-xl px-4 items-center justify-center active:bg-primary-600"
               onPress={addEmail}
             >
               <Ionicons name="add" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
@@ -107,27 +108,23 @@ export default function CreateGroup() {
                 key={email}
                 className="flex-row items-center bg-primary-50 rounded-xl px-4 py-3"
               >
-                <Ionicons
-                  name="person-outline"
-                  size={18}
-                  color="#1B998B"
-                />
+                <Ionicons name="person-outline" size={18} color="#1B998B" />
                 <Text className="flex-1 ml-2 text-sm text-gray-700">
                   {email}
                 </Text>
-                <TouchableOpacity onPress={() => removeEmail(email)}>
+                <Pressable role="button" onPress={() => removeEmail(email)}>
                   <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             ))}
           </View>
         )}
 
-        <TouchableOpacity
-          className="bg-primary-500 rounded-xl py-4 mt-8"
+        <Pressable
+          role="button"
+          className="bg-primary-500 rounded-xl py-4 mt-8 active:bg-primary-600"
           onPress={handleCreate}
           disabled={createGroup.isPending}
-          activeOpacity={0.8}
         >
           {createGroup.isPending ? (
             <ActivityIndicator color="#fff" />
@@ -136,7 +133,7 @@ export default function CreateGroup() {
               Create Group
             </Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
