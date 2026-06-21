@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { type LayoutChangeEvent, ScrollView, View } from "react-native";
 import { List, Text, TouchableRipple } from "react-native-paper";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -38,21 +35,34 @@ const FAQS: { question: string; answer: string }[] = [
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const theme = useAppTheme();
-  const [expanded, setExpanded] = useState(false);
-  const rotation = useSharedValue(0);
+  // 0 = collapsed, 1 = expanded. Drives both the body height and the chevron.
+  const progress = useSharedValue(0);
+  // The body's natural height, measured once it has laid out. Animating between
+  // 0 and this keeps the header completely static while the body opens/closes.
+  const [contentHeight, setContentHeight] = useState(0);
 
   const toggle = () => {
-    rotation.value = withTiming(expanded ? 0 : 1, { duration: ANIMATION_MS });
-    setExpanded((prev) => !prev);
+    progress.value = withTiming(progress.value > 0.5 ? 0 : 1, {
+      duration: ANIMATION_MS,
+    });
   };
 
+  const onContentLayout = (e: LayoutChangeEvent) => {
+    const measured = e.nativeEvent.layout.height;
+    if (measured > 0 && measured !== contentHeight) setContentHeight(measured);
+  };
+
+  const bodyStyle = useAnimatedStyle(() => ({
+    height: contentHeight * progress.value,
+    overflow: "hidden",
+  }));
+
   const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value * 180}deg` }],
+    transform: [{ rotate: `${progress.value * 180}deg` }],
   }));
 
   return (
-    <Animated.View
-      layout={LinearTransition.duration(ANIMATION_MS)}
+    <View
       style={{
         marginBottom: 12,
         borderRadius: 16,
@@ -81,10 +91,11 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
         </View>
       </TouchableRipple>
 
-      {expanded && (
-        <Animated.View
-          entering={FadeIn.duration(ANIMATION_MS)}
-          exiting={FadeOut.duration(ANIMATION_MS)}
+      <Animated.View style={bodyStyle}>
+        {/* Measured at its natural height regardless of the clipped parent, so
+            we know how far to animate. */}
+        <View
+          onLayout={onContentLayout}
           style={{ paddingHorizontal: 16, paddingBottom: 14 }}
         >
           <Text
@@ -93,9 +104,9 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
           >
             {answer}
           </Text>
-        </Animated.View>
-      )}
-    </Animated.View>
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
