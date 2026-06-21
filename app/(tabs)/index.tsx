@@ -51,7 +51,7 @@ export default function Dashboard() {
             marginTop: 4,
           }}
         >
-          {net >= 0 ? "+" : ""}
+          {net > 0 ? "+" : ""}
           {formatCurrency(net)}
         </Text>
 
@@ -90,6 +90,7 @@ export default function Dashboard() {
             mode="contained-tonal"
             icon="plus"
             compact
+            contentStyle={{ paddingHorizontal: 12 }}
             onPress={() => router.push("/(tabs)/groups/create")}
           >
             New
