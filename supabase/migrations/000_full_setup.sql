@@ -126,7 +126,10 @@ CREATE POLICY "Users can update own profile"
 
 CREATE POLICY "Members can view their groups"
   ON public.groups FOR SELECT
-  USING (public.is_group_member(id, auth.uid()));
+  USING (
+    public.is_group_member(id, auth.uid())
+    OR created_by = auth.uid()
+  );
 
 CREATE POLICY "Authenticated users can create groups"
   ON public.groups FOR INSERT WITH CHECK (auth.uid() = created_by);
@@ -215,8 +218,8 @@ BEGIN
     p.full_name,
     COALESCE(paid.total_paid, 0)
       - COALESCE(owed.total_owed, 0)
-      + COALESCE(received.total_received, 0)
-      - COALESCE(sent.total_sent, 0)
+      + COALESCE(sent.total_sent, 0)
+      - COALESCE(received.total_received, 0)
     AS balance
   FROM public.group_members gm
   JOIN public.profiles p ON p.id = gm.user_id

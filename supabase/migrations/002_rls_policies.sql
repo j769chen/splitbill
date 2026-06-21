@@ -41,7 +41,10 @@ CREATE POLICY "Users can update own profile"
 
 CREATE POLICY "Members can view their groups"
   ON public.groups FOR SELECT
-  USING (public.is_group_member(id, auth.uid()));
+  USING (
+    public.is_group_member(id, auth.uid())
+    OR created_by = auth.uid()
+  );
 
 CREATE POLICY "Authenticated users can create groups"
   ON public.groups FOR INSERT

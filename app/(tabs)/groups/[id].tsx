@@ -8,13 +8,13 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useGroup } from "@/lib/queries/useGroups";
+import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
-import { confirm } from "@/lib/alert";
+import { confirm, notify } from "@/lib/alert";
 
 type TabType = "expenses" | "balances";
 
@@ -25,10 +25,36 @@ export default function GroupDetail() {
   const { data: expenses, refetch: refetchExpenses } = useExpenses(id!);
   const { data: balances, refetch: refetchBalances } = useGroupBalances(id!);
   const deleteExpense = useDeleteExpense();
+  const leaveGroup = useLeaveGroup();
   const [activeTab, setActiveTab] = useState<TabType>("expenses");
   const [refreshing, setRefreshing] = useState(false);
 
   useRealtimeSubscription(id);
+
+  const myBalance = balances?.find((b) => b.user_id === user?.id)?.balance ?? 0;
+
+  const handleLeaveGroup = () => {
+    if (Math.abs(myBalance) >= 0.01) {
+      notify(
+        "Settle up first",
+        "You have an outstanding balance in this group. Settle up before leaving."
+      );
+      return;
+    }
+    confirm(
+      "Leave Group",
+      `Are you sure you want to leave "${group?.name ?? "this group"}"?`,
+      async () => {
+        try {
+          await leaveGroup.mutateAsync(id!);
+          router.back();
+        } catch (error: any) {
+          notify("Error", error.message);
+        }
+      },
+      { confirmText: "Leave", destructive: true }
+    );
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -49,7 +75,21 @@ export default function GroupDetail() {
 
   return (
     <>
-      <Stack.Screen options={{ title: group?.name ?? "Group" }} />
+      <Stack.Screen
+        options={{
+          title: group?.name ?? "Group",
+          headerRight: () => (
+            <Pressable
+              role="button"
+              onPress={handleLeaveGroup}
+              hitSlop={8}
+              className="px-2"
+            >
+              <Ionicons name="exit-outline" size={22} color="#FFFFFF" />
+            </Pressable>
+          ),
+        }}
+      />
       <View className="flex-1 bg-gray-50">
         <View className="flex-row bg-white border-b border-gray-200">
           <Pressable

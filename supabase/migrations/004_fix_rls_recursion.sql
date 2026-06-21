@@ -23,10 +23,16 @@ AS $$
 $$;
 
 -- groups
+-- Creators must be able to SELECT their group immediately after INSERT
+-- (the .select() returning step runs before they're added to group_members),
+-- so allow access via membership OR ownership.
 DROP POLICY IF EXISTS "Members can view their groups" ON public.groups;
 CREATE POLICY "Members can view their groups"
   ON public.groups FOR SELECT
-  USING (public.is_group_member(id, auth.uid()));
+  USING (
+    public.is_group_member(id, auth.uid())
+    OR created_by = auth.uid()
+  );
 
 -- group_members
 DROP POLICY IF EXISTS "Members can view group members" ON public.group_members;

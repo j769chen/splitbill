@@ -3,8 +3,9 @@ import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
 import { formatCurrency } from "@/lib/utils";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import { Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useState, useCallback } from "react";
 
 export default function Dashboard() {
@@ -58,9 +59,19 @@ export default function Dashboard() {
       </View>
 
       <View className="px-6 mt-6">
-        <Text className="text-lg font-bold text-gray-900 mb-4">
-          Your Groups
-        </Text>
+        <View className="flex-row items-center justify-between mb-4">
+          <Text className="text-lg font-bold text-gray-900">Your Groups</Text>
+          <Pressable
+            role="button"
+            className="flex-row items-center bg-primary-50 rounded-full px-3 py-1.5 active:bg-primary-100"
+            onPress={() => router.push("/(tabs)/groups/create")}
+          >
+            <Ionicons name="add" size={18} color="#1B998B" />
+            <Text className="text-primary-600 font-semibold text-sm ml-1">
+              New
+            </Text>
+          </Pressable>
+        </View>
         {!groups || groups.length === 0 ? (
           <View className="bg-white rounded-2xl p-8 items-center">
             <Text className="text-gray-400 text-base text-center">
