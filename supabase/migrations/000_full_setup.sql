@@ -268,11 +268,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Only return ids that have a profile row. group_members.user_id has an
+-- FK to profiles(id), so returning a profile-less auth user here would make
+-- group creation fail with group_members_user_id_fkey.
 CREATE OR REPLACE FUNCTION public.get_user_ids_by_email(emails TEXT[])
 RETURNS TABLE (id UUID) AS $$
 BEGIN
   RETURN QUERY
-  SELECT au.id FROM auth.users au WHERE au.email = ANY(emails);
+  SELECT au.id
+  FROM auth.users au
+  JOIN public.profiles p ON p.id = au.id
+  WHERE au.email = ANY(emails);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
