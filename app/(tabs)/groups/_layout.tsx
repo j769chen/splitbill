@@ -1,12 +1,15 @@
 import { Stack } from "expo-router";
+import { useAppTheme } from "@/lib/theme";
 
 export default function GroupsLayout() {
+  const theme = useAppTheme();
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: "#1B998B" },
-        headerTintColor: "#FFFFFF",
+        headerStyle: { backgroundColor: theme.colors.brand },
+        headerTintColor: theme.colors.onBrand,
         headerTitleStyle: { fontWeight: "bold" },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="index" options={{ title: "Groups" }} />

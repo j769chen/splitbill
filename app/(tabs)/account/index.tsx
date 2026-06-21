@@ -1,33 +1,12 @@
-import { View, Text, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, ScrollView } from "react-native";
+import { Avatar, Card, Divider, List, Text } from "react-native-paper";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useConfirm } from "@/lib/confirm";
-
-type MenuRowProps = {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  isLast?: boolean;
-};
-
-function MenuRow({ icon, label, onPress, isLast }: MenuRowProps) {
-  return (
-    <Pressable
-      role="button"
-      onPress={onPress}
-      className={`flex-row items-center px-4 py-4 active:bg-gray-50 ${
-        isLast ? "" : "border-b border-gray-50"
-      }`}
-    >
-      <Ionicons name={icon} size={22} color="#6B7280" />
-      <Text className="flex-1 ml-3 text-base text-gray-700">{label}</Text>
-      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-    </Pressable>
-  );
-}
+import { useAppTheme } from "@/lib/theme";
 
 export default function Account() {
+  const theme = useAppTheme();
   const { user, signOut } = useAuth();
   const confirm = useConfirm();
 
@@ -42,52 +21,80 @@ export default function Account() {
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
-      <View className="bg-white px-6 py-8 items-center border-b border-gray-100">
-        <View className="w-20 h-20 rounded-full bg-primary-100 items-center justify-center mb-4">
-          <Ionicons name="person" size={40} color="#1B998B" />
-        </View>
-        <Text className="text-xl font-bold text-gray-900">
+    <ScrollView
+      className="flex-1"
+      style={{ backgroundColor: theme.colors.background }}
+    >
+      <View
+        className="px-6 py-8 items-center"
+        style={{ backgroundColor: theme.colors.surface }}
+      >
+        <Avatar.Icon
+          size={80}
+          icon="account"
+          style={{ backgroundColor: theme.colors.primaryContainer }}
+          color={theme.colors.onPrimaryContainer}
+        />
+        <Text variant="titleLarge" style={{ fontWeight: "bold", marginTop: 16 }}>
           {user?.user_metadata?.full_name ?? "User"}
         </Text>
-        <Text className="text-sm text-gray-500 mt-1">{user?.email}</Text>
+        <Text
+          variant="bodySmall"
+          style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
+        >
+          {user?.email}
+        </Text>
       </View>
 
       <View className="mt-6 px-6">
-        <View className="bg-white rounded-2xl overflow-hidden">
-          <MenuRow
-            icon="person-outline"
-            label="Edit Profile"
+        <Card mode="contained">
+          <List.Item
+            title="Edit Profile"
+            left={(props) => <List.Icon {...props} icon="account-outline" />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => router.push("/(tabs)/account/edit-profile")}
           />
-          <MenuRow
-            icon="notifications-outline"
-            label="Notifications"
+          <Divider />
+          <List.Item
+            title="Notifications"
+            left={(props) => <List.Icon {...props} icon="bell-outline" />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => router.push("/(tabs)/account/notifications")}
           />
-          <MenuRow
-            icon="help-circle-outline"
-            label="Help & Support"
+          <Divider />
+          <List.Item
+            title="Help & Support"
+            left={(props) => (
+              <List.Icon {...props} icon="help-circle-outline" />
+            )}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => router.push("/(tabs)/account/help")}
-            isLast
           />
-        </View>
+        </Card>
 
-        <Pressable
-          role="button"
-          className="bg-white rounded-2xl mt-4 px-4 py-4 flex-row items-center active:bg-gray-50"
-          onPress={handleSignOut}
-        >
-          <Ionicons name="log-out-outline" size={22} color="#EF4444" />
-          <Text className="flex-1 ml-3 text-base text-red-500 font-medium">
-            Sign Out
-          </Text>
-        </Pressable>
+        <Card mode="contained" style={{ marginTop: 16 }}>
+          <List.Item
+            title="Sign Out"
+            titleStyle={{ color: theme.colors.error, fontWeight: "500" }}
+            left={(props) => (
+              <List.Icon {...props} icon="logout" color={theme.colors.error} />
+            )}
+            onPress={handleSignOut}
+          />
+        </Card>
       </View>
 
-      <Text className="text-center text-gray-400 text-xs mt-8">
+      <Text
+        variant="labelSmall"
+        style={{
+          textAlign: "center",
+          color: theme.colors.onSurfaceVariant,
+          marginTop: 32,
+          marginBottom: 24,
+        }}
+      >
         SplitBill v1.0.0
       </Text>
-    </View>
+    </ScrollView>
   );
 }

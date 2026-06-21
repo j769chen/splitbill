@@ -1,20 +1,16 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from "react-native";
-import { Link } from "expo-router";
+import { View, KeyboardAvoidingView, Platform } from "react-native";
+import { router } from "expo-router";
+import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
+import { useAppTheme } from "@/lib/theme";
 
 export default function SignIn() {
+  const theme = useAppTheme();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,78 +32,87 @@ export default function SignIn() {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1"
+      style={{ backgroundColor: theme.colors.background }}
     >
-      <View className="flex-1 justify-center px-8 bg-white">
+      <View className="flex-1 justify-center px-8">
         <View className="mb-12">
-          <Text className="text-4xl font-bold text-primary-500 text-center">
+          <Text
+            variant="displaySmall"
+            style={{ color: theme.colors.primary, textAlign: "center" }}
+          >
             SplitBill
           </Text>
-          <Text className="text-base text-gray-500 text-center mt-2">
+          <Text
+            variant="bodyLarge"
+            style={{
+              color: theme.colors.onSurfaceVariant,
+              textAlign: "center",
+              marginTop: 8,
+            }}
+          >
             Split expenses with friends
           </Text>
         </View>
 
         {error ? (
-          <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
-            <Text className="text-red-600 text-sm text-center">{error}</Text>
-          </View>
+          <HelperText type="error" visible style={{ textAlign: "center" }}>
+            {error}
+          </HelperText>
         ) : null}
 
         <View className="gap-4">
-          <View>
-            <Text className="text-sm font-medium text-gray-700 mb-1.5">
-              Email
-            </Text>
-            <TextInput
-              className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-900"
-              placeholder="you@example.com"
-              placeholderTextColor="#9CA3AF"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-            />
-          </View>
+          <TextInput
+            mode="outlined"
+            label="Email"
+            placeholder="you@example.com"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            left={<TextInput.Icon icon="email-outline" />}
+          />
 
-          <View>
-            <Text className="text-sm font-medium text-gray-700 mb-1.5">
-              Password
-            </Text>
-            <TextInput
-              className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-900"
-              placeholder="Enter your password"
-              placeholderTextColor="#9CA3AF"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password"
-            />
-          </View>
+          <TextInput
+            mode="outlined"
+            label="Password"
+            placeholder="Enter your password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoComplete="password"
+            left={<TextInput.Icon icon="lock-outline" />}
+            right={
+              <TextInput.Icon
+                icon={showPassword ? "eye-off" : "eye"}
+                onPress={() => setShowPassword((s) => !s)}
+              />
+            }
+          />
 
-          <Pressable
-            className="bg-primary-500 rounded-xl py-4 mt-2 active:bg-primary-600"
+          <Button
+            mode="contained"
             onPress={handleSignIn}
+            loading={loading}
             disabled={loading}
-            role="button"
+            contentStyle={{ paddingVertical: 6 }}
+            style={{ marginTop: 8 }}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white text-center font-semibold text-base">
-                Sign In
-              </Text>
-            )}
-          </Pressable>
+            Sign In
+          </Button>
         </View>
 
-        <View className="flex-row justify-center mt-8">
-          <Text className="text-gray-500">Don't have an account? </Text>
-          <Link href="/(auth)/sign-up" asChild>
-            <Pressable role="link">
-              <Text className="text-primary-500 font-semibold">Sign Up</Text>
-            </Pressable>
-          </Link>
+        <View className="flex-row justify-center items-center mt-8">
+          <Text style={{ color: theme.colors.onSurfaceVariant }}>
+            Don't have an account?{" "}
+          </Text>
+          <Button
+            mode="text"
+            compact
+            onPress={() => router.push("/(auth)/sign-up")}
+          >
+            Sign Up
+          </Button>
         </View>
       </View>
     </KeyboardAvoidingView>

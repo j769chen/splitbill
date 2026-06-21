@@ -1,24 +1,30 @@
 import { useEffect, useState } from "react";
 import {
   View,
-  Text,
-  TextInput,
-  Pressable,
   ScrollView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  Button,
+  Checkbox,
+  Chip,
+  SegmentedButtons,
+  Text,
+  TextInput,
+  TouchableRipple,
+} from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
 import { splitEqual } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
+import { useAppTheme } from "@/lib/theme";
 import type { SplitType } from "@/lib/types";
 
 export default function AddExpense() {
+  const theme = useAppTheme();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
   const { data: group } = useGroup(groupId!);
@@ -137,31 +143,24 @@ export default function AddExpense() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-white"
+      className="flex-1"
+      style={{ backgroundColor: theme.colors.background }}
     >
       <ScrollView className="flex-1 px-6 pt-6">
-        <View>
-          <Text className="text-sm font-medium text-gray-700 mb-1.5">
-            Description
-          </Text>
-          <TextInput
-            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-900"
-            placeholder="What was this expense for?"
-            placeholderTextColor="#9CA3AF"
-            value={description}
-            onChangeText={setDescription}
-            autoFocus
-          />
-        </View>
+        <TextInput
+          mode="outlined"
+          label="Description"
+          placeholder="What was this expense for?"
+          value={description}
+          onChangeText={setDescription}
+          autoFocus
+        />
 
         <View className="mt-4">
-          <Text className="text-sm font-medium text-gray-700 mb-1.5">
-            Amount ($)
-          </Text>
           <TextInput
-            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-2xl font-bold text-gray-900"
+            mode="outlined"
+            label="Amount ($)"
             placeholder="0.00"
-            placeholderTextColor="#9CA3AF"
             value={amount}
             onChangeText={setAmount}
             keyboardType="decimal-pad"
@@ -169,68 +168,52 @@ export default function AddExpense() {
         </View>
 
         <View className="mt-6">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+          <Text
+            variant="labelLarge"
+            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
+          >
             Paid by
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View className="flex-row gap-2">
               {members.map((member) => (
-                <Pressable
+                <Chip
                   key={member.user_id}
-                  role="button"
-                  className={`px-4 py-2 rounded-full border ${
-                    paidBy === member.user_id
-                      ? "bg-primary-500 border-primary-500"
-                      : "bg-white border-gray-200"
-                  }`}
+                  selected={paidBy === member.user_id}
+                  showSelectedCheck={false}
                   onPress={() => setPaidBy(member.user_id)}
                 >
-                  <Text
-                    className={`text-sm font-medium ${
-                      paidBy === member.user_id
-                        ? "text-white"
-                        : "text-gray-700"
-                    }`}
-                  >
-                    {member.profiles?.full_name ??
-                      (member.user_id === user?.id ? "You" : "Unknown")}
-                  </Text>
-                </Pressable>
+                  {member.profiles?.full_name ??
+                    (member.user_id === user?.id ? "You" : "Unknown")}
+                </Chip>
               ))}
             </View>
           </ScrollView>
         </View>
 
         <View className="mt-6">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+          <Text
+            variant="labelLarge"
+            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
+          >
             Split Type
           </Text>
-          <View className="flex-row gap-2">
-            {(["equal", "exact", "percentage"] as SplitType[]).map((type) => (
-              <Pressable
-                key={type}
-                role="button"
-                className={`flex-1 py-2.5 rounded-xl border ${
-                  splitType === type
-                    ? "bg-primary-500 border-primary-500"
-                    : "bg-white border-gray-200"
-                }`}
-                onPress={() => setSplitType(type)}
-              >
-                <Text
-                  className={`text-center text-sm font-medium capitalize ${
-                    splitType === type ? "text-white" : "text-gray-700"
-                  }`}
-                >
-                  {type === "percentage" ? "%" : type}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <SegmentedButtons
+            value={splitType}
+            onValueChange={(v) => setSplitType(v as SplitType)}
+            buttons={[
+              { value: "equal", label: "Equal" },
+              { value: "exact", label: "Exact" },
+              { value: "percentage", label: "%" },
+            ]}
+          />
         </View>
 
         <View className="mt-6">
-          <Text className="text-sm font-medium text-gray-700 mb-2">
+          <Text
+            variant="labelLarge"
+            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
+          >
             Split between
           </Text>
           <View className="gap-2">
@@ -246,35 +229,60 @@ export default function AddExpense() {
 
               return (
                 <View key={member.user_id}>
-                  <Pressable
-                    role="button"
-                    className={`flex-row items-center p-3 rounded-xl border ${
-                      isSelected
-                        ? "bg-primary-50 border-primary-200"
-                        : "bg-white border-gray-200"
-                    }`}
+                  <TouchableRipple
                     onPress={() => toggleMember(member.user_id)}
+                    borderless
+                    style={{
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isSelected
+                        ? theme.colors.primary
+                        : theme.colors.outline,
+                      backgroundColor: isSelected
+                        ? theme.colors.primaryContainer
+                        : theme.colors.surface,
+                    }}
                   >
-                    <Ionicons
-                      name={isSelected ? "checkbox" : "square-outline"}
-                      size={22}
-                      color={isSelected ? "#1B998B" : "#9CA3AF"}
-                    />
-                    <Text className="flex-1 ml-3 text-sm font-medium text-gray-700">
-                      {memberName}
-                    </Text>
-                    {splitType === "equal" && isSelected && totalAmount > 0 && (
-                      <Text className="text-sm text-primary-600 font-semibold">
-                        ${perPerson.toFixed(2)}
+                    <View className="flex-row items-center p-3">
+                      <Checkbox
+                        status={isSelected ? "checked" : "unchecked"}
+                        onPress={() => toggleMember(member.user_id)}
+                      />
+                      <Text
+                        variant="bodyMedium"
+                        style={{
+                          flex: 1,
+                          marginLeft: 8,
+                          fontWeight: "500",
+                          color: isSelected
+                            ? theme.colors.onPrimaryContainer
+                            : theme.colors.onSurface,
+                        }}
+                      >
+                        {memberName}
                       </Text>
-                    )}
-                  </Pressable>
+                      {splitType === "equal" &&
+                        isSelected &&
+                        totalAmount > 0 && (
+                          <Text
+                            variant="bodyMedium"
+                            style={{
+                              fontWeight: "600",
+                              color: theme.colors.primary,
+                            }}
+                          >
+                            ${perPerson.toFixed(2)}
+                          </Text>
+                        )}
+                    </View>
+                  </TouchableRipple>
 
                   {isSelected && splitType !== "equal" && (
                     <TextInput
-                      className="mt-1 ml-8 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+                      mode="outlined"
+                      dense
+                      style={{ marginTop: 4, marginLeft: 32 }}
                       placeholder={splitType === "percentage" ? "%" : "$0.00"}
-                      placeholderTextColor="#9CA3AF"
                       value={customSplits[member.user_id] || ""}
                       onChangeText={(val) =>
                         setCustomSplits({
@@ -291,20 +299,16 @@ export default function AddExpense() {
           </View>
         </View>
 
-        <Pressable
-          role="button"
-          className="bg-primary-500 rounded-xl py-4 mt-8 mb-8 active:bg-primary-600"
+        <Button
+          mode="contained"
           onPress={handleSubmit}
+          loading={createExpense.isPending}
           disabled={createExpense.isPending}
+          contentStyle={{ paddingVertical: 6 }}
+          style={{ marginTop: 32, marginBottom: 32 }}
         >
-          {createExpense.isPending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white text-center font-semibold text-base">
-              Add Expense
-            </Text>
-          )}
-        </Pressable>
+          Add Expense
+        </Button>
       </ScrollView>
     </KeyboardAvoidingView>
   );

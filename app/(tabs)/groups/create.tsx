@@ -1,20 +1,18 @@
 import { useState } from "react";
 import {
   View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Button, Chip, IconButton, TextInput } from "react-native-paper";
 import { useCreateGroup } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
+import { useAppTheme } from "@/lib/theme";
 
 export default function CreateGroup() {
+  const theme = useAppTheme();
   const [name, setName] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
@@ -59,82 +57,68 @@ export default function CreateGroup() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-white"
+      className="flex-1"
+      style={{ backgroundColor: theme.colors.background }}
     >
       <ScrollView className="flex-1 px-6 pt-6">
-        <View>
-          <Text className="text-sm font-medium text-gray-700 mb-1.5">
-            Group Name
-          </Text>
-          <TextInput
-            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-900"
-            placeholder="e.g., Trip to Japan"
-            placeholderTextColor="#9CA3AF"
-            value={name}
-            onChangeText={setName}
-            autoFocus
-          />
-        </View>
+        <TextInput
+          mode="outlined"
+          label="Group Name"
+          placeholder="e.g., Trip to Japan"
+          value={name}
+          onChangeText={setName}
+          autoFocus
+        />
 
         <View className="mt-6">
-          <Text className="text-sm font-medium text-gray-700 mb-1.5">
-            Add Members by Email
-          </Text>
-          <View className="flex-row gap-2">
+          <View className="flex-row items-center gap-2">
             <TextInput
-              className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-900"
+              mode="outlined"
+              label="Add Members by Email"
               placeholder="friend@example.com"
-              placeholderTextColor="#9CA3AF"
               value={emailInput}
               onChangeText={setEmailInput}
               autoCapitalize="none"
               keyboardType="email-address"
               onSubmitEditing={addEmail}
               returnKeyType="done"
+              style={{ flex: 1 }}
             />
-            <Pressable
-              role="button"
-              className="bg-primary-500 rounded-xl px-4 items-center justify-center active:bg-primary-600"
+            <IconButton
+              mode="contained"
+              icon="plus"
+              size={24}
               onPress={addEmail}
-            >
-              <Ionicons name="add" size={24} color="#FFFFFF" />
-            </Pressable>
+              containerColor={theme.colors.primary}
+              iconColor={theme.colors.onPrimary}
+            />
           </View>
         </View>
 
         {memberEmails.length > 0 && (
-          <View className="mt-4 gap-2">
+          <View className="mt-4 flex-row flex-wrap gap-2">
             {memberEmails.map((email) => (
-              <View
+              <Chip
                 key={email}
-                className="flex-row items-center bg-primary-50 rounded-xl px-4 py-3"
+                icon="account"
+                onClose={() => removeEmail(email)}
               >
-                <Ionicons name="person-outline" size={18} color="#1B998B" />
-                <Text className="flex-1 ml-2 text-sm text-gray-700">
-                  {email}
-                </Text>
-                <Pressable role="button" onPress={() => removeEmail(email)}>
-                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </Pressable>
-              </View>
+                {email}
+              </Chip>
             ))}
           </View>
         )}
 
-        <Pressable
-          role="button"
-          className="bg-primary-500 rounded-xl py-4 mt-8 active:bg-primary-600"
+        <Button
+          mode="contained"
           onPress={handleCreate}
+          loading={createGroup.isPending}
           disabled={createGroup.isPending}
+          contentStyle={{ paddingVertical: 6 }}
+          style={{ marginTop: 32 }}
         >
-          {createGroup.isPending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text className="text-white text-center font-semibold text-base">
-              Create Group
-            </Text>
-          )}
-        </Pressable>
+          Create Group
+        </Button>
       </ScrollView>
     </KeyboardAvoidingView>
   );

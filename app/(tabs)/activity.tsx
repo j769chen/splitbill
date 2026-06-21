@@ -1,11 +1,17 @@
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
-import { useRecentActivity, type ActivityExpense } from "@/lib/queries/useExpenses";
+import { View, FlatList, RefreshControl } from "react-native";
+import { ActivityIndicator, Card, Text } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  useRecentActivity,
+  type ActivityExpense,
+} from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
+import { useAppTheme } from "@/lib/theme";
 import { useState, useCallback } from "react";
-import { Ionicons } from "@expo/vector-icons";
 
 export default function Activity() {
+  const theme = useAppTheme();
   const { user } = useAuth();
   const { data: activity, refetch, isLoading } = useRecentActivity();
   const [refreshing, setRefreshing] = useState(false);
@@ -18,14 +24,17 @@ export default function Activity() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#1B998B" />
+      <View
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: theme.colors.background }}
+      >
+        <ActivityIndicator size="large" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View className="flex-1" style={{ backgroundColor: theme.colors.background }}>
       <FlatList
         data={activity ?? []}
         keyExtractor={(item: ActivityExpense) => item.id}
@@ -35,11 +44,25 @@ export default function Activity() {
         }
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-20">
-            <Ionicons name="time-outline" size={64} color="#D1D5DB" />
-            <Text className="text-gray-400 text-lg mt-4 text-center">
+            <Ionicons
+              name="time-outline"
+              size={64}
+              color={theme.colors.onSurfaceDisabled}
+            />
+            <Text
+              variant="titleMedium"
+              style={{ color: theme.colors.onSurfaceVariant, marginTop: 16 }}
+            >
               No recent activity
             </Text>
-            <Text className="text-gray-400 text-sm mt-1 text-center">
+            <Text
+              variant="bodySmall"
+              style={{
+                color: theme.colors.onSurfaceVariant,
+                marginTop: 4,
+                textAlign: "center",
+              }}
+            >
               Add expenses to groups to see activity here
             </Text>
           </View>
@@ -50,24 +73,32 @@ export default function Activity() {
               ? "You"
               : item.payer?.full_name ?? "Someone";
           return (
-            <View className="bg-white rounded-2xl p-4 mb-3 shadow-sm">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1">
-                  <Text className="text-base font-semibold text-gray-900">
-                    {item.description}
-                  </Text>
-                  <Text className="text-sm text-gray-500 mt-0.5">
-                    {payerName} paid in {item.groups?.name ?? "a group"}
+            <Card mode="elevated" style={{ marginBottom: 12 }}>
+              <Card.Content>
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text variant="titleMedium" style={{ fontWeight: "600" }}>
+                      {item.description}
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      {payerName} paid in {item.groups?.name ?? "a group"}
+                    </Text>
+                  </View>
+                  <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
+                    {formatCurrency(item.amount)}
                   </Text>
                 </View>
-                <Text className="text-base font-bold text-gray-900">
-                  {formatCurrency(item.amount)}
+                <Text
+                  variant="labelSmall"
+                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
+                >
+                  {new Date(item.date).toLocaleDateString()}
                 </Text>
-              </View>
-              <Text className="text-xs text-gray-400 mt-2">
-                {new Date(item.date).toLocaleDateString()}
-              </Text>
-            </View>
+              </Card.Content>
+            </Card>
           );
         }}
       />

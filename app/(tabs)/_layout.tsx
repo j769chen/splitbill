@@ -1,15 +1,21 @@
 import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
-import { ActivityIndicator, View } from "react-native";
+import { useAppTheme } from "@/lib/theme";
+import { View } from "react-native";
 
 export default function TabsLayout() {
+  const theme = useAppTheme();
   const { session, loading } = useAuth();
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#1B998B" />
+      <View
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: theme.colors.background }}
+      >
+        <ActivityIndicator size="large" />
       </View>
     );
   }
@@ -21,11 +27,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#1B998B",
-        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
-          borderTopColor: "#E5E7EB",
-          backgroundColor: "#FFFFFF",
+          borderTopColor: theme.colors.outline,
+          backgroundColor: theme.colors.surface,
           paddingBottom: 4,
           height: 88,
         },
@@ -34,9 +40,9 @@ export default function TabsLayout() {
           fontWeight: "600",
         },
         headerStyle: {
-          backgroundColor: "#1B998B",
+          backgroundColor: theme.colors.brand,
         },
-        headerTintColor: "#FFFFFF",
+        headerTintColor: theme.colors.onBrand,
         headerTitleStyle: {
           fontWeight: "bold",
         },

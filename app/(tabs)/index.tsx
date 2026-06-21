@@ -1,14 +1,15 @@
-import { View, Text, ScrollView, RefreshControl } from "react-native";
+import { View, ScrollView, RefreshControl } from "react-native";
+import { Avatar, Button, Card, Text } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
 import { formatCurrency } from "@/lib/utils";
-import { Link, router } from "expo-router";
-import { Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useAppTheme } from "@/lib/theme";
+import { router } from "expo-router";
 import { useState, useCallback } from "react";
 
 export default function Dashboard() {
+  const theme = useAppTheme();
   const { user } = useAuth();
   const { data: balance, refetch: refetchBalance } = useUserTotalBalance();
   const { data: groups, refetch: refetchGroups } = useGroups();
@@ -24,19 +25,26 @@ export default function Dashboard() {
 
   return (
     <ScrollView
-      className="flex-1 bg-gray-50"
+      className="flex-1"
+      style={{ backgroundColor: theme.colors.background }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <View className="bg-primary-500 px-6 pt-4 pb-8 rounded-b-3xl">
-        <Text className="text-white/80 text-sm font-medium">
+      <View
+        className="px-6 pt-4 pb-8 rounded-b-3xl"
+        style={{ backgroundColor: theme.colors.brand }}
+      >
+        <Text style={{ color: "rgba(255,255,255,0.8)" }} variant="labelLarge">
           Overall Balance
         </Text>
         <Text
-          className={`text-3xl font-bold mt-1 ${
-            net >= 0 ? "text-white" : "text-red-200"
-          }`}
+          variant="displaySmall"
+          style={{
+            color: net >= 0 ? "#FFFFFF" : "#FECACA",
+            fontWeight: "bold",
+            marginTop: 4,
+          }}
         >
           {net >= 0 ? "+" : ""}
           {formatCurrency(net)}
@@ -44,14 +52,24 @@ export default function Dashboard() {
 
         <View className="flex-row mt-6 gap-4">
           <View className="flex-1 bg-white/20 rounded-2xl p-4">
-            <Text className="text-white/70 text-xs font-medium">You are owed</Text>
-            <Text className="text-white text-xl font-bold mt-1">
+            <Text style={{ color: "rgba(255,255,255,0.7)" }} variant="labelSmall">
+              You are owed
+            </Text>
+            <Text
+              variant="titleLarge"
+              style={{ color: "#FFFFFF", fontWeight: "bold", marginTop: 4 }}
+            >
               {formatCurrency(balance?.totalOwed ?? 0)}
             </Text>
           </View>
           <View className="flex-1 bg-white/20 rounded-2xl p-4">
-            <Text className="text-white/70 text-xs font-medium">You owe</Text>
-            <Text className="text-white text-xl font-bold mt-1">
+            <Text style={{ color: "rgba(255,255,255,0.7)" }} variant="labelSmall">
+              You owe
+            </Text>
+            <Text
+              variant="titleLarge"
+              style={{ color: "#FFFFFF", fontWeight: "bold", marginTop: 4 }}
+            >
               {formatCurrency(balance?.totalOwing ?? 0)}
             </Text>
           </View>
@@ -60,60 +78,70 @@ export default function Dashboard() {
 
       <View className="px-6 mt-6">
         <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-lg font-bold text-gray-900">Your Groups</Text>
-          <Pressable
-            role="button"
-            className="flex-row items-center bg-primary-50 rounded-full px-3 py-1.5 active:bg-primary-100"
+          <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
+            Your Groups
+          </Text>
+          <Button
+            mode="contained-tonal"
+            icon="plus"
+            compact
             onPress={() => router.push("/(tabs)/groups/create")}
           >
-            <Ionicons name="add" size={18} color="#1B998B" />
-            <Text className="text-primary-600 font-semibold text-sm ml-1">
-              New
-            </Text>
-          </Pressable>
+            New
+          </Button>
         </View>
         {!groups || groups.length === 0 ? (
-          <View className="bg-white rounded-2xl p-8 items-center">
-            <Text className="text-gray-400 text-base text-center">
-              No groups yet. Create one to start splitting expenses!
-            </Text>
-            <Link href="/(tabs)/groups" asChild>
-              <Pressable
-                role="button"
-                className="bg-primary-500 rounded-xl px-6 py-3 mt-4 active:bg-primary-600"
+          <Card mode="contained">
+            <Card.Content style={{ alignItems: "center", paddingVertical: 32 }}>
+              <Text
+                variant="bodyLarge"
+                style={{
+                  color: theme.colors.onSurfaceVariant,
+                  textAlign: "center",
+                }}
               >
-                <Text className="text-white font-semibold">Create Group</Text>
-              </Pressable>
-            </Link>
-          </View>
+                No groups yet. Create one to start splitting expenses!
+              </Text>
+              <Button
+                mode="contained"
+                style={{ marginTop: 16 }}
+                onPress={() => router.push("/(tabs)/groups/create")}
+              >
+                Create Group
+              </Button>
+            </Card.Content>
+          </Card>
         ) : (
           <View className="gap-3">
             {groups.map((group) => (
-              <Link
+              <Card
                 key={group.id}
-                href={`/(tabs)/groups/${group.id}`}
-                asChild
+                mode="elevated"
+                onPress={() => router.push(`/(tabs)/groups/${group.id}`)}
               >
-                <Pressable
-                  role="button"
-                  className="bg-white rounded-2xl p-4 flex-row items-center active:bg-gray-50"
+                <Card.Content
+                  style={{ flexDirection: "row", alignItems: "center" }}
                 >
-                  <View className="w-12 h-12 rounded-full bg-primary-100 items-center justify-center">
-                    <Text className="text-primary-600 text-lg font-bold">
-                      {group.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
+                  <Avatar.Text
+                    size={48}
+                    label={group.name.charAt(0).toUpperCase()}
+                    style={{ backgroundColor: theme.colors.primaryContainer }}
+                    labelStyle={{ color: theme.colors.onPrimaryContainer }}
+                  />
                   <View className="ml-4 flex-1">
-                    <Text className="text-base font-semibold text-gray-900">
+                    <Text variant="titleMedium" style={{ fontWeight: "600" }}>
                       {group.name}
                     </Text>
-                    <Text className="text-sm text-gray-500 mt-0.5">
+                    <Text
+                      variant="bodySmall"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
                       {group.group_members.length} member
                       {group.group_members.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
-                </Pressable>
-              </Link>
+                </Card.Content>
+              </Card>
             ))}
           </View>
         )}

@@ -1,13 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  RefreshControl,
-} from "react-native";
+import { View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  Button,
+  Card,
+  Divider,
+  IconButton,
+  SegmentedButtons,
+  Text,
+} from "react-native-paper";
 import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupBalances } from "@/lib/queries/useBalances";
@@ -16,10 +18,12 @@ import { formatCurrency, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
+import { useAppTheme } from "@/lib/theme";
 
 type TabType = "expenses" | "balances";
 
 export default function GroupDetail() {
+  const theme = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { data: group, refetch: refetchGroup } = useGroup(id!);
@@ -138,6 +142,13 @@ export default function GroupDetail() {
 
   const debts = balances ? simplifyDebts(balances) : [];
 
+  const balanceColor = (value: number) =>
+    value > 0
+      ? theme.colors.success
+      : value < 0
+      ? theme.colors.error
+      : theme.colors.onSurfaceVariant;
+
   return (
     <>
       <Stack.Screen
@@ -155,42 +166,19 @@ export default function GroupDetail() {
           ),
         }}
       />
-      <View className="flex-1 bg-gray-50">
-        <View className="flex-row bg-white border-b border-gray-200">
-          <Pressable
-            role="button"
-            className={`flex-1 py-3 ${
-              activeTab === "expenses" ? "border-b-2 border-primary-500" : ""
-            }`}
-            onPress={() => setActiveTab("expenses")}
-          >
-            <Text
-              className={`text-center font-semibold ${
-                activeTab === "expenses"
-                  ? "text-primary-500"
-                  : "text-gray-400"
-              }`}
-            >
-              Expenses
-            </Text>
-          </Pressable>
-          <Pressable
-            role="button"
-            className={`flex-1 py-3 ${
-              activeTab === "balances" ? "border-b-2 border-primary-500" : ""
-            }`}
-            onPress={() => setActiveTab("balances")}
-          >
-            <Text
-              className={`text-center font-semibold ${
-                activeTab === "balances"
-                  ? "text-primary-500"
-                  : "text-gray-400"
-              }`}
-            >
-              Balances
-            </Text>
-          </Pressable>
+      <View
+        className="flex-1"
+        style={{ backgroundColor: theme.colors.background }}
+      >
+        <View className="px-4 pt-3 pb-1">
+          <SegmentedButtons
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as TabType)}
+            buttons={[
+              { value: "expenses", label: "Expenses", icon: "receipt" },
+              { value: "balances", label: "Balances", icon: "scale-balance" },
+            ]}
+          />
         </View>
 
         <ScrollView
@@ -207,75 +195,104 @@ export default function GroupDetail() {
                   <Ionicons
                     name="receipt-outline"
                     size={64}
-                    color="#D1D5DB"
+                    color={theme.colors.onSurfaceDisabled}
                   />
-                  <Text className="text-gray-400 text-lg mt-4">
+                  <Text
+                    variant="titleMedium"
+                    style={{
+                      color: theme.colors.onSurfaceVariant,
+                      marginTop: 16,
+                    }}
+                  >
                     No expenses yet
                   </Text>
                 </View>
               ) : (
                 <View className="gap-3">
                   {visibleExpenses.map((expense) => (
-                    <Pressable
+                    <Card
                       key={expense.id}
-                      className="bg-white rounded-2xl p-4 shadow-sm"
+                      mode="elevated"
                       onLongPress={() => handleDeleteExpense(expense.id)}
                     >
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-1">
-                          <Text className="text-base font-semibold text-gray-900">
-                            {expense.description}
-                          </Text>
-                          <Text className="text-sm text-gray-500 mt-0.5">
-                            Paid by{" "}
-                            {expense.payer?.full_name ??
-                              (expense.paid_by === user?.id
-                                ? "you"
-                                : "someone")}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center">
-                          <Text className="text-lg font-bold text-gray-900">
-                            {formatCurrency(expense.amount)}
-                          </Text>
-                          {expense.paid_by === user?.id && (
-                            <Pressable
-                              role="button"
-                              className="ml-3 p-1"
-                              onPress={() => handleDeleteExpense(expense.id)}
-                              hitSlop={8}
+                      <Card.Content>
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-1">
+                            <Text
+                              variant="titleMedium"
+                              style={{ fontWeight: "600" }}
                             >
-                              <Ionicons
-                                name="trash-outline"
-                                size={18}
-                                color="#EF4444"
-                              />
-                            </Pressable>
-                          )}
-                        </View>
-                      </View>
-                      {expense.expense_splits &&
-                        expense.expense_splits.length > 0 && (
-                          <View className="mt-3 pt-3 border-t border-gray-100">
-                            {expense.expense_splits.map((split) => (
-                              <View
-                                key={split.id}
-                                className="flex-row justify-between py-0.5"
-                              >
-                                <Text className="text-sm text-gray-600">
-                                  {split.profiles?.full_name ?? "Unknown"}
-                                </Text>
-                                <Text className="text-sm text-gray-600">
-                                  {formatCurrency(split.amount)}
-                                </Text>
-                              </View>
-                            ))}
+                              {expense.description}
+                            </Text>
+                            <Text
+                              variant="bodySmall"
+                              style={{ color: theme.colors.onSurfaceVariant }}
+                            >
+                              Paid by{" "}
+                              {expense.payer?.full_name ??
+                                (expense.paid_by === user?.id
+                                  ? "you"
+                                  : "someone")}
+                            </Text>
                           </View>
-                        )}
-                      <Text className="text-xs text-gray-400 mt-2">
-                        {new Date(expense.date).toLocaleDateString()}
-                      </Text>
-                    </Pressable>
+                          <View className="flex-row items-center">
+                            <Text
+                              variant="titleMedium"
+                              style={{ fontWeight: "bold" }}
+                            >
+                              {formatCurrency(expense.amount)}
+                            </Text>
+                            {expense.paid_by === user?.id && (
+                              <IconButton
+                                icon="trash-can-outline"
+                                size={18}
+                                iconColor={theme.colors.error}
+                                onPress={() => handleDeleteExpense(expense.id)}
+                                style={{ margin: 0, marginLeft: 4 }}
+                              />
+                            )}
+                          </View>
+                        </View>
+                        {expense.expense_splits &&
+                          expense.expense_splits.length > 0 && (
+                            <View className="mt-3 pt-3">
+                              <Divider style={{ marginBottom: 8 }} />
+                              {expense.expense_splits.map((split) => (
+                                <View
+                                  key={split.id}
+                                  className="flex-row justify-between py-0.5"
+                                >
+                                  <Text
+                                    variant="bodySmall"
+                                    style={{
+                                      color: theme.colors.onSurfaceVariant,
+                                    }}
+                                  >
+                                    {split.profiles?.full_name ?? "Unknown"}
+                                  </Text>
+                                  <Text
+                                    variant="bodySmall"
+                                    style={{
+                                      color: theme.colors.onSurfaceVariant,
+                                    }}
+                                  >
+                                    {formatCurrency(split.amount)}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        <Text
+                          variant="labelSmall"
+                          style={{
+                            color: theme.colors.onSurfaceVariant,
+                            marginTop: 8,
+                          }}
+                        >
+                          {new Date(expense.date).toLocaleDateString()}
+                        </Text>
+                      </Card.Content>
+                    </Card>
                   ))}
                 </View>
               )}
@@ -283,62 +300,82 @@ export default function GroupDetail() {
           ) : (
             <>
               {balances && balances.length > 0 && (
-                <View className="bg-white rounded-2xl p-4 mb-4">
-                  <Text className="text-base font-bold text-gray-900 mb-3">
-                    Member Balances
-                  </Text>
-                  {balances.map((b) => (
-                    <View
-                      key={b.user_id}
-                      className="flex-row justify-between py-2 border-b border-gray-50"
+                <Card mode="elevated" style={{ marginBottom: 16 }}>
+                  <Card.Content>
+                    <Text
+                      variant="titleMedium"
+                      style={{ fontWeight: "bold", marginBottom: 12 }}
                     >
-                      <Text className="text-sm text-gray-700">
-                        {b.full_name}
-                      </Text>
-                      <Text
-                        className={`text-sm font-semibold ${
-                          b.balance > 0
-                            ? "text-green-600"
-                            : b.balance < 0
-                            ? "text-red-500"
-                            : "text-gray-400"
-                        }`}
+                      Member Balances
+                    </Text>
+                    {balances.map((b) => (
+                      <View
+                        key={b.user_id}
+                        className="flex-row justify-between py-2"
                       >
-                        {b.balance > 0 ? "+" : ""}
-                        {formatCurrency(b.balance)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
+                        <Text
+                          variant="bodyMedium"
+                          style={{ color: theme.colors.onSurface }}
+                        >
+                          {b.full_name}
+                        </Text>
+                        <Text
+                          variant="bodyMedium"
+                          style={{
+                            fontWeight: "600",
+                            color: balanceColor(b.balance),
+                          }}
+                        >
+                          {b.balance > 0 ? "+" : ""}
+                          {formatCurrency(b.balance)}
+                        </Text>
+                      </View>
+                    ))}
+                  </Card.Content>
+                </Card>
               )}
 
               {debts.length > 0 && (
-                <View className="bg-white rounded-2xl p-4">
-                  <Text className="text-base font-bold text-gray-900 mb-3">
-                    Suggested Payments
-                  </Text>
-                  {debts.map((debt, idx) => (
-                    <View
-                      key={idx}
-                      className="flex-row items-center py-2 border-b border-gray-50"
+                <Card mode="elevated">
+                  <Card.Content>
+                    <Text
+                      variant="titleMedium"
+                      style={{ fontWeight: "bold", marginBottom: 12 }}
                     >
-                      <View className="flex-1">
-                        <Text className="text-sm text-gray-700">
-                          <Text className="font-semibold">
-                            {debt.from_name}
-                          </Text>{" "}
-                          owes{" "}
-                          <Text className="font-semibold">
-                            {debt.to_name}
+                      Suggested Payments
+                    </Text>
+                    {debts.map((debt, idx) => (
+                      <View
+                        key={idx}
+                        className="flex-row items-center py-2"
+                      >
+                        <View className="flex-1">
+                          <Text
+                            variant="bodyMedium"
+                            style={{ color: theme.colors.onSurface }}
+                          >
+                            <Text style={{ fontWeight: "600" }}>
+                              {debt.from_name}
+                            </Text>{" "}
+                            owes{" "}
+                            <Text style={{ fontWeight: "600" }}>
+                              {debt.to_name}
+                            </Text>
                           </Text>
+                        </View>
+                        <Text
+                          variant="bodyMedium"
+                          style={{
+                            fontWeight: "bold",
+                            color: theme.colors.primary,
+                          }}
+                        >
+                          {formatCurrency(debt.amount)}
                         </Text>
                       </View>
-                      <Text className="text-sm font-bold text-primary-500">
-                        {formatCurrency(debt.amount)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
+                    ))}
+                  </Card.Content>
+                </Card>
               )}
 
               {(!balances || balances.length === 0) && (
@@ -346,9 +383,15 @@ export default function GroupDetail() {
                   <Ionicons
                     name="checkmark-circle-outline"
                     size={64}
-                    color="#D1D5DB"
+                    color={theme.colors.onSurfaceDisabled}
                   />
-                  <Text className="text-gray-400 text-lg mt-4">
+                  <Text
+                    variant="titleMedium"
+                    style={{
+                      color: theme.colors.onSurfaceVariant,
+                      marginTop: 16,
+                    }}
+                  >
                     All settled up!
                   </Text>
                 </View>
@@ -358,9 +401,10 @@ export default function GroupDetail() {
         </ScrollView>
 
         <View className="flex-row px-4 pb-6 pt-2 gap-3">
-          <Pressable
-            role="button"
-            className="flex-1 bg-primary-500 rounded-xl py-3.5 active:bg-primary-600"
+          <Button
+            mode="contained"
+            style={{ flex: 1 }}
+            contentStyle={{ paddingVertical: 4 }}
             onPress={() =>
               router.push({
                 pathname: "/(tabs)/groups/add-expense",
@@ -368,13 +412,14 @@ export default function GroupDetail() {
               })
             }
           >
-            <Text className="text-white text-center font-semibold">
-              Add Expense
-            </Text>
-          </Pressable>
-          <Pressable
-            role="button"
-            className="flex-1 bg-accent-500 rounded-xl py-3.5 active:bg-accent-600"
+            Add Expense
+          </Button>
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.secondary}
+            textColor={theme.colors.onSecondary}
+            style={{ flex: 1 }}
+            contentStyle={{ paddingVertical: 4 }}
             onPress={() =>
               router.push({
                 pathname: "/(tabs)/groups/settle-up",
@@ -382,10 +427,8 @@ export default function GroupDetail() {
               })
             }
           >
-            <Text className="text-white text-center font-semibold">
-              Settle Up
-            </Text>
-          </Pressable>
+            Settle Up
+          </Button>
         </View>
       </View>
     </>

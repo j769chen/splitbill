@@ -1,18 +1,6 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useRef,
-  useState,
-} from "react";
-import {
-  Animated,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import React, { createContext, useCallback, useContext, useState } from "react";
+import { Button, Dialog, Portal, Text } from "react-native-paper";
+import { useAppTheme } from "./theme";
 
 export interface ConfirmOptions {
   title: string;
@@ -32,103 +20,43 @@ type ConfirmFn = (options: ConfirmOptions) => void;
 const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+  const theme = useAppTheme();
   const [state, setState] = useState<ConfirmState | null>(null);
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.95)).current;
 
-  const animateIn = useCallback(() => {
-    opacity.setValue(0);
-    scale.setValue(0.95);
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 160,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 90,
-      }),
-    ]).start();
-  }, [opacity, scale]);
+  const close = useCallback(() => setState(null), []);
 
-  const close = useCallback(() => {
-    Animated.timing(opacity, {
-      toValue: 0,
-      duration: 130,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) setState(null);
-    });
-  }, [opacity]);
-
-  const confirm = useCallback<ConfirmFn>(
-    (options) => {
-      setState({ ...options, visible: true });
-      // Defer so the Modal mounts before we kick off the entrance animation.
-      requestAnimationFrame(animateIn);
-    },
-    [animateIn]
-  );
+  const confirm = useCallback<ConfirmFn>((options) => {
+    setState({ ...options, visible: true });
+  }, []);
 
   const handleConfirm = useCallback(() => {
     const onConfirm = state?.onConfirm;
-    close();
+    setState(null);
     onConfirm?.();
-  }, [close, state]);
+  }, [state]);
 
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}
-      <Modal
-        visible={!!state}
-        transparent
-        animationType="none"
-        onRequestClose={close}
-        statusBarTranslucent
-      >
-        <Animated.View style={[styles.backdrop, { opacity }]}>
-          <Pressable
-            style={styles.backdropPressable}
-            onPress={close}
-            accessibilityLabel="Dismiss"
-          />
-          <Animated.View
-            style={[styles.card, { transform: [{ scale }] }]}
-            accessibilityViewIsModal
-          >
-            <Text style={styles.title}>{state?.title}</Text>
-            {state?.message ? (
-              <Text style={styles.message}>{state.message}</Text>
-            ) : null}
-            <View className="flex-row items-stretch mt-6">
-              <Pressable
-                accessibilityRole="button"
-                onPress={close}
-                className="flex-1 py-3.5 rounded-xl items-center justify-center bg-gray-100 active:bg-gray-200"
-              >
-                <Text className="text-base font-semibold text-gray-700">
-                  {state?.cancelText ?? "Cancel"}
-                </Text>
-              </Pressable>
-              <View className="w-2.5" />
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleConfirm}
-                className={`flex-1 py-3.5 rounded-xl items-center justify-center active:opacity-80 ${
-                  state?.destructive ? "bg-danger" : "bg-primary-500"
-                }`}
-              >
-                <Text className="text-base font-semibold text-white">
-                  {state?.confirmText ?? "OK"}
-                </Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </Animated.View>
-      </Modal>
+      <Portal>
+        <Dialog visible={!!state} onDismiss={close}>
+          {state?.title ? <Dialog.Title>{state.title}</Dialog.Title> : null}
+          {state?.message ? (
+            <Dialog.Content>
+              <Text variant="bodyMedium">{state.message}</Text>
+            </Dialog.Content>
+          ) : null}
+          <Dialog.Actions>
+            <Button onPress={close}>{state?.cancelText ?? "Cancel"}</Button>
+            <Button
+              onPress={handleConfirm}
+              textColor={state?.destructive ? theme.colors.error : undefined}
+            >
+              {state?.confirmText ?? "OK"}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ConfirmContext.Provider>
   );
 }
@@ -140,39 +68,3 @@ export function useConfirm(): ConfirmFn {
   }
   return ctx;
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  backdropPressable: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 360,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  message: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#4B5563",
-  },
-});
