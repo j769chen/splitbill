@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import type { ComponentProps } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PaperProvider } from "react-native-paper";
@@ -11,6 +12,8 @@ import {
   useThemePreference,
 } from "@/lib/theme-preference";
 import { StatusBar } from "expo-status-bar";
+
+type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,7 +31,9 @@ function ThemedApp() {
     <PaperProvider
       theme={theme}
       settings={{
-        icon: (props) => <MaterialCommunityIcons {...(props as any)} />,
+        icon: ({ name, ...props }) => (
+          <MaterialCommunityIcons name={name as MaterialIconName} {...props} />
+        ),
       }}
     >
       <QueryClientProvider client={queryClient}>

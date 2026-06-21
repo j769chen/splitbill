@@ -18,7 +18,7 @@ import {
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
-import { splitEqual } from "@/lib/utils";
+import { getErrorMessage, splitEqual } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import type { SplitType } from "@/lib/types";
@@ -134,8 +134,10 @@ export default function AddExpense() {
         splits,
       });
       router.back();
-    } catch (error: any) {
-      showError(error?.message ?? "Couldn't add the expense. Please try again.");
+    } catch (error) {
+      showError(
+        getErrorMessage(error, "Couldn't add the expense. Please try again.")
+      );
     }
   };
 

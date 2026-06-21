@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useState,
 } from "react";
 import { Portal, Snackbar } from "react-native-paper";
@@ -95,11 +96,13 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
       ? PERSIST_DURATION
       : snackbar.duration
     : DEFAULT_DURATION;
+  const value = useMemo(
+    () => ({ show, showError, showSuccess, showInfo, hide }),
+    [hide, show, showError, showInfo, showSuccess]
+  );
 
   return (
-    <SnackbarContext.Provider
-      value={{ show, showError, showSuccess, showInfo, hide }}
-    >
+    <SnackbarContext.Provider value={value}>
       {children}
       <Portal>
         <Snackbar

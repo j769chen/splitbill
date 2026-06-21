@@ -55,3 +55,13 @@ export function splitEqual(total: number, memberCount: number): number[] {
   }
   return splits;
 }
+
+export function validateSplitsTotal(total: number, splits: number[]): boolean {
+  const roundedTotal = Math.round(total * 100) / 100;
+  const splitTotal = splits.reduce((sum, amount) => sum + amount, 0);
+  return Math.round(splitTotal * 100) / 100 === roundedTotal;
+}
+
+export function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}

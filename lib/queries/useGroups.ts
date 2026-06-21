@@ -9,12 +9,14 @@ export function useGroups() {
   return useQuery({
     queryKey: ["groups", user?.id],
     queryFn: async () => {
-      const { data: memberships } = await supabase
+      const { data: memberships, error: membershipsError } = await supabase
         .from("group_members")
         .select("group_id")
         .eq("user_id", user!.id);
 
-      const groupIds = memberships?.map((m: any) => m.group_id) ?? [];
+      if (membershipsError) throw membershipsError;
+
+      const groupIds = memberships?.map((m) => m.group_id) ?? [];
       if (groupIds.length === 0) return [];
 
       const { data, error } = await supabase
@@ -89,7 +91,7 @@ export function useCreateGroup() {
 
         if (lookupError) throw lookupError;
 
-        const rows = (matches as { id: string; email: string }[] | null) ?? [];
+        const rows = matches ?? [];
         const resolvedEmails = new Set(
           rows.map((r) => r.email.toLowerCase())
         );
@@ -110,36 +112,13 @@ export function useCreateGroup() {
         );
       }
 
-      const { data: group, error: groupError } = await supabase
-        .from("groups")
-        .insert({ name, created_by: user!.id })
-        .select()
-        .single();
+      const { data: group, error: groupError } = await supabase.rpc(
+        "create_group_with_members",
+        { p_name: name, p_member_ids: inviteeIds }
+      );
 
       if (groupError) throw groupError;
-
-      const groupData = group as any;
-
-      const { error: selfMemberError } = await supabase
-        .from("group_members")
-        .insert({ group_id: groupData.id, user_id: user!.id });
-
-      if (selfMemberError) throw selfMemberError;
-
-      if (inviteeIds.length > 0) {
-        const { error: inviteError } = await supabase
-          .from("group_members")
-          .insert(
-            inviteeIds.map((id) => ({
-              group_id: groupData.id,
-              user_id: id,
-            }))
-          );
-
-        if (inviteError) throw inviteError;
-      }
-
-      return groupData;
+      return group;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
@@ -154,7 +133,7 @@ export function useCheckEmailExists() {
         emails: [email],
       });
       if (error) throw error;
-      return ((data as { id: string; email: string }[] | null)?.length ?? 0) > 0;
+      return (data?.length ?? 0) > 0;
     },
   });
 }

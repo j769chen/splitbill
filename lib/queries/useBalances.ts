@@ -29,7 +29,7 @@ export function useUserTotalBalance() {
       });
 
       if (error) throw error;
-      const result = (data as any)?.[0] ?? { total_owed: 0, total_owing: 0 };
+      const result = data?.[0] ?? { total_owed: 0, total_owing: 0 };
       return {
         totalOwed: Number(result.total_owed),
         totalOwing: Number(result.total_owing),

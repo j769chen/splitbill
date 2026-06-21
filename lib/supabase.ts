@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import type { Database } from "./types";
 
 const ExpoSecureStoreAdapter = {
   getItem: (key: string) => {
@@ -25,7 +26,7 @@ const noOpLock = async <R>(
   return fn();
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: Platform.OS === "web" ? undefined : ExpoSecureStoreAdapter,
     autoRefreshToken: true,

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type { ExpenseWithSplits, Profile, SplitType } from "../types";
 import { useAuth } from "../auth";
+import { validateSplitsTotal } from "../utils";
 
 export interface ActivityExpense {
   id: string;
@@ -81,40 +82,31 @@ interface CreateExpenseInput {
 
 export function useCreateExpense() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (input: CreateExpenseInput) => {
-      const { data: expense, error: expenseError } = await supabase
-        .from("expenses")
-        .insert({
-          group_id: input.groupId,
-          paid_by: input.paidBy,
-          amount: input.amount,
-          description: input.description,
-          category: input.category ?? null,
-          split_type: input.splitType,
-          date: input.date ?? new Date().toISOString(),
-        })
-        .select()
-        .single();
+      const splitAmounts = input.splits.map((s) => s.amount);
+      if (!validateSplitsTotal(input.amount, splitAmounts)) {
+        throw new Error("Split amounts must add up to the expense total");
+      }
+
+      const { data: expense, error: expenseError } = await supabase.rpc(
+        "create_expense_with_splits",
+        {
+          p_group_id: input.groupId,
+          p_paid_by: input.paidBy,
+          p_amount: input.amount,
+          p_description: input.description,
+          p_category: input.category ?? null,
+          p_split_type: input.splitType,
+          p_splits: input.splits,
+          p_date: input.date ?? null,
+        }
+      );
 
       if (expenseError) throw expenseError;
-
-      const expenseData = expense as any;
-
-      const { error: splitsError } = await supabase
-        .from("expense_splits")
-        .insert(
-          input.splits.map((s) => ({
-            expense_id: expenseData.id,
-            user_id: s.userId,
-            amount: s.amount,
-          }))
-        );
-
-      if (splitsError) throw splitsError;
-
-      return expenseData;
+      return expense;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -123,6 +115,8 @@ export function useCreateExpense() {
       queryClient.invalidateQueries({
         queryKey: ["balances", variables.groupId],
       });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["activity", user?.id] });
     },
   });
 }
@@ -152,6 +146,8 @@ export function useDeleteExpense() {
       queryClient.invalidateQueries({
         queryKey: ["balances", variables.groupId],
       });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["activity"] });
     },
   });
 }

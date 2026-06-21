@@ -17,6 +17,7 @@ import { useCheckEmailExists, useCreateGroup } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function CreateGroup() {
   const theme = useAppTheme();
@@ -90,8 +91,10 @@ export default function CreateGroup() {
         memberEmails: finalEmails,
       });
       router.back();
-    } catch (error: any) {
-      showError(error?.message ?? "Couldn't create the group. Please try again.");
+    } catch (error) {
+      showError(
+        getErrorMessage(error, "Couldn't create the group. Please try again.")
+      );
     }
   };
 

@@ -19,6 +19,7 @@ export interface Database {
           full_name?: string;
           avatar_url?: string | null;
         };
+        Relationships: [];
       };
       groups: {
         Row: {
@@ -38,6 +39,7 @@ export interface Database {
           name?: string;
           image_url?: string | null;
         };
+        Relationships: [];
       };
       group_members: {
         Row: {
@@ -52,6 +54,7 @@ export interface Database {
           user_id: string;
         };
         Update: {};
+        Relationships: [];
       };
       expenses: {
         Row: {
@@ -82,6 +85,7 @@ export interface Database {
           split_type?: SplitType;
           date?: string;
         };
+        Relationships: [];
       };
       expense_splits: {
         Row: {
@@ -99,6 +103,7 @@ export interface Database {
         Update: {
           amount?: number;
         };
+        Relationships: [];
       };
       payments: {
         Row: {
@@ -122,8 +127,10 @@ export interface Database {
           amount?: number;
           note?: string | null;
         };
+        Relationships: [];
       };
     };
+    Views: {};
     Functions: {
       get_group_balances: {
         Args: { p_group_id: string };
@@ -140,7 +147,39 @@ export interface Database {
           total_owing: number;
         }[];
       };
+      get_user_ids_by_email: {
+        Args: { emails: string[] };
+        Returns: {
+          id: string;
+          email: string;
+        }[];
+      };
+      create_group_with_members: {
+        Args: { p_name: string; p_member_ids: string[] };
+        Returns: Database["public"]["Tables"]["groups"]["Row"];
+      };
+      create_expense_with_splits: {
+        Args: {
+          p_group_id: string;
+          p_paid_by: string;
+          p_amount: number;
+          p_description: string;
+          p_category: string | null;
+          p_split_type: SplitType;
+          p_splits: { userId: string; amount: number }[];
+          p_date?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["expenses"]["Row"];
+      };
+      leave_group: {
+        Args: { p_group_id: string };
+        Returns: void;
+      };
     };
+    Enums: {
+      split_type: SplitType;
+    };
+    CompositeTypes: {};
   };
 }
 

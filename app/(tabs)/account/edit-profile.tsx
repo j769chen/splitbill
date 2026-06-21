@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { useUpdateProfile } from "@/lib/queries/useProfile";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function EditProfile() {
   const theme = useAppTheme();
@@ -33,9 +34,9 @@ export default function EditProfile() {
       await updateProfile.mutateAsync({ fullName: trimmed });
       showSuccess("Profile updated");
       router.back();
-    } catch (error: any) {
+    } catch (error) {
       showError(
-        error?.message ?? "Couldn't update your profile. Please try again."
+        getErrorMessage(error, "Couldn't update your profile. Please try again.")
       );
     }
   };

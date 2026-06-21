@@ -94,4 +94,4 @@ Present findings in this format:
 - This is a **dry run** - no comments are posted to GitHub
 - Focus on actionable feedback, not style nitpicks
 - Reference specific rule IDs (e.g. Rule 6-3) when flagging issues
-- There is currently no automated test suite; verify type-safety with `npx tsc --noEmit` when relevant
+- Verify with `npx tsc --noEmit` and the relevant Jest tests (`npm test -- --runInBand`) when code changes are made

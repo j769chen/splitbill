@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { useColorScheme } from "react-native";
@@ -54,9 +55,13 @@ export function ThemePreferenceProvider({
   const isDark =
     mode === "system" ? systemScheme === "dark" : mode === "dark";
   const theme = isDark ? darkTheme : lightTheme;
+  const value = useMemo(
+    () => ({ mode, setMode, theme, isDark }),
+    [isDark, mode, setMode, theme]
+  );
 
   return (
-    <ThemePreferenceContext.Provider value={{ mode, setMode, theme, isDark }}>
+    <ThemePreferenceContext.Provider value={value}>
       {children}
     </ThemePreferenceContext.Provider>
   );

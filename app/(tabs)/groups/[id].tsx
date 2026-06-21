@@ -14,7 +14,7 @@ import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
-import { formatCurrency, simplifyDebts } from "@/lib/utils";
+import { formatCurrency, getErrorMessage, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
@@ -64,9 +64,9 @@ export default function GroupDetail() {
           } else {
             router.replace("/(tabs)/groups");
           }
-        } catch (error: any) {
+        } catch (error) {
           showError(
-            error?.message ?? "Couldn't leave the group. Please try again."
+            getErrorMessage(error, "Couldn't leave the group. Please try again.")
           );
         }
       },
@@ -85,10 +85,13 @@ export default function GroupDetail() {
       deleteExpense.mutate(
         { expenseId, groupId: id! },
         {
-          onError: (error: any) => {
+          onError: (error) => {
             setPendingDeleteIds((prev) => prev.filter((x) => x !== expenseId));
             showError(
-              error?.message ?? "Couldn't delete the expense. Please try again."
+              getErrorMessage(
+                error,
+                "Couldn't delete the expense. Please try again."
+              )
             );
           },
         }

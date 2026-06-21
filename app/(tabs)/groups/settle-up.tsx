@@ -10,7 +10,7 @@ import { Button, Card, RadioButton, Text, TextInput } from "react-native-paper";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
-import { simplifyDebts, formatCurrency } from "@/lib/utils";
+import { getErrorMessage, simplifyDebts, formatCurrency } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 
@@ -55,8 +55,10 @@ export default function SettleUp() {
       });
       showSuccess("Payment recorded!");
       router.back();
-    } catch (error: any) {
-      showError(error?.message ?? "Couldn't record payment. Please try again.");
+    } catch (error) {
+      showError(
+        getErrorMessage(error, "Couldn't record payment. Please try again.")
+      );
     }
   };
 

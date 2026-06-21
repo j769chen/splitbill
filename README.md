@@ -41,6 +41,7 @@ npm install
    - `001_create_tables.sql` - Creates all tables and triggers
    - `002_rls_policies.sql` - Sets up Row Level Security
    - `003_balance_function.sql` - Creates balance calculation functions
+   - Continue through the remaining numbered migrations to apply fixes and hardening.
 3. Enable Realtime for the `expenses`, `expense_splits`, `payments`, and `group_members` tables
 
 ### 3. Configure environment
