@@ -14,13 +14,14 @@ import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
 import { simplifyDebts, formatCurrency } from "@/lib/utils";
-import { notify } from "@/lib/alert";
+import { useSnackbar } from "@/lib/snackbar";
 
 export default function SettleUp() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
   const { data: balances } = useGroupBalances(groupId!);
   const createPayment = useCreatePayment();
+  const { showError, showSuccess } = useSnackbar();
 
   const [selectedDebt, setSelectedDebt] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
@@ -33,7 +34,7 @@ export default function SettleUp() {
 
   const handleSettle = async () => {
     if (selectedDebt === null) {
-      notify("Error", "Please select a payment to settle");
+      showError("Please select a payment to settle");
       return;
     }
 
@@ -41,7 +42,7 @@ export default function SettleUp() {
     const settleAmount = parseFloat(amount) || debt.amount;
 
     if (settleAmount <= 0) {
-      notify("Error", "Please enter a valid amount");
+      showError("Please enter a valid amount");
       return;
     }
 
@@ -53,10 +54,10 @@ export default function SettleUp() {
         amount: settleAmount,
         note: note.trim() || undefined,
       });
-      notify("Success", "Payment recorded!");
+      showSuccess("Payment recorded!");
       router.back();
     } catch (error: any) {
-      notify("Error", error.message);
+      showError(error?.message ?? "Couldn't record payment. Please try again.");
     }
   };
 

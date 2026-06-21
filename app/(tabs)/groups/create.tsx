@@ -12,23 +12,24 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCreateGroup } from "@/lib/queries/useGroups";
-import { notify } from "@/lib/alert";
+import { useSnackbar } from "@/lib/snackbar";
 
 export default function CreateGroup() {
   const [name, setName] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
   const createGroup = useCreateGroup();
+  const { showError } = useSnackbar();
 
   const addEmail = () => {
     const email = emailInput.trim().toLowerCase();
     if (!email) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      notify("Invalid Email", "Please enter a valid email address");
+      showError("Please enter a valid email address");
       return;
     }
     if (memberEmails.includes(email)) {
-      notify("Duplicate", "This email is already added");
+      showError("This email is already added");
       return;
     }
     setMemberEmails([...memberEmails, email]);
@@ -41,7 +42,7 @@ export default function CreateGroup() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      notify("Error", "Please enter a group name");
+      showError("Please enter a group name");
       return;
     }
     try {
@@ -51,7 +52,7 @@ export default function CreateGroup() {
       });
       router.back();
     } catch (error: any) {
-      notify("Error", error.message);
+      showError(error?.message ?? "Couldn't create the group. Please try again.");
     }
   };
 

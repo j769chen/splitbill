@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
-import { confirm, notify } from "@/lib/alert";
+import { useSnackbar } from "@/lib/snackbar";
+import { useConfirm } from "@/lib/confirm";
 
 type TabType = "expenses" | "balances";
 
@@ -26,8 +27,16 @@ export default function GroupDetail() {
   const { data: balances, refetch: refetchBalances } = useGroupBalances(id!);
   const deleteExpense = useDeleteExpense();
   const leaveGroup = useLeaveGroup();
+  const { showError, showInfo } = useSnackbar();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<TabType>("expenses");
   const [refreshing, setRefreshing] = useState(false);
+  // Expenses pending deletion are hidden optimistically and only removed on
+  // the server after the Undo window elapses.
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const deleteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {}
+  );
 
   useRealtimeSubscription(id);
 
@@ -35,25 +44,31 @@ export default function GroupDetail() {
 
   const handleLeaveGroup = () => {
     if (Math.abs(myBalance) >= 0.01) {
-      notify(
-        "Settle up first",
+      showInfo(
         "You have an outstanding balance in this group. Settle up before leaving."
       );
       return;
     }
-    confirm(
-      "Leave Group",
-      `Are you sure you want to leave "${group?.name ?? "this group"}"?`,
-      async () => {
+    confirm({
+      title: "Leave Group",
+      message: `Are you sure you want to leave "${group?.name ?? "this group"}"?`,
+      confirmText: "Leave",
+      destructive: true,
+      onConfirm: async () => {
         try {
           await leaveGroup.mutateAsync(id!);
-          router.back();
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace("/(tabs)/groups");
+          }
         } catch (error: any) {
-          notify("Error", error.message);
+          showError(
+            error?.message ?? "Couldn't leave the group. Please try again."
+          );
         }
       },
-      { confirmText: "Leave", destructive: true }
-    );
+    });
   };
 
   const onRefresh = useCallback(async () => {
@@ -62,14 +77,64 @@ export default function GroupDetail() {
     setRefreshing(false);
   }, [refetchGroup, refetchExpenses, refetchBalances]);
 
+  const commitDeleteExpense = useCallback(
+    (expenseId: string) => {
+      delete deleteTimers.current[expenseId];
+      deleteExpense.mutate(
+        { expenseId, groupId: id! },
+        {
+          onError: (error: any) => {
+            setPendingDeleteIds((prev) => prev.filter((x) => x !== expenseId));
+            showError(
+              error?.message ?? "Couldn't delete the expense. Please try again."
+            );
+          },
+        }
+      );
+    },
+    [deleteExpense, id, showError]
+  );
+
+  // Always have the latest commit fn available to flush on unmount.
+  const commitRef = useRef(commitDeleteExpense);
+  commitRef.current = commitDeleteExpense;
+
+  useEffect(() => {
+    return () => {
+      Object.keys(deleteTimers.current).forEach((expenseId) => {
+        clearTimeout(deleteTimers.current[expenseId]);
+        commitRef.current(expenseId);
+      });
+      deleteTimers.current = {};
+    };
+  }, []);
+
   const handleDeleteExpense = (expenseId: string) => {
-    confirm(
-      "Delete Expense",
-      "Are you sure?",
-      () => deleteExpense.mutate({ expenseId, groupId: id! }),
-      { confirmText: "Delete", destructive: true }
+    if (deleteTimers.current[expenseId]) return;
+    setPendingDeleteIds((prev) => [...prev, expenseId]);
+    deleteTimers.current[expenseId] = setTimeout(
+      () => commitDeleteExpense(expenseId),
+      5000
     );
+    showInfo("Expense deleted", {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onPress: () => {
+          const timer = deleteTimers.current[expenseId];
+          if (timer) {
+            clearTimeout(timer);
+            delete deleteTimers.current[expenseId];
+          }
+          setPendingDeleteIds((prev) => prev.filter((x) => x !== expenseId));
+        },
+      },
+    });
   };
+
+  const visibleExpenses = expenses?.filter(
+    (e) => !pendingDeleteIds.includes(e.id)
+  );
 
   const debts = balances ? simplifyDebts(balances) : [];
 
@@ -137,7 +202,7 @@ export default function GroupDetail() {
         >
           {activeTab === "expenses" ? (
             <>
-              {!expenses || expenses.length === 0 ? (
+              {!visibleExpenses || visibleExpenses.length === 0 ? (
                 <View className="items-center py-20">
                   <Ionicons
                     name="receipt-outline"
@@ -150,7 +215,7 @@ export default function GroupDetail() {
                 </View>
               ) : (
                 <View className="gap-3">
-                  {expenses.map((expense) => (
+                  {visibleExpenses.map((expense) => (
                     <Pressable
                       key={expense.id}
                       className="bg-white rounded-2xl p-4 shadow-sm"

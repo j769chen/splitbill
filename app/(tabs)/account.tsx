@@ -1,18 +1,20 @@
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/lib/auth";
-import { confirm } from "@/lib/alert";
+import { useConfirm } from "@/lib/confirm";
 
 export default function Account() {
   const { user, signOut } = useAuth();
+  const confirm = useConfirm();
 
   const handleSignOut = () => {
-    confirm(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      signOut,
-      { confirmText: "Sign Out", destructive: true }
-    );
+    confirm({
+      title: "Sign Out",
+      message: "Are you sure you want to sign out?",
+      confirmText: "Sign Out",
+      destructive: true,
+      onConfirm: signOut,
+    });
   };
 
   return (

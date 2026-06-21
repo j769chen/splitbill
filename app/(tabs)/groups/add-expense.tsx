@@ -15,7 +15,7 @@ import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
 import { splitEqual } from "@/lib/utils";
-import { notify } from "@/lib/alert";
+import { useSnackbar } from "@/lib/snackbar";
 import type { SplitType } from "@/lib/types";
 
 export default function AddExpense() {
@@ -23,6 +23,7 @@ export default function AddExpense() {
   const { user } = useAuth();
   const { data: group } = useGroup(groupId!);
   const createExpense = useCreateExpense();
+  const { showError } = useSnackbar();
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -57,19 +58,19 @@ export default function AddExpense() {
 
   const handleSubmit = async () => {
     if (!description.trim()) {
-      notify("Error", "Please enter a description");
+      showError("Please enter a description");
       return;
     }
     if (!totalAmount || totalAmount <= 0) {
-      notify("Error", "Please enter a valid amount");
+      showError("Please enter a valid amount");
       return;
     }
     if (selectedMembers.length === 0) {
-      notify("Error", "Please select at least one member");
+      showError("Please select at least one member");
       return;
     }
     if (!paidBy) {
-      notify("Error", "Please select who paid");
+      showError("Please select who paid");
       return;
     }
 
@@ -88,8 +89,7 @@ export default function AddExpense() {
       }));
       const sum = splits.reduce((acc, s) => acc + s.amount, 0);
       if (Math.abs(sum - totalAmount) > 0.01) {
-        notify(
-          "Error",
+        showError(
           `Split amounts ($${sum.toFixed(2)}) don't add up to total ($${totalAmount.toFixed(2)})`
         );
         return;
@@ -100,8 +100,7 @@ export default function AddExpense() {
         0
       );
       if (Math.abs(pctSum - 100) > 0.01) {
-        notify(
-          "Error",
+        showError(
           `Percentages must add up to 100% (currently ${pctSum.toFixed(1)}%)`
         );
         return;
@@ -131,7 +130,7 @@ export default function AddExpense() {
       });
       router.back();
     } catch (error: any) {
-      notify("Error", error.message);
+      showError(error?.message ?? "Couldn't add the expense. Please try again.");
     }
   };
 
