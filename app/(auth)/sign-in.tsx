@@ -31,11 +31,10 @@ export default function SignIn() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <View className="flex-1 justify-center px-8">
-        <View className="mb-12">
+      <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 32 }}>
+        <View style={{ marginBottom: 48 }}>
           <Text
             variant="displaySmall"
             style={{ color: theme.colors.primary, textAlign: "center" }}
@@ -60,7 +59,7 @@ export default function SignIn() {
           </HelperText>
         ) : null}
 
-        <View className="gap-4">
+        <View style={{ gap: 16 }}>
           <TextInput
             mode="outlined"
             label="Email"
@@ -102,7 +101,7 @@ export default function SignIn() {
           </Button>
         </View>
 
-        <View className="flex-row justify-center items-center mt-8">
+        <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 32 }}>
           <Text style={{ color: theme.colors.onSurfaceVariant }}>
             Don't have an account?{" "}
           </Text>

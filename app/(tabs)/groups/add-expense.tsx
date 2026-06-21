@@ -143,10 +143,9 @@ export default function AddExpense() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <ScrollView className="flex-1 px-6 pt-6">
+      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
         <TextInput
           mode="outlined"
           label="Description"
@@ -156,7 +155,7 @@ export default function AddExpense() {
           autoFocus
         />
 
-        <View className="mt-4">
+        <View style={{ marginTop: 16 }}>
           <TextInput
             mode="outlined"
             label="Amount ($)"
@@ -167,7 +166,7 @@ export default function AddExpense() {
           />
         </View>
 
-        <View className="mt-6">
+        <View style={{ marginTop: 24 }}>
           <Text
             variant="labelLarge"
             style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
@@ -175,7 +174,7 @@ export default function AddExpense() {
             Paid by
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
+            <View style={{ flexDirection: "row", gap: 8 }}>
               {members.map((member) => (
                 <Chip
                   key={member.user_id}
@@ -191,7 +190,7 @@ export default function AddExpense() {
           </ScrollView>
         </View>
 
-        <View className="mt-6">
+        <View style={{ marginTop: 24 }}>
           <Text
             variant="labelLarge"
             style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
@@ -209,14 +208,14 @@ export default function AddExpense() {
           />
         </View>
 
-        <View className="mt-6">
+        <View style={{ marginTop: 24 }}>
           <Text
             variant="labelLarge"
             style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
           >
             Split between
           </Text>
-          <View className="gap-2">
+          <View style={{ gap: 8 }}>
             {members.map((member) => {
               const isSelected = selectedMembers.includes(member.user_id);
               const memberName =
@@ -243,7 +242,7 @@ export default function AddExpense() {
                         : theme.colors.surface,
                     }}
                   >
-                    <View className="flex-row items-center p-3">
+                    <View style={{ flexDirection: "row", alignItems: "center", padding: 12 }}>
                       <Checkbox
                         status={isSelected ? "checked" : "unchecked"}
                         onPress={() => toggleMember(member.user_id)}

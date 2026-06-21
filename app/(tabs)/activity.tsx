@@ -25,8 +25,7 @@ export default function Activity() {
   if (isLoading) {
     return (
       <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.colors.background }}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background }}
       >
         <ActivityIndicator size="large" />
       </View>
@@ -34,7 +33,7 @@ export default function Activity() {
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.colors.background }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <FlatList
         data={activity ?? []}
         keyExtractor={(item: ActivityExpense) => item.id}
@@ -43,7 +42,7 @@ export default function Activity() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <View className="flex-1 items-center justify-center py-20">
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
             <MaterialCommunityIcons
               name="history"
               size={64}
@@ -75,8 +74,8 @@ export default function Activity() {
           return (
             <Card mode="elevated" style={{ marginBottom: 12 }}>
               <Card.Content>
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1">
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1 }}>
                     <Text variant="titleMedium" style={{ fontWeight: "600" }}>
                       {item.description}
                     </Text>

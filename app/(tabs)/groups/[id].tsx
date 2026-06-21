@@ -159,7 +159,7 @@ export default function GroupDetail() {
               role="button"
               onPress={handleLeaveGroup}
               hitSlop={8}
-              className="px-2"
+              style={{ paddingHorizontal: 8 }}
             >
               <MaterialCommunityIcons name="logout" size={22} color="#FFFFFF" />
             </Pressable>
@@ -167,10 +167,9 @@ export default function GroupDetail() {
         }}
       />
       <View
-        className="flex-1"
-        style={{ backgroundColor: theme.colors.background }}
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
       >
-        <View className="px-4 pt-3 pb-1">
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
           <SegmentedButtons
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as TabType)}
@@ -182,7 +181,7 @@ export default function GroupDetail() {
         </View>
 
         <ScrollView
-          className="flex-1"
+          style={{ flex: 1 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -191,7 +190,7 @@ export default function GroupDetail() {
           {activeTab === "expenses" ? (
             <>
               {!visibleExpenses || visibleExpenses.length === 0 ? (
-                <View className="items-center py-20">
+                <View style={{ alignItems: "center", paddingVertical: 80 }}>
                   <MaterialCommunityIcons
                     name="receipt-text-outline"
                     size={64}
@@ -208,7 +207,7 @@ export default function GroupDetail() {
                   </Text>
                 </View>
               ) : (
-                <View className="gap-3">
+                <View style={{ gap: 12 }}>
                   {visibleExpenses.map((expense) => (
                     <Card
                       key={expense.id}
@@ -216,8 +215,8 @@ export default function GroupDetail() {
                       onLongPress={() => handleDeleteExpense(expense.id)}
                     >
                       <Card.Content>
-                        <View className="flex-row items-center justify-between">
-                          <View className="flex-1">
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <View style={{ flex: 1 }}>
                             <Text
                               variant="titleMedium"
                               style={{ fontWeight: "600" }}
@@ -235,7 +234,7 @@ export default function GroupDetail() {
                                   : "someone")}
                             </Text>
                           </View>
-                          <View className="flex-row items-center">
+                          <View style={{ flexDirection: "row", alignItems: "center" }}>
                             <Text
                               variant="titleMedium"
                               style={{ fontWeight: "bold" }}
@@ -255,12 +254,12 @@ export default function GroupDetail() {
                         </View>
                         {expense.expense_splits &&
                           expense.expense_splits.length > 0 && (
-                            <View className="mt-3 pt-3">
+                            <View style={{ marginTop: 12, paddingTop: 12 }}>
                               <Divider style={{ marginBottom: 8 }} />
                               {expense.expense_splits.map((split) => (
                                 <View
                                   key={split.id}
-                                  className="flex-row justify-between py-0.5"
+                                  style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}
                                 >
                                   <Text
                                     variant="bodySmall"
@@ -311,7 +310,7 @@ export default function GroupDetail() {
                     {balances.map((b) => (
                       <View
                         key={b.user_id}
-                        className="flex-row justify-between py-2"
+                        style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 }}
                       >
                         <Text
                           variant="bodyMedium"
@@ -347,9 +346,9 @@ export default function GroupDetail() {
                     {debts.map((debt, idx) => (
                       <View
                         key={idx}
-                        className="flex-row items-center py-2"
+                        style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}
                       >
-                        <View className="flex-1">
+                        <View style={{ flex: 1 }}>
                           <Text
                             variant="bodyMedium"
                             style={{ color: theme.colors.onSurface }}
@@ -379,7 +378,7 @@ export default function GroupDetail() {
               )}
 
               {(!balances || balances.length === 0) && (
-                <View className="items-center py-20">
+                <View style={{ alignItems: "center", paddingVertical: 80 }}>
                   <MaterialCommunityIcons
                     name="check-circle-outline"
                     size={64}
@@ -400,7 +399,7 @@ export default function GroupDetail() {
           )}
         </ScrollView>
 
-        <View className="flex-row px-4 pb-6 pt-2 gap-3">
+        <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, gap: 12 }}>
           <Button
             mode="contained"
             style={{ flex: 1 }}

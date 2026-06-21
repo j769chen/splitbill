@@ -63,12 +63,11 @@ export default function SettleUp() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <ScrollView className="flex-1 px-6 pt-6">
+      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
         {userDebts.length === 0 ? (
-          <View className="items-center py-20">
+          <View style={{ alignItems: "center", paddingVertical: 80 }}>
             <Text
               variant="titleMedium"
               style={{
@@ -87,7 +86,7 @@ export default function SettleUp() {
             >
               Select a payment to settle
             </Text>
-            <View className="gap-2">
+            <View style={{ gap: 8 }}>
               {userDebts.map((debt, idx) => {
                 const isFrom = debt.from === user?.id;
                 const selected = selectedDebt === idx;
@@ -116,7 +115,7 @@ export default function SettleUp() {
                           setAmount(debt.amount.toFixed(2));
                         }}
                       />
-                      <View className="flex-1 ml-2">
+                      <View style={{ flex: 1, marginLeft: 8 }}>
                         <Text
                           variant="bodyMedium"
                           style={{ color: theme.colors.onSurface }}
@@ -156,7 +155,7 @@ export default function SettleUp() {
 
             {selectedDebt !== null && (
               <>
-                <View className="mt-6">
+                <View style={{ marginTop: 24 }}>
                   <TextInput
                     mode="outlined"
                     label="Amount"
@@ -167,7 +166,7 @@ export default function SettleUp() {
                   />
                 </View>
 
-                <View className="mt-4">
+                <View style={{ marginTop: 16 }}>
                   <TextInput
                     mode="outlined"
                     label="Note (optional)"

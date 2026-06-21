@@ -31,12 +31,10 @@ export default function Account() {
 
   return (
     <ScrollView
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
       <View
-        className="px-6 py-8 items-center"
-        style={{ backgroundColor: theme.colors.surface }}
+        style={{ paddingHorizontal: 24, paddingVertical: 32, alignItems: "center", backgroundColor: theme.colors.surface }}
       >
         <Avatar.Icon
           size={80}
@@ -55,7 +53,7 @@ export default function Account() {
         </Text>
       </View>
 
-      <View className="mt-6 px-6">
+      <View style={{ marginTop: 24, paddingHorizontal: 24 }}>
         <List.Subheader>Appearance</List.Subheader>
         <Card mode="contained" style={{ marginBottom: 16 }}>
           <Card.Content style={{ paddingVertical: 16 }}>

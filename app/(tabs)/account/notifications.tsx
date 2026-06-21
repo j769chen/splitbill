@@ -20,8 +20,7 @@ export default function Notifications() {
   if (loading) {
     return (
       <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.colors.background }}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background }}
       >
         <ActivityIndicator size="large" />
       </View>
@@ -40,10 +39,9 @@ export default function Notifications() {
 
   return (
     <ScrollView
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <View className="px-6 pt-4">
+      <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
         <List.Subheader>General</List.Subheader>
         <Card mode="contained">
           <List.Item

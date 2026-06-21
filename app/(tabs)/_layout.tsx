@@ -12,8 +12,7 @@ export default function TabsLayout() {
   if (loading) {
     return (
       <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.colors.background }}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background }}
       >
         <ActivityIndicator size="large" />
       </View>

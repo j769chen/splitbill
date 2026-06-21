@@ -43,11 +43,10 @@ export default function EditProfile() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <ScrollView className="flex-1 px-6 pt-8">
-        <View className="items-center mb-8">
+      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
+        <View style={{ alignItems: "center", marginBottom: 32 }}>
           <Avatar.Icon
             size={96}
             icon="account"
@@ -68,7 +67,7 @@ export default function EditProfile() {
           onSubmitEditing={handleSave}
         />
 
-        <View className="mt-6">
+        <View style={{ marginTop: 24 }}>
           <TextInput
             mode="outlined"
             label="Email"

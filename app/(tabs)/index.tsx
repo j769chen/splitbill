@@ -25,15 +25,20 @@ export default function Dashboard() {
 
   return (
     <ScrollView
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
       <View
-        className="px-6 pt-4 pb-8 rounded-b-3xl"
-        style={{ backgroundColor: theme.colors.brand }}
+        style={{
+          paddingHorizontal: 24,
+          paddingTop: 16,
+          paddingBottom: 32,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
+          backgroundColor: theme.colors.brand,
+        }}
       >
         <Text style={{ color: "rgba(255,255,255,0.8)" }} variant="labelLarge">
           Overall Balance
@@ -50,8 +55,8 @@ export default function Dashboard() {
           {formatCurrency(net)}
         </Text>
 
-        <View className="flex-row mt-6 gap-4">
-          <View className="flex-1 bg-white/20 rounded-2xl p-4">
+        <View style={{ flexDirection: "row", marginTop: 24, gap: 16 }}>
+          <View style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 16, padding: 16 }}>
             <Text style={{ color: "rgba(255,255,255,0.7)" }} variant="labelSmall">
               You are owed
             </Text>
@@ -62,7 +67,7 @@ export default function Dashboard() {
               {formatCurrency(balance?.totalOwed ?? 0)}
             </Text>
           </View>
-          <View className="flex-1 bg-white/20 rounded-2xl p-4">
+          <View style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 16, padding: 16 }}>
             <Text style={{ color: "rgba(255,255,255,0.7)" }} variant="labelSmall">
               You owe
             </Text>
@@ -76,8 +81,8 @@ export default function Dashboard() {
         </View>
       </View>
 
-      <View className="px-6 mt-6">
-        <View className="flex-row items-center justify-between mb-4">
+      <View style={{ paddingHorizontal: 24, marginTop: 24 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
             Your Groups
           </Text>
@@ -112,7 +117,7 @@ export default function Dashboard() {
             </Card.Content>
           </Card>
         ) : (
-          <View className="gap-3">
+          <View style={{ gap: 12 }}>
             {groups.map((group) => (
               <Card
                 key={group.id}
@@ -128,7 +133,7 @@ export default function Dashboard() {
                     style={{ backgroundColor: theme.colors.primaryContainer }}
                     labelStyle={{ color: theme.colors.onPrimaryContainer }}
                   />
-                  <View className="ml-4 flex-1">
+                  <View style={{ marginLeft: 16, flex: 1 }}>
                     <Text variant="titleMedium" style={{ fontWeight: "600" }}>
                       {group.name}
                     </Text>
@@ -147,7 +152,7 @@ export default function Dashboard() {
         )}
       </View>
 
-      <View className="h-8" />
+      <View style={{ height: 32 }} />
     </ScrollView>
   );
 }

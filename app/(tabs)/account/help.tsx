@@ -30,10 +30,9 @@ export default function HelpAndSupport() {
 
   return (
     <ScrollView
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <View className="px-6 pt-4 pb-10">
+      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 40 }}>
         <List.Subheader>Frequently Asked</List.Subheader>
         <Card mode="contained">
           {/* Each accordion keeps its own open state, so multiple can be

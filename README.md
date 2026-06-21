@@ -4,7 +4,7 @@ A Splitwise clone built with Expo (React Native) and Supabase.
 
 ## Tech Stack
 
-- **Frontend**: Expo SDK 54, TypeScript, Expo Router, NativeWind (Tailwind CSS)
+- **Frontend**: Expo SDK 54, TypeScript, Expo Router, React Native Paper (MD3)
 - **Backend**: Supabase (PostgreSQL, Auth, Realtime, RLS)
 - **State Management**: TanStack Query v5
 - **Forms**: React Hook Form + Zod
@@ -18,7 +18,7 @@ A Splitwise clone built with Expo (React Native) and Supabase.
 - Debt simplification (minimize number of payments)
 - Settle-up payments between members
 - Pull-to-refresh and realtime updates
-- Beautiful, modern UI with Tailwind styling
+- Beautiful, modern UI with React Native Paper (Material Design 3)
 
 ## Getting Started
 

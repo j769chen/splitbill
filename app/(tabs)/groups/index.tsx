@@ -26,8 +26,7 @@ export default function GroupsList() {
   if (isLoading) {
     return (
       <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.colors.background }}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background }}
       >
         <ActivityIndicator size="large" />
       </View>
@@ -36,8 +35,7 @@ export default function GroupsList() {
 
   return (
     <View
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
       <FlatList
         data={groups ?? []}
@@ -47,7 +45,7 @@ export default function GroupsList() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <View className="items-center justify-center py-20">
+          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
             <MaterialCommunityIcons
               name="account-group-outline"
               size={64}
@@ -82,7 +80,7 @@ export default function GroupsList() {
                 style={{ backgroundColor: theme.colors.primaryContainer }}
                 labelStyle={{ color: theme.colors.onPrimaryContainer }}
               />
-              <View className="ml-4 flex-1">
+              <View style={{ marginLeft: 16, flex: 1 }}>
                 <Text variant="titleMedium" style={{ fontWeight: "600" }}>
                   {item.name}
                 </Text>

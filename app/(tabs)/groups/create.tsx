@@ -57,10 +57,9 @@ export default function CreateGroup() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
-      style={{ backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <ScrollView className="flex-1 px-6 pt-6">
+      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
         <TextInput
           mode="outlined"
           label="Group Name"
@@ -70,8 +69,8 @@ export default function CreateGroup() {
           autoFocus
         />
 
-        <View className="mt-6">
-          <View className="flex-row items-center gap-2">
+        <View style={{ marginTop: 24 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <TextInput
               mode="outlined"
               label="Add Members by Email"
@@ -96,7 +95,7 @@ export default function CreateGroup() {
         </View>
 
         {memberEmails.length > 0 && (
-          <View className="mt-4 flex-row flex-wrap gap-2">
+          <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {memberEmails.map((email) => (
               <Chip
                 key={email}
