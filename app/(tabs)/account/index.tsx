@@ -1,7 +1,31 @@
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useConfirm } from "@/lib/confirm";
+
+type MenuRowProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  isLast?: boolean;
+};
+
+function MenuRow({ icon, label, onPress, isLast }: MenuRowProps) {
+  return (
+    <Pressable
+      role="button"
+      onPress={onPress}
+      className={`flex-row items-center px-4 py-4 active:bg-gray-50 ${
+        isLast ? "" : "border-b border-gray-50"
+      }`}
+    >
+      <Ionicons name={icon} size={22} color="#6B7280" />
+      <Text className="flex-1 ml-3 text-base text-gray-700">{label}</Text>
+      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+    </Pressable>
+  );
+}
 
 export default function Account() {
   const { user, signOut } = useAuth();
@@ -31,35 +55,22 @@ export default function Account() {
 
       <View className="mt-6 px-6">
         <View className="bg-white rounded-2xl overflow-hidden">
-          <View className="flex-row items-center px-4 py-4 border-b border-gray-50">
-            <Ionicons name="person-outline" size={22} color="#6B7280" />
-            <Text className="flex-1 ml-3 text-base text-gray-700">
-              Edit Profile
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </View>
-          <View className="flex-row items-center px-4 py-4 border-b border-gray-50">
-            <Ionicons
-              name="notifications-outline"
-              size={22}
-              color="#6B7280"
-            />
-            <Text className="flex-1 ml-3 text-base text-gray-700">
-              Notifications
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </View>
-          <View className="flex-row items-center px-4 py-4">
-            <Ionicons
-              name="help-circle-outline"
-              size={22}
-              color="#6B7280"
-            />
-            <Text className="flex-1 ml-3 text-base text-gray-700">
-              Help & Support
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </View>
+          <MenuRow
+            icon="person-outline"
+            label="Edit Profile"
+            onPress={() => router.push("/(tabs)/account/edit-profile")}
+          />
+          <MenuRow
+            icon="notifications-outline"
+            label="Notifications"
+            onPress={() => router.push("/(tabs)/account/notifications")}
+          />
+          <MenuRow
+            icon="help-circle-outline"
+            label="Help & Support"
+            onPress={() => router.push("/(tabs)/account/help")}
+            isLast
+          />
         </View>
 
         <Pressable

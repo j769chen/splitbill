@@ -54,11 +54,11 @@ const SnackbarContext = createContext<SnackbarContextValue | null>(null);
 
 const VARIANT_CONFIG: Record<
   SnackbarVariant,
-  { background: string; icon: keyof typeof Ionicons.glyphMap }
+  { bgClass: string; icon: keyof typeof Ionicons.glyphMap }
 > = {
-  error: { background: "#F44336", icon: "alert-circle" },
-  success: { background: "#4CAF50", icon: "checkmark-circle" },
-  info: { background: "#1B998B", icon: "information-circle" },
+  error: { bgClass: "bg-danger", icon: "alert-circle" },
+  success: { bgClass: "bg-success", icon: "checkmark-circle" },
+  info: { bgClass: "bg-primary-500", icon: "information-circle" },
 };
 
 const DEFAULT_DURATION = 4000;
@@ -171,10 +171,13 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
           <Pressable
             accessibilityRole="alert"
             onPress={hide}
-            style={[styles.snackbar, { backgroundColor: config.background }]}
+            className={`flex-row items-center w-full max-w-[520px] rounded-xl py-3 px-4 shadow-lg ${config.bgClass}`}
           >
             <Ionicons name={config.icon} size={22} color="#FFFFFF" />
-            <Text style={styles.message} numberOfLines={3}>
+            <Text
+              className="flex-1 ml-3 text-white text-sm font-medium"
+              numberOfLines={3}
+            >
               {snackbar.message}
             </Text>
             {snackbar.action && (
@@ -184,9 +187,9 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
                   snackbar.action?.onPress();
                   hide();
                 }}
-                style={styles.actionButton}
+                className="ml-1 px-1 py-1"
               >
-                <Text style={styles.actionLabel}>
+                <Text className="text-white text-[13px] font-bold tracking-wide">
                   {snackbar.action.label.toUpperCase()}
                 </Text>
               </Pressable>
@@ -212,37 +215,5 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     alignItems: "center",
-  },
-  snackbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 520,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  message: {
-    flex: 1,
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "500",
-    lineHeight: 19,
-  },
-  actionButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
-  actionLabel: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.5,
   },
 });

@@ -85,9 +85,11 @@ export function useCreateGroup() {
 
       const groupData = group as any;
 
-      await supabase
+      const { error: selfMemberError } = await supabase
         .from("group_members")
         .insert({ group_id: groupData.id, user_id: user!.id });
+
+      if (selfMemberError) throw selfMemberError;
 
       if (memberEmails.length > 0) {
         const { data: userIds } = await supabase.rpc(
@@ -95,13 +97,24 @@ export function useCreateGroup() {
           { emails: memberEmails }
         );
 
-        if (userIds && (userIds as any[]).length > 0) {
-          await supabase.from("group_members").insert(
-            (userIds as any[]).map((u: any) => ({
-              group_id: groupData.id,
-              user_id: u.id,
-            }))
-          );
+        // Exclude the creator (already a member) and dedupe so a single
+        // duplicate id can't fail the UNIQUE(group_id, user_id) batch insert
+        // and drop the other valid invitees.
+        const inviteeIds = Array.from(
+          new Set((userIds as any[] | null)?.map((u: any) => u.id) ?? [])
+        ).filter((id) => id !== user!.id);
+
+        if (inviteeIds.length > 0) {
+          const { error: inviteError } = await supabase
+            .from("group_members")
+            .insert(
+              inviteeIds.map((id) => ({
+                group_id: groupData.id,
+                user_id: id,
+              }))
+            );
+
+          if (inviteError) throw inviteError;
         }
       }
 

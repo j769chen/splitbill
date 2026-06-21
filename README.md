@@ -72,7 +72,7 @@ app/                  # Expo Router file-based routes
   (tabs)/             # Main tab navigator
     groups/           # Group list, detail, create, add expense, settle up
     activity.tsx      # Activity feed
-    account.tsx       # Profile & settings
+    account/          # Profile, edit profile, notifications, help & support
 components/           # Reusable UI components
 lib/                  # Core logic
   supabase.ts         # Supabase client
