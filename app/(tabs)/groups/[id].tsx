@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   Button,
   Card,
@@ -161,7 +161,7 @@ export default function GroupDetail() {
               hitSlop={8}
               className="px-2"
             >
-              <Ionicons name="exit-outline" size={22} color="#FFFFFF" />
+              <MaterialCommunityIcons name="logout" size={22} color="#FFFFFF" />
             </Pressable>
           ),
         }}
@@ -192,8 +192,8 @@ export default function GroupDetail() {
             <>
               {!visibleExpenses || visibleExpenses.length === 0 ? (
                 <View className="items-center py-20">
-                  <Ionicons
-                    name="receipt-outline"
+                  <MaterialCommunityIcons
+                    name="receipt-text-outline"
                     size={64}
                     color={theme.colors.onSurfaceDisabled}
                   />
@@ -380,8 +380,8 @@ export default function GroupDetail() {
 
               {(!balances || balances.length === 0) && (
                 <View className="items-center py-20">
-                  <Ionicons
-                    name="checkmark-circle-outline"
+                  <MaterialCommunityIcons
+                    name="check-circle-outline"
                     size={64}
                     color={theme.colors.onSurfaceDisabled}
                   />

@@ -1,6 +1,6 @@
 import { View, FlatList, RefreshControl } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Avatar,
@@ -48,8 +48,8 @@ export default function GroupsList() {
         }
         ListEmptyComponent={
           <View className="items-center justify-center py-20">
-            <Ionicons
-              name="people-outline"
+            <MaterialCommunityIcons
+              name="account-group-outline"
               size={64}
               color={theme.colors.onSurfaceDisabled}
             />
@@ -94,8 +94,8 @@ export default function GroupsList() {
                   {item.group_members.length !== 1 ? "s" : ""}
                 </Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
+              <MaterialCommunityIcons
+                name="chevron-right"
                 size={20}
                 color={theme.colors.onSurfaceVariant}
               />

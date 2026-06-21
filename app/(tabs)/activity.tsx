@@ -1,6 +1,6 @@
 import { View, FlatList, RefreshControl } from "react-native";
 import { ActivityIndicator, Card, Text } from "react-native-paper";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   useRecentActivity,
   type ActivityExpense,
@@ -44,8 +44,8 @@ export default function Activity() {
         }
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-20">
-            <Ionicons
-              name="time-outline"
+            <MaterialCommunityIcons
+              name="history"
               size={64}
               color={theme.colors.onSurfaceDisabled}
             />

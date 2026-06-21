@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ActivityIndicator } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useAppTheme } from "@/lib/theme";
@@ -53,7 +53,11 @@ export default function TabsLayout() {
         options={{
           title: "Dashboard",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" size={size} color={color} />
+            <MaterialCommunityIcons
+              name="wallet-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
@@ -63,7 +67,11 @@ export default function TabsLayout() {
           title: "Groups",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+            <MaterialCommunityIcons
+              name="account-group-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
@@ -72,7 +80,7 @@ export default function TabsLayout() {
         options={{
           title: "Activity",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="history" size={size} color={color} />
           ),
         }}
       />
@@ -82,7 +90,11 @@ export default function TabsLayout() {
           title: "Account",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <MaterialCommunityIcons
+              name="account-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
