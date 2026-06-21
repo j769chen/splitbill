@@ -7,9 +7,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthProvider } from "@/lib/auth";
 import { SnackbarProvider } from "@/lib/snackbar";
 import { ConfirmProvider } from "@/lib/confirm";
-import { usePaperTheme } from "@/lib/theme";
+import {
+  ThemePreferenceProvider,
+  useThemePreference,
+} from "@/lib/theme-preference";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "react-native";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,37 +22,44 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function RootLayout() {
-  const theme = usePaperTheme();
-  const scheme = useColorScheme();
+function ThemedApp() {
+  const { theme, isDark } = useThemePreference();
 
   return (
+    <PaperProvider
+      theme={theme}
+      settings={{
+        icon: (props) => <MaterialCommunityIcons {...(props as any)} />,
+      }}
+    >
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <SnackbarProvider>
+            <ConfirmProvider>
+              <StatusBar style={isDark ? "light" : "dark"} />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: theme.colors.background },
+                }}
+              >
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+              </Stack>
+            </ConfirmProvider>
+          </SnackbarProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </PaperProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <SafeAreaProvider>
-      <PaperProvider
-        theme={theme}
-        settings={{
-          icon: (props) => <MaterialCommunityIcons {...(props as any)} />,
-        }}
-      >
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <SnackbarProvider>
-              <ConfirmProvider>
-                <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: theme.colors.background },
-                  }}
-                >
-                  <Stack.Screen name="(auth)" />
-                  <Stack.Screen name="(tabs)" />
-                </Stack>
-              </ConfirmProvider>
-            </SnackbarProvider>
-          </AuthProvider>
-        </QueryClientProvider>
-      </PaperProvider>
+      <ThemePreferenceProvider>
+        <ThemedApp />
+      </ThemePreferenceProvider>
     </SafeAreaProvider>
   );
 }

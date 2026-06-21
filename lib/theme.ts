@@ -1,4 +1,3 @@
-import { useColorScheme } from "react-native";
 import {
   MD3DarkTheme,
   MD3LightTheme,
@@ -83,11 +82,6 @@ export const darkTheme: AppTheme = {
     onBrand: "#FFFFFF",
   },
 };
-
-export function usePaperTheme(): AppTheme {
-  const scheme = useColorScheme();
-  return scheme === "dark" ? darkTheme : lightTheme;
-}
 
 /** Typed `useTheme` for use inside screens/components. */
 export function useAppTheme(): AppTheme {

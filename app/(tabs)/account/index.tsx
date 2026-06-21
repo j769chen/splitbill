@@ -1,12 +1,21 @@
 import { View, ScrollView } from "react-native";
-import { Avatar, Card, Divider, List, Text } from "react-native-paper";
+import {
+  Avatar,
+  Card,
+  Divider,
+  List,
+  SegmentedButtons,
+  Text,
+} from "react-native-paper";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
+import { useThemePreference } from "@/lib/theme-preference";
 
 export default function Account() {
   const theme = useAppTheme();
+  const { mode, setMode } = useThemePreference();
   const { user, signOut } = useAuth();
   const confirm = useConfirm();
 
@@ -47,6 +56,25 @@ export default function Account() {
       </View>
 
       <View className="mt-6 px-6">
+        <List.Subheader>Appearance</List.Subheader>
+        <Card mode="contained" style={{ marginBottom: 16 }}>
+          <Card.Content style={{ paddingVertical: 16 }}>
+            <SegmentedButtons
+              value={mode}
+              onValueChange={(v) => setMode(v as typeof mode)}
+              buttons={[
+                { value: "light", label: "Light", icon: "weather-sunny" },
+                {
+                  value: "system",
+                  label: "System",
+                  icon: "theme-light-dark",
+                },
+                { value: "dark", label: "Dark", icon: "weather-night" },
+              ]}
+            />
+          </Card.Content>
+        </Card>
+
         <Card mode="contained">
           <List.Item
             title="Edit Profile"
