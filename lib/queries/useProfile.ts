@@ -16,8 +16,6 @@ export function useUpdateProfile() {
         .eq("id", uid);
       if (profileError) throw profileError;
 
-      // Keep auth metadata in sync so the cached session (and any screen
-      // reading user_metadata.full_name) reflects the new name immediately.
       const { error: authError } = await supabase.auth.updateUser({
         data: { full_name: fullName },
       });

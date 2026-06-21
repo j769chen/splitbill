@@ -41,7 +41,6 @@ export default function AddExpense() {
   const members = group?.group_members ?? [];
   const totalAmount = parseFloat(amount) || 0;
 
-  // group/user load asynchronously, so initialize selection once data arrives.
   useEffect(() => {
     if (group?.group_members) {
       setSelectedMembers(group.group_members.map((m) => m.user_id));

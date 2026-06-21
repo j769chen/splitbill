@@ -12,10 +12,8 @@ import { darkTheme, lightTheme, type AppTheme } from "./theme";
 export type ThemeMode = "light" | "dark" | "system";
 
 interface ThemePreferenceValue {
-  /** The user's chosen mode, including "system". */
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
-  /** The resolved Paper theme for the active appearance. */
   theme: AppTheme;
   isDark: boolean;
 }

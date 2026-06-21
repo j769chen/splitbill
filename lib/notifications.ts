@@ -33,7 +33,6 @@ export function useNotificationPrefs() {
         try {
           setPrefs({ ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) });
         } catch {
-          // Ignore corrupted values and fall back to defaults.
         }
       })
       .finally(() => {

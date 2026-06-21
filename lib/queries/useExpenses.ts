@@ -13,8 +13,6 @@ export interface ActivityExpense {
   groups: { name: string } | null;
 }
 
-// Recent expenses across every group the user belongs to. RLS limits results
-// to groups the current user is a member of.
 export function useRecentActivity() {
   const { user } = useAuth();
 

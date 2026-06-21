@@ -5,11 +5,6 @@ import {
   useTheme,
 } from "react-native-paper";
 
-/**
- * App theme extends Paper's MD3 palette with a few semantic colors that MD3
- * doesn't provide out of the box (success/warning) plus the brand surfaces we
- * use on the dashboard hero.
- */
 export interface AppTheme extends MD3Theme {
   colors: MD3Theme["colors"] & {
     success: string;
@@ -83,7 +78,6 @@ export const darkTheme: AppTheme = {
   },
 };
 
-/** Typed `useTheme` for use inside screens/components. */
 export function useAppTheme(): AppTheme {
   return useTheme<AppTheme>();
 }

@@ -48,8 +48,6 @@ interface SnackbarContextValue {
 const SnackbarContext = createContext<SnackbarContextValue | null>(null);
 
 const DEFAULT_DURATION = 4000;
-// Paper drives dismissal off a timer, so "persistent" is approximated with a
-// very long duration; the user can still tap/swipe or trigger an action.
 const PERSIST_DURATION = 1000 * 60 * 60;
 
 export function SnackbarProvider({ children }: { children: React.ReactNode }) {

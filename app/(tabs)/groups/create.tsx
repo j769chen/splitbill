@@ -28,9 +28,6 @@ export default function CreateGroup() {
   const checkEmail = useCheckEmailExists();
   const { showError } = useSnackbar();
 
-  // Validates the current email input. Returns the verified email to add, an
-  // empty string when there's nothing pending, or null when validation failed
-  // (an error has already been shown to the user).
   const validatePendingEmail = async (): Promise<string | null> => {
     const email = emailInput.trim().toLowerCase();
     if (!email) return "";
@@ -76,9 +73,6 @@ export default function CreateGroup() {
       return;
     }
 
-    // Flush any email still sitting in the input so it isn't silently dropped.
-    // If validation fails (invalid / non-existent account) we stop here rather
-    // than quietly creating a one-person group.
     const pendingEmail = await validatePendingEmail();
     if (pendingEmail === null) return;
 

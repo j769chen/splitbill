@@ -75,10 +75,6 @@ export function useCreateGroup() {
       name: string;
       memberEmails: string[];
     }) => {
-      // Resolve invitee emails to user ids BEFORE creating anything. If an
-      // invited email has no SplitBill account we surface it and abort, rather
-      // than silently creating a one-person group (or orphaning a group that
-      // was already inserted).
       const uniqueEmails = Array.from(
         new Set(memberEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))
       ).filter((e) => e !== user!.email?.toLowerCase());

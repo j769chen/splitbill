@@ -35,8 +35,6 @@ export default function GroupDetail() {
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<TabType>("expenses");
   const [refreshing, setRefreshing] = useState(false);
-  // Expenses pending deletion are hidden optimistically and only removed on
-  // the server after the Undo window elapses.
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const deleteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
     {}
@@ -99,7 +97,6 @@ export default function GroupDetail() {
     [deleteExpense, id, showError]
   );
 
-  // Always have the latest commit fn available to flush on unmount.
   const commitRef = useRef(commitDeleteExpense);
   commitRef.current = commitDeleteExpense;
 
