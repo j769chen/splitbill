@@ -271,14 +271,66 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Only return ids that have a profile row. group_members.user_id has an
 -- FK to profiles(id), so returning a profile-less auth user here would make
 -- group creation fail with group_members_user_id_fkey.
+-- The matched email is returned too, so the client can detect invited emails
+-- that have no SplitBill account instead of silently dropping them.
 CREATE OR REPLACE FUNCTION public.get_user_ids_by_email(emails TEXT[])
-RETURNS TABLE (id UUID) AS $$
+RETURNS TABLE (id UUID, email TEXT) AS $$
 BEGIN
   RETURN QUERY
-  SELECT au.id
+  SELECT au.id, au.email::TEXT
   FROM auth.users au
   JOIN public.profiles p ON p.id = au.id
   WHERE au.email = ANY(emails);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Leave a group atomically. The "Group creator can update group" policy
+-- only has a USING clause (reused as WITH CHECK), which rejects transferring
+-- created_by to another member. Doing the whole operation in a SECURITY
+-- DEFINER function avoids that and related RLS edge cases. auth.uid() still
+-- resolves to the calling user.
+CREATE OR REPLACE FUNCTION public.leave_group(p_group_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_other_count INT;
+  v_created_by UUID;
+  v_new_owner UUID;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = p_group_id AND user_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'You are not a member of this group';
+  END IF;
+
+  SELECT COUNT(*) INTO v_other_count
+  FROM public.group_members
+  WHERE group_id = p_group_id AND user_id <> v_uid;
+
+  IF v_other_count = 0 THEN
+    DELETE FROM public.groups WHERE id = p_group_id;
+    RETURN;
+  END IF;
+
+  SELECT created_by INTO v_created_by FROM public.groups WHERE id = p_group_id;
+
+  IF v_created_by = v_uid THEN
+    SELECT user_id INTO v_new_owner
+    FROM public.group_members
+    WHERE group_id = p_group_id AND user_id <> v_uid
+    ORDER BY joined_at ASC
+    LIMIT 1;
+
+    UPDATE public.groups SET created_by = v_new_owner WHERE id = p_group_id;
+  END IF;
+
+  DELETE FROM public.group_members
+  WHERE group_id = p_group_id AND user_id = v_uid;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

@@ -75,6 +75,45 @@ export function useCreateGroup() {
       name: string;
       memberEmails: string[];
     }) => {
+      // Resolve invitee emails to user ids BEFORE creating anything. If an
+      // invited email has no SplitBill account we surface it and abort, rather
+      // than silently creating a one-person group (or orphaning a group that
+      // was already inserted).
+      const uniqueEmails = Array.from(
+        new Set(memberEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))
+      ).filter((e) => e !== user!.email?.toLowerCase());
+
+      let inviteeIds: string[] = [];
+
+      if (uniqueEmails.length > 0) {
+        const { data: matches, error: lookupError } = await supabase.rpc(
+          "get_user_ids_by_email",
+          { emails: uniqueEmails }
+        );
+
+        if (lookupError) throw lookupError;
+
+        const rows = (matches as { id: string; email: string }[] | null) ?? [];
+        const resolvedEmails = new Set(
+          rows.map((r) => r.email.toLowerCase())
+        );
+        const unresolved = uniqueEmails.filter(
+          (e) => !resolvedEmails.has(e)
+        );
+
+        if (unresolved.length > 0) {
+          throw new Error(
+            `No SplitBill account found for: ${unresolved.join(", ")}`
+          );
+        }
+
+        // Dedupe and exclude the creator so a duplicate id can't fail the
+        // UNIQUE(group_id, user_id) batch insert.
+        inviteeIds = Array.from(new Set(rows.map((r) => r.id))).filter(
+          (id) => id !== user!.id
+        );
+      }
+
       const { data: group, error: groupError } = await supabase
         .from("groups")
         .insert({ name, created_by: user!.id })
@@ -91,31 +130,17 @@ export function useCreateGroup() {
 
       if (selfMemberError) throw selfMemberError;
 
-      if (memberEmails.length > 0) {
-        const { data: userIds } = await supabase.rpc(
-          "get_user_ids_by_email",
-          { emails: memberEmails }
-        );
+      if (inviteeIds.length > 0) {
+        const { error: inviteError } = await supabase
+          .from("group_members")
+          .insert(
+            inviteeIds.map((id) => ({
+              group_id: groupData.id,
+              user_id: id,
+            }))
+          );
 
-        // Exclude the creator (already a member) and dedupe so a single
-        // duplicate id can't fail the UNIQUE(group_id, user_id) batch insert
-        // and drop the other valid invitees.
-        const inviteeIds = Array.from(
-          new Set((userIds as any[] | null)?.map((u: any) => u.id) ?? [])
-        ).filter((id) => id !== user!.id);
-
-        if (inviteeIds.length > 0) {
-          const { error: inviteError } = await supabase
-            .from("group_members")
-            .insert(
-              inviteeIds.map((id) => ({
-                group_id: groupData.id,
-                user_id: id,
-              }))
-            );
-
-          if (inviteError) throw inviteError;
-        }
+        if (inviteError) throw inviteError;
       }
 
       return groupData;
@@ -126,58 +151,29 @@ export function useCreateGroup() {
   });
 }
 
+export function useCheckEmailExists() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const { data, error } = await supabase.rpc("get_user_ids_by_email", {
+        emails: [email],
+      });
+      if (error) throw error;
+      return ((data as { id: string; email: string }[] | null)?.length ?? 0) > 0;
+    },
+  });
+}
+
 export function useLeaveGroup() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (groupId: string) => {
-      const uid = user!.id;
-
-      const { data: members, error: membersError } = await supabase
-        .from("group_members")
-        .select("user_id, joined_at")
-        .eq("group_id", groupId)
-        .order("joined_at", { ascending: true });
-
-      if (membersError) throw membersError;
-
-      const others = (members ?? []).filter((m: any) => m.user_id !== uid);
-
-      // Last member out: delete the whole group (cascades members/expenses/etc.)
-      if (others.length === 0) {
-        const { error } = await supabase
-          .from("groups")
-          .delete()
-          .eq("id", groupId);
-        if (error) throw error;
-        return;
-      }
-
-      // If the leaving user owns the group, hand ownership to the earliest
-      // remaining member so the group isn't left orphaned.
-      const { data: group, error: groupError } = await supabase
-        .from("groups")
-        .select("created_by")
-        .eq("id", groupId)
-        .single();
-
-      if (groupError) throw groupError;
-
-      if ((group as any).created_by === uid) {
-        const { error: transferError } = await supabase
-          .from("groups")
-          .update({ created_by: (others[0] as any).user_id })
-          .eq("id", groupId);
-        if (transferError) throw transferError;
-      }
-
-      const { error } = await supabase
-        .from("group_members")
-        .delete()
-        .eq("group_id", groupId)
-        .eq("user_id", uid);
-
+      // Ownership transfer + deletion are done in a single SECURITY DEFINER
+      // RPC so they happen atomically and bypass the groups UPDATE/DELETE RLS
+      // edge cases (e.g. transferring created_by to another user).
+      const { error } = await supabase.rpc("leave_group", {
+        p_group_id: groupId,
+      });
       if (error) throw error;
     },
     onSuccess: () => {

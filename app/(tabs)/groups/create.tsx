@@ -6,30 +6,62 @@ import {
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
-import { Button, Chip, IconButton, TextInput } from "react-native-paper";
-import { useCreateGroup } from "@/lib/queries/useGroups";
+import {
+  ActivityIndicator,
+  Button,
+  Chip,
+  IconButton,
+  TextInput,
+} from "react-native-paper";
+import { useCheckEmailExists, useCreateGroup } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { useAuth } from "@/lib/auth";
 
 export default function CreateGroup() {
   const theme = useAppTheme();
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
   const createGroup = useCreateGroup();
+  const checkEmail = useCheckEmailExists();
   const { showError } = useSnackbar();
 
-  const addEmail = () => {
+  // Validates the current email input. Returns the verified email to add, an
+  // empty string when there's nothing pending, or null when validation failed
+  // (an error has already been shown to the user).
+  const validatePendingEmail = async (): Promise<string | null> => {
     const email = emailInput.trim().toLowerCase();
-    if (!email) return;
+    if (!email) return "";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       showError("Please enter a valid email address");
-      return;
+      return null;
+    }
+    if (email === user?.email?.toLowerCase()) {
+      showError("You're already a member of the group");
+      return null;
     }
     if (memberEmails.includes(email)) {
       showError("This email is already added");
-      return;
+      return null;
     }
+    try {
+      const exists = await checkEmail.mutateAsync(email);
+      if (!exists) {
+        showError(`No SplitBill account found for ${email}`);
+        return null;
+      }
+    } catch {
+      showError("Couldn't verify this email. Please try again.");
+      return null;
+    }
+    return email;
+  };
+
+  const addEmail = async () => {
+    const email = await validatePendingEmail();
+    if (!email) return;
     setMemberEmails([...memberEmails, email]);
     setEmailInput("");
   };
@@ -43,10 +75,25 @@ export default function CreateGroup() {
       showError("Please enter a group name");
       return;
     }
+
+    // Flush any email still sitting in the input so it isn't silently dropped.
+    // If validation fails (invalid / non-existent account) we stop here rather
+    // than quietly creating a one-person group.
+    const pendingEmail = await validatePendingEmail();
+    if (pendingEmail === null) return;
+
+    const finalEmails = pendingEmail
+      ? [...memberEmails, pendingEmail]
+      : memberEmails;
+    if (pendingEmail) {
+      setMemberEmails(finalEmails);
+      setEmailInput("");
+    }
+
     try {
       await createGroup.mutateAsync({
         name: name.trim(),
-        memberEmails,
+        memberEmails: finalEmails,
       });
       router.back();
     } catch (error: any) {
@@ -81,16 +128,30 @@ export default function CreateGroup() {
               keyboardType="email-address"
               onSubmitEditing={addEmail}
               returnKeyType="done"
+              editable={!checkEmail.isPending}
               style={{ flex: 1 }}
             />
-            <IconButton
-              mode="contained"
-              icon="plus"
-              size={24}
-              onPress={addEmail}
-              containerColor={theme.colors.primary}
-              iconColor={theme.colors.onPrimary}
-            />
+            {checkEmail.isPending ? (
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ActivityIndicator color={theme.colors.primary} />
+              </View>
+            ) : (
+              <IconButton
+                mode="contained"
+                icon="plus"
+                size={24}
+                onPress={addEmail}
+                containerColor={theme.colors.primary}
+                iconColor={theme.colors.onPrimary}
+              />
+            )}
           </View>
         </View>
 
