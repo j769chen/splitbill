@@ -212,6 +212,10 @@ RETURNS TABLE (
   balance NUMERIC(12, 2)
 ) AS $$
 BEGIN
+  IF NOT public.is_group_member(p_group_id, auth.uid()) THEN
+    RAISE EXCEPTION 'You are not a member of this group';
+  END IF;
+
   RETURN QUERY
   SELECT
     gm.user_id,
@@ -251,6 +255,10 @@ RETURNS TABLE (
   total_owing NUMERIC(12, 2)
 ) AS $$
 BEGIN
+  IF auth.uid() IS NULL OR p_user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'You can only view your own total balance';
+  END IF;
+
   RETURN QUERY
   WITH user_groups AS (
     SELECT group_id FROM public.group_members WHERE user_id = p_user_id
