@@ -62,6 +62,8 @@ Categorize changed files:
   - Supabase calls that ignore `error` (always `throw error` in query/mutation functions).
   - Mutations that don't invalidate the right query keys on success.
   - `as any` / `as unknown as T` casts on Supabase responses (flag per Rule 8-1).
+  - Barrel files (re-export-only `index.ts`) or imports resolving through them (flag per Rule 3-3).
+  - Default exports outside Expo Router route/layout files under `app/` (flag per Rule 3-4).
   - Secrets or PII — only `EXPO_PUBLIC_*` env vars are safe to ship to the client.
   - Logic that assumes RLS isn't enforced, or trusts client-supplied user IDs.
 

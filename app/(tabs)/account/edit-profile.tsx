@@ -12,7 +12,7 @@ import { useUpdateProfile } from "@/lib/queries/useProfile";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { getErrorMessage } from "@/lib/utils";
-import { ProfileAvatar } from "@/components/account";
+import { ProfileAvatar } from "@/components/account/ProfileAvatar";
 
 export default function EditProfile() {
   const theme = useAppTheme();

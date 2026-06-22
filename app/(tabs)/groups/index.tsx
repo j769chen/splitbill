@@ -3,7 +3,8 @@ import { router } from "expo-router";
 import { ActivityIndicator, FAB } from "react-native-paper";
 import { useGroups } from "@/lib/queries/useGroups";
 import { useAppTheme } from "@/lib/theme";
-import { EmptyState, GroupListItem } from "@/components/groups";
+import { EmptyState } from "@/components/groups/EmptyState";
+import { GroupListItem } from "@/components/groups/GroupListItem";
 import { useState, useCallback } from "react";
 
 export default function GroupsList() {

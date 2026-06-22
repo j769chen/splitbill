@@ -5,10 +5,8 @@ import { useAuth } from "@/lib/auth";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
 import { useThemePreference } from "@/lib/theme-preference";
-import {
-  ProfileHeader,
-  SettingsLinkRow,
-} from "@/components/account";
+import { ProfileHeader } from "@/components/account/ProfileHeader";
+import { SettingsLinkRow } from "@/components/account/SettingsLinkRow";
 
 export default function Account() {
   const theme = useAppTheme();

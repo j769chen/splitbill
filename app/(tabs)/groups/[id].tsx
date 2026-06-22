@@ -12,11 +12,9 @@ import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
-import {
-  EmptyState,
-  ExpenseCard,
-  MemberBalanceCard,
-} from "@/components/groups";
+import { EmptyState } from "@/components/groups/EmptyState";
+import { ExpenseCard } from "@/components/groups/ExpenseCard";
+import { MemberBalanceCard } from "@/components/groups/MemberBalanceCard";
 
 type TabType = "expenses" | "balances";
 

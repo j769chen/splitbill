@@ -2,7 +2,7 @@ import { View, ScrollView } from "react-native";
 import { ActivityIndicator, Card, Divider, List, Text } from "react-native-paper";
 import { useNotificationPrefs } from "@/lib/notifications";
 import { useAppTheme } from "@/lib/theme";
-import { NotificationToggleItem } from "@/components/account";
+import { NotificationToggleItem } from "@/components/account/NotificationToggleItem";
 
 export default function Notifications() {
   const theme = useAppTheme();

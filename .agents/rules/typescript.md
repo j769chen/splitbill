@@ -135,3 +135,67 @@ const count = group.count ?? defaultCount;
 **Requirement**: Import shared modules with the `@/` alias (`@/lib/auth`, `@/lib/queries/useGroups`, `@/lib/utils`) rather than long relative paths. Relative imports within a directory (e.g. `../supabase` inside `lib/queries`) are fine.
 
 **Severity**: Non-blocking
+
+---
+
+### Rule 3-3: No Barrel Files
+
+**Requirement**: Do not create barrel files — `index.ts` / `index.tsx` modules whose only job is to re-export from sibling modules (`export { X } from "./X"`). Import each symbol directly from the module that defines it (`@/components/groups/EmptyState`, not `@/components/groups`). Barrels obscure the real dependency graph, defeat tree-shaking, create import cycles, and force unrelated dependencies (e.g. `react-native-reanimated`) into modules and tests that don't need them.
+
+**Severity**: Blocking (flag any new re-export-only `index.*` file or import that resolves through one)
+
+**Exemption**: Expo Router route and layout files under `app/` are *not* barrels — `app/**/index.tsx` is a real screen and `_layout.tsx` is a real layout. The root `index.ts` (`import "expo-router/entry";`) is the app entry point. None of these count against this rule.
+
+**Examples**:
+
+❌ **Incorrect** (re-export-only barrel):
+
+```ts
+// components/groups/index.ts
+export { EmptyState } from "./EmptyState";
+export { GroupListItem } from "./GroupListItem";
+```
+
+```ts
+import { EmptyState, GroupListItem } from "@/components/groups";
+```
+
+✅ **Correct** (import directly from the defining module):
+
+```ts
+import { EmptyState } from "@/components/groups/EmptyState";
+import { GroupListItem } from "@/components/groups/GroupListItem";
+```
+
+---
+
+### Rule 3-4: No Default Exports
+
+**Requirement**: Use named exports for all modules you author (components, hooks, utilities, types). Named exports keep import names consistent across the codebase, make symbols greppable, and play well with refactoring tools. Convert `export default function Foo()` to `export function Foo()` and import with `{ Foo }`.
+
+**Severity**: Blocking (for new non-route modules)
+
+**Exemption**: Expo Router *requires* a default export for every route and layout file under `app/` (e.g. `app/(tabs)/groups/[id].tsx`, `app/_layout.tsx`). These default exports are mandatory framework convention — keep them and do not flag them. The exemption applies only to files under `app/`; components, hooks, and library modules must use named exports.
+
+**Examples**:
+
+❌ **Incorrect** (default export in a shared component):
+
+```ts
+// components/groups/EmptyState.tsx
+export default function EmptyState() { /* ... */ }
+```
+
+✅ **Correct** (named export):
+
+```ts
+// components/groups/EmptyState.tsx
+export function EmptyState() { /* ... */ }
+```
+
+✅ **Tolerated** (Expo Router route — default export is required):
+
+```ts
+// app/(tabs)/groups/index.tsx
+export default function GroupsList() { /* ... */ }
+```

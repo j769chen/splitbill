@@ -13,7 +13,8 @@ import { useAuth } from "@/lib/auth";
 import { computeSplits, getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
-import { MemberSplitRow, PaidByPicker } from "@/components/groups";
+import { MemberSplitRow } from "@/components/groups/MemberSplitRow";
+import { PaidByPicker } from "@/components/groups/PaidByPicker";
 import type { SplitType } from "@/lib/types";
 
 export default function AddExpense() {

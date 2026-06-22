@@ -7,7 +7,7 @@ import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
-import { MemberEmailInput } from "@/components/groups";
+import { MemberEmailInput } from "@/components/groups/MemberEmailInput";
 
 export default function CreateGroup() {
   const theme = useAppTheme();

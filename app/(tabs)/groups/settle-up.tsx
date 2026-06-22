@@ -13,7 +13,8 @@ import { useAuth } from "@/lib/auth";
 import { getErrorMessage, simplifyDebts } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
-import { DebtCard, EmptyState } from "@/components/groups";
+import { DebtCard } from "@/components/groups/DebtCard";
+import { EmptyState } from "@/components/groups/EmptyState";
 import type { DebtEdge } from "@/lib/types";
 
 const debtKey = (debt: DebtEdge) => `${debt.from}:${debt.to}`;
