@@ -137,14 +137,19 @@ describe("GroupDetail screen", () => {
     expect(screen.getByText("No expenses yet")).toBeTruthy();
   });
 
-  it("switches to the balances tab and shows member balances and suggested payments", async () => {
+  it("switches to the balances tab and shows a per-member balance accordion", async () => {
     await renderWithPaper(<GroupDetail />);
 
     await fireEvent.press(screen.getByText("Balances"));
 
-    expect(screen.getByText("Member Balances")).toBeTruthy();
-    expect(screen.getByText("Suggested Payments")).toBeTruthy();
-    expect(screen.getByText(/owes/)).toBeTruthy();
+    expect(screen.getByText("Me")).toBeTruthy();
+    expect(screen.getByText("owes overall")).toBeTruthy();
+    expect(screen.getByText("Bob")).toBeTruthy();
+    expect(screen.getByText("is owed overall")).toBeTruthy();
+
+    await fireEvent.press(screen.getByText("Me"));
+
+    expect(screen.getByText("$15.00")).toBeTruthy();
   });
 
   it("shows the all-settled state when there are no balances", async () => {

@@ -7,6 +7,7 @@ import {
   Card,
   Divider,
   IconButton,
+  List,
   SegmentedButtons,
   Text,
 } from "react-native-paper";
@@ -148,6 +149,15 @@ export default function GroupDetail() {
       : value < 0
         ? theme.colors.error
         : theme.colors.onSurfaceVariant;
+
+  const memberBreakdown = (userId: string) => [
+    ...debts
+      .filter((d) => d.from === userId)
+      .map((d) => ({ direction: "owes" as const, name: d.to_name, amount: d.amount })),
+    ...debts
+      .filter((d) => d.to === userId)
+      .map((d) => ({ direction: "owed" as const, name: d.from_name, amount: d.amount })),
+  ];
 
   return (
     <>
@@ -305,82 +315,140 @@ export default function GroupDetail() {
           ) : (
             <>
               {balances && balances.length > 0 && (
-                <Card mode="elevated" style={{ marginBottom: 16 }}>
-                  <Card.Content>
-                    <Text
-                      variant="titleMedium"
-                      style={{ fontWeight: "bold", marginBottom: 12 }}
-                    >
-                      Member Balances
-                    </Text>
-                    {balances.map((b) => (
-                      <View
+                <View style={{ gap: 12 }}>
+                  {balances.map((b) => {
+                    const breakdown = memberBreakdown(b.user_id);
+                    const isOwed = b.balance > 0.01;
+                    const isOwing = b.balance < -0.01;
+                    const summary = isOwed
+                      ? "is owed overall"
+                      : isOwing
+                        ? "owes overall"
+                        : "settled up";
+                    const accent = balanceColor(b.balance);
+                    return (
+                      <Card
                         key={b.user_id}
-                        style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 }}
+                        mode="contained"
+                        style={{ overflow: "hidden" }}
                       >
-                        <Text
-                          variant="bodyMedium"
-                          style={{ color: theme.colors.onSurface }}
-                        >
-                          {b.full_name}
-                        </Text>
-                        <Text
-                          variant="bodyMedium"
-                          style={{
-                            fontWeight: "600",
-                            color: balanceColor(b.balance),
+                        <List.Accordion
+                          title={b.full_name}
+                          titleStyle={{
+                            color: theme.colors.onSurface,
+                            fontWeight: "700",
                           }}
+                          description={summary}
+                          descriptionStyle={{ color: accent }}
+                          left={(props) => (
+                            <View
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 20,
+                                marginLeft: props.style?.marginLeft,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                backgroundColor: accent + "22",
+                              }}
+                            >
+                              <Text style={{ color: accent, fontWeight: "700" }}>
+                                {b.full_name.trim().charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          right={({ isExpanded }) => (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                              <View
+                                style={{
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 4,
+                                  borderRadius: 999,
+                                  backgroundColor: accent + "22",
+                                }}
+                              >
+                                <Text
+                                  variant="bodyMedium"
+                                  style={{ fontWeight: "700", color: accent }}
+                                >
+                                  {b.balance > 0 ? "+" : ""}
+                                  {formatCurrency(b.balance)}
+                                </Text>
+                              </View>
+                              <List.Icon
+                                icon={isExpanded ? "chevron-up" : "chevron-down"}
+                                color={theme.colors.onSurfaceVariant}
+                              />
+                            </View>
+                          )}
                         >
-                          {b.balance > 0 ? "+" : ""}
-                          {formatCurrency(b.balance)}
-                        </Text>
-                      </View>
-                    ))}
-                  </Card.Content>
-                </Card>
-              )}
-
-              {debts.length > 0 && (
-                <Card mode="elevated">
-                  <Card.Content>
-                    <Text
-                      variant="titleMedium"
-                      style={{ fontWeight: "bold", marginBottom: 12 }}
-                    >
-                      Suggested Payments
-                    </Text>
-                    {debts.map((debt, idx) => (
-                      <View
-                        key={idx}
-                        style={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            variant="bodyMedium"
-                            style={{ color: theme.colors.onSurface }}
+                          <View
+                            style={{
+                              backgroundColor: theme.colors.surfaceVariant,
+                              paddingHorizontal: 16,
+                              paddingVertical: 4,
+                            }}
                           >
-                            <Text style={{ fontWeight: "600" }}>
-                              {debt.from_name}
-                            </Text>{" "}
-                            owes{" "}
-                            <Text style={{ fontWeight: "600" }}>
-                              {debt.to_name}
-                            </Text>
-                          </Text>
-                        </View>
-                        <Text
-                          variant="bodyMedium"
-                          style={{
-                            fontWeight: "bold",
-                            color: theme.colors.primary,
-                          }}
-                        >
-                          {formatCurrency(debt.amount)}
-                        </Text>
-                      </View>
-                    ))}
-                  </Card.Content>
-                </Card>
+                            {breakdown.length === 0 ? (
+                              <Text
+                                variant="bodySmall"
+                                style={{
+                                  color: theme.colors.onSurfaceVariant,
+                                  paddingVertical: 10,
+                                }}
+                              >
+                                Settled up with everyone
+                              </Text>
+                            ) : (
+                              breakdown.map((item, i) => {
+                                const itemColor =
+                                  item.direction === "owes"
+                                    ? theme.colors.error
+                                    : theme.colors.success;
+                                return (
+                                  <View
+                                    key={i}
+                                    style={{
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                      paddingVertical: 8,
+                                      borderTopWidth: i === 0 ? 0 : 1,
+                                      borderTopColor: theme.colors.outlineVariant,
+                                    }}
+                                  >
+                                    <MaterialCommunityIcons
+                                      name={
+                                        item.direction === "owes"
+                                          ? "arrow-top-right"
+                                          : "arrow-bottom-left"
+                                      }
+                                      size={18}
+                                      color={itemColor}
+                                      style={{ marginRight: 8 }}
+                                    />
+                                    <Text
+                                      variant="bodyMedium"
+                                      style={{ color: theme.colors.onSurface, flex: 1 }}
+                                    >
+                                      {item.direction === "owes" ? "Owes " : "Owed by "}
+                                      <Text style={{ fontWeight: "600" }}>{item.name}</Text>
+                                    </Text>
+                                    <Text
+                                      variant="bodyMedium"
+                                      style={{ fontWeight: "700", color: itemColor }}
+                                    >
+                                      {formatCurrency(item.amount)}
+                                    </Text>
+                                  </View>
+                                );
+                              })
+                            )}
+                          </View>
+                        </List.Accordion>
+                      </Card>
+                    );
+                  })}
+                </View>
               )}
 
               {(!balances || balances.length === 0) && (

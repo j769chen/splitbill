@@ -9,7 +9,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import {
   Button,
   Checkbox,
-  Chip,
+  Menu,
   SegmentedButtons,
   Text,
   TextInput,
@@ -37,9 +37,17 @@ export default function AddExpense() {
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [paidByMenuVisible, setPaidByMenuVisible] = useState(false);
 
   const members = group?.group_members ?? [];
   const totalAmount = parseFloat(amount) || 0;
+
+  const memberName = (member: { user_id: string; profiles?: { full_name?: string } | null }) =>
+    member.profiles?.full_name ??
+    (member.user_id === user?.id ? "You" : "Unknown");
+
+  const paidByMember = members.find((m) => m.user_id === paidBy);
+  const paidByLabel = paidByMember ? memberName(paidByMember) : "Select a person";
 
   useEffect(() => {
     if (group?.group_members) {
@@ -141,21 +149,36 @@ export default function AddExpense() {
           >
             Paid by
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              {members.map((member) => (
-                <Chip
-                  key={member.user_id}
-                  selected={paidBy === member.user_id}
-                  showSelectedCheck={false}
-                  onPress={() => setPaidBy(member.user_id)}
-                >
-                  {member.profiles?.full_name ??
-                    (member.user_id === user?.id ? "You" : "Unknown")}
-                </Chip>
-              ))}
-            </View>
-          </ScrollView>
+          <Menu
+            visible={paidByMenuVisible}
+            onDismiss={() => setPaidByMenuVisible(false)}
+            anchor={
+              <TouchableRipple onPress={() => setPaidByMenuVisible(true)}>
+                <View pointerEvents="none">
+                  <TextInput
+                    mode="outlined"
+                    editable={false}
+                    value={paidByLabel}
+                    right={<TextInput.Icon icon="menu-down" />}
+                  />
+                </View>
+              </TouchableRipple>
+            }
+          >
+            {members.map((member) => (
+              <Menu.Item
+                key={member.user_id}
+                title={memberName(member)}
+                trailingIcon={
+                  paidBy === member.user_id ? "check" : undefined
+                }
+                onPress={() => {
+                  setPaidBy(member.user_id);
+                  setPaidByMenuVisible(false);
+                }}
+              />
+            ))}
+          </Menu>
         </View>
 
         <View style={{ marginTop: 24 }}>
@@ -186,9 +209,7 @@ export default function AddExpense() {
           <View style={{ gap: 8 }}>
             {members.map((member) => {
               const isSelected = selectedMembers.includes(member.user_id);
-              const memberName =
-                member.profiles?.full_name ??
-                (member.user_id === user?.id ? "You" : "Unknown");
+              const name = memberName(member);
               const perPerson =
                 splitType === "equal" && isSelected && selectedMembers.length > 0
                   ? totalAmount / selectedMembers.length
@@ -226,7 +247,7 @@ export default function AddExpense() {
                             : theme.colors.onSurface,
                         }}
                       >
-                        {memberName}
+                        {name}
                       </Text>
                       {splitType === "equal" &&
                         isSelected &&
