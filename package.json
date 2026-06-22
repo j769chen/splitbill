@@ -7,7 +7,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "jest --forceExit"
+    "test": "jest --forceExit",
+    "test:coverage": "jest --forceExit --coverage"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -50,7 +51,12 @@
     "preset": "jest-expo",
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
-    }
+    },
+    "collectCoverageFrom": [
+      "lib/**/*.{ts,tsx}",
+      "app/**/*.{ts,tsx}",
+      "!**/*.d.ts"
+    ]
   },
   "private": true
 }
