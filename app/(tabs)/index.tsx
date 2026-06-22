@@ -46,7 +46,7 @@ export default function Dashboard() {
         <Text
           variant="displaySmall"
           style={{
-            color: net >= 0 ? "#FFFFFF" : "#FECACA",
+            color: net >= 0 ? theme.colors.onBrand : theme.colors.error,
             fontWeight: "bold",
             marginTop: 4,
           }}
@@ -62,7 +62,7 @@ export default function Dashboard() {
             </Text>
             <Text
               variant="titleLarge"
-              style={{ color: "#FFFFFF", fontWeight: "bold", marginTop: 4 }}
+              style={{ color: theme.colors.onBrand, fontWeight: "bold", marginTop: 4 }}
             >
               {formatCurrency(balance?.totalOwed ?? 0)}
             </Text>
@@ -73,7 +73,7 @@ export default function Dashboard() {
             </Text>
             <Text
               variant="titleLarge"
-              style={{ color: "#FFFFFF", fontWeight: "bold", marginTop: 4 }}
+              style={{ color: theme.colors.onBrand, fontWeight: "bold", marginTop: 4 }}
             >
               {formatCurrency(balance?.totalOwing ?? 0)}
             </Text>

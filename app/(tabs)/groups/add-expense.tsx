@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   View,
   ScrollView,
@@ -29,29 +29,21 @@ export default function AddExpense() {
   const [paidBy, setPaidBy] = useState(user?.id ?? "");
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
 
   const members = group?.group_members ?? [];
+  const selectedMembers = members
+    .map((member) => member.user_id)
+    .filter((userId) => !excludedMemberIds.includes(userId));
+  const effectivePaidBy = paidBy || user?.id || "";
   const totalAmount = parseFloat(amount) || 0;
 
   const memberName = (member: { user_id: string; profiles?: { full_name?: string } | null }) =>
     member.profiles?.full_name ??
     (member.user_id === user?.id ? "You" : "Unknown");
 
-  useEffect(() => {
-    if (group?.group_members) {
-      setSelectedMembers(group.group_members.map((m) => m.user_id));
-    }
-  }, [group?.group_members]);
-
-  useEffect(() => {
-    if (user?.id && !paidBy) {
-      setPaidBy(user.id);
-    }
-  }, [user?.id, paidBy]);
-
   const toggleMember = (userId: string) => {
-    setSelectedMembers((prev) =>
+    setExcludedMemberIds((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)
         : [...prev, userId]
@@ -71,7 +63,7 @@ export default function AddExpense() {
       showError("Please select at least one member");
       return;
     }
-    if (!paidBy) {
+    if (!effectivePaidBy) {
       showError("Please select who paid");
       return;
     }
@@ -91,7 +83,7 @@ export default function AddExpense() {
     try {
       await createExpense.mutateAsync({
         groupId: groupId!,
-        paidBy,
+        paidBy: effectivePaidBy,
         amount: totalAmount,
         description: description.trim(),
         splitType,
@@ -133,7 +125,7 @@ export default function AddExpense() {
 
         <PaidByPicker
           members={members}
-          paidBy={paidBy}
+          paidBy={effectivePaidBy}
           onSelect={setPaidBy}
           getMemberName={memberName}
         />

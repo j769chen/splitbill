@@ -168,7 +168,11 @@ export default function GroupDetail() {
               hitSlop={8}
               style={{ paddingHorizontal: 8 }}
             >
-              <MaterialCommunityIcons name="logout" size={22} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="logout"
+                size={22}
+                color={theme.colors.onPrimary}
+              />
             </Pressable>
           ),
         }}

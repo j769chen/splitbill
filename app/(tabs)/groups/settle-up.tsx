@@ -14,6 +14,9 @@ import { getErrorMessage, simplifyDebts } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { DebtCard, EmptyState } from "@/components/groups";
+import type { DebtEdge } from "@/lib/types";
+
+const debtKey = (debt: DebtEdge) => `${debt.from}:${debt.to}`;
 
 export default function SettleUp() {
   const theme = useAppTheme();
@@ -23,7 +26,7 @@ export default function SettleUp() {
   const createPayment = useCreatePayment();
   const { showError, showSuccess } = useSnackbar();
 
-  const [selectedDebt, setSelectedDebt] = useState<number | null>(null);
+  const [selectedDebtKey, setSelectedDebtKey] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 
@@ -31,15 +34,17 @@ export default function SettleUp() {
   const userDebts = debts.filter(
     (d) => d.from === user?.id || d.to === user?.id
   );
+  const selectedDebt = selectedDebtKey
+    ? userDebts.find((debt) => debtKey(debt) === selectedDebtKey)
+    : undefined;
 
   const handleSettle = async () => {
-    if (selectedDebt === null) {
+    if (!selectedDebt) {
       showError("Please select a payment to settle");
       return;
     }
 
-    const debt = userDebts[selectedDebt];
-    const settleAmount = parseFloat(amount) || debt.amount;
+    const settleAmount = parseFloat(amount) || selectedDebt.amount;
 
     if (settleAmount <= 0) {
       showError("Please enter a valid amount");
@@ -49,8 +54,8 @@ export default function SettleUp() {
     try {
       await createPayment.mutateAsync({
         groupId: groupId!,
-        paidBy: debt.from,
-        paidTo: debt.to,
+        paidBy: selectedDebt.from,
+        paidTo: selectedDebt.to,
         amount: settleAmount,
         note: note.trim() || undefined,
       });
@@ -82,20 +87,20 @@ export default function SettleUp() {
             <View style={{ gap: 8 }}>
               {userDebts.map((debt, idx) => (
                 <DebtCard
-                  key={idx}
+                  key={debtKey(debt)}
                   debt={debt}
                   index={idx}
                   isFrom={debt.from === user?.id}
-                  selected={selectedDebt === idx}
+                  selected={selectedDebtKey === debtKey(debt)}
                   onSelect={() => {
-                    setSelectedDebt(idx);
+                    setSelectedDebtKey(debtKey(debt));
                     setAmount(debt.amount.toFixed(2));
                   }}
                 />
               ))}
             </View>
 
-            {selectedDebt !== null && (
+            {selectedDebt && (
               <>
                 <View style={{ marginTop: 24 }}>
                   <TextInput

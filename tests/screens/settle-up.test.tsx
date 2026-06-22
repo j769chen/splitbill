@@ -1,4 +1,6 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { PaperProvider } from "react-native-paper";
+import { lightTheme } from "@/lib/theme";
 import { renderWithPaper } from "../helpers/testUtils";
 import SettleUp from "@/app/(tabs)/groups/settle-up";
 
@@ -25,6 +27,12 @@ import { useSnackbar } from "@/lib/snackbar";
 const owingBalances = [
   { user_id: "u1", full_name: "Me", balance: -20 },
   { user_id: "u2", full_name: "Bob", balance: 20 },
+];
+
+const splitOwingBalances = [
+  { user_id: "u1", full_name: "Me", balance: -30 },
+  { user_id: "u2", full_name: "Bob", balance: 20 },
+  { user_id: "u3", full_name: "Cara", balance: 10 },
 ];
 
 function setBalances(balances: unknown) {
@@ -63,7 +71,7 @@ describe("SettleUp screen", () => {
   it("records a payment for the selected debt with the auto-filled amount", async () => {
     await renderWithPaper(<SettleUp />);
 
-    await fireEvent.press(screen.getByText("$20.00"));
+    await fireEvent.press(screen.getByTestId("debt-card-u1-u2"));
     await fireEvent.press(screen.getByText("Record Payment"));
 
     await waitFor(() =>
@@ -77,6 +85,37 @@ describe("SettleUp screen", () => {
     );
     expect(mockShowSuccess).toHaveBeenCalledWith("Payment recorded!");
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it("keeps the selected debt when balances refetch in a different order", async () => {
+    setBalances(splitOwingBalances);
+    const view = await renderWithPaper(<SettleUp />);
+
+    await fireEvent.press(screen.getByTestId("debt-card-u1-u2"));
+    await waitFor(() => expect(screen.getByText("Record Payment")).toBeTruthy());
+    setBalances([
+      { user_id: "u1", full_name: "Me", balance: -20 },
+      { user_id: "u3", full_name: "Cara", balance: 10 },
+      { user_id: "u2", full_name: "Bob", balance: 10 },
+    ]);
+    await act(async () => {
+      view.rerender(
+        <PaperProvider theme={lightTheme}>
+          <SettleUp />
+        </PaperProvider>
+      );
+    });
+    await fireEvent.press(screen.getByText("Record Payment"));
+
+    await waitFor(() =>
+      expect(mockPayAsync).toHaveBeenCalledWith({
+        groupId: "g1",
+        paidBy: "u1",
+        paidTo: "u2",
+        amount: 20,
+        note: undefined,
+      })
+    );
   });
 
   it("includes a trimmed note when one is entered", async () => {
