@@ -1,17 +1,15 @@
 import { View, ScrollView } from "react-native";
-import {
-  Avatar,
-  Card,
-  Divider,
-  List,
-  SegmentedButtons,
-  Text,
-} from "react-native-paper";
+import { Card, Divider, List, SegmentedButtons } from "react-native-paper";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
 import { useThemePreference } from "@/lib/theme-preference";
+import {
+  AppVersion,
+  ProfileHeader,
+  SettingsLinkRow,
+} from "@/components/account";
 
 export default function Account() {
   const theme = useAppTheme();
@@ -33,25 +31,10 @@ export default function Account() {
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <View
-        style={{ paddingHorizontal: 24, paddingVertical: 32, alignItems: "center", backgroundColor: theme.colors.surface }}
-      >
-        <Avatar.Icon
-          size={80}
-          icon="account"
-          style={{ backgroundColor: theme.colors.primaryContainer }}
-          color={theme.colors.onPrimaryContainer}
-        />
-        <Text variant="titleLarge" style={{ fontWeight: "bold", marginTop: 16 }}>
-          {user?.user_metadata?.full_name ?? "User"}
-        </Text>
-        <Text
-          variant="bodySmall"
-          style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
-        >
-          {user?.email}
-        </Text>
-      </View>
+      <ProfileHeader
+        name={user?.user_metadata?.full_name ?? "User"}
+        email={user?.email}
+      />
 
       <View style={{ marginTop: 24, paddingHorizontal: 24 }}>
         <List.Subheader>Appearance</List.Subheader>
@@ -74,53 +57,37 @@ export default function Account() {
         </Card>
 
         <Card mode="contained">
-          <List.Item
+          <SettingsLinkRow
             title="Edit Profile"
-            left={(props) => <List.Icon {...props} icon="account-outline" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            icon="account-outline"
             onPress={() => router.push("/(tabs)/account/edit-profile")}
           />
           <Divider />
-          <List.Item
+          <SettingsLinkRow
             title="Notifications"
-            left={(props) => <List.Icon {...props} icon="bell-outline" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            icon="bell-outline"
             onPress={() => router.push("/(tabs)/account/notifications")}
           />
           <Divider />
-          <List.Item
+          <SettingsLinkRow
             title="Help & Support"
-            left={(props) => (
-              <List.Icon {...props} icon="help-circle-outline" />
-            )}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            icon="help-circle-outline"
             onPress={() => router.push("/(tabs)/account/help")}
           />
         </Card>
 
         <Card mode="contained" style={{ marginTop: 16 }}>
-          <List.Item
+          <SettingsLinkRow
             title="Sign Out"
-            titleStyle={{ color: theme.colors.error, fontWeight: "500" }}
-            left={(props) => (
-              <List.Icon {...props} icon="logout" color={theme.colors.error} />
-            )}
+            icon="logout"
+            color={theme.colors.error}
+            showChevron={false}
             onPress={handleSignOut}
           />
         </Card>
       </View>
 
-      <Text
-        variant="labelSmall"
-        style={{
-          textAlign: "center",
-          color: theme.colors.onSurfaceVariant,
-          marginTop: 32,
-          marginBottom: 24,
-        }}
-      >
-        SplitBill v1.0.0
-      </Text>
+      <AppVersion style={{ marginTop: 32, marginBottom: 24 }} />
     </ScrollView>
   );
 }

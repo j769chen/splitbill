@@ -1,17 +1,8 @@
 import { View, ScrollView } from "react-native";
-import {
-  ActivityIndicator,
-  Card,
-  Divider,
-  List,
-  Switch,
-  Text,
-} from "react-native-paper";
-import {
-  useNotificationPrefs,
-  type NotificationPrefs,
-} from "@/lib/notifications";
+import { ActivityIndicator, Card, Divider, List, Text } from "react-native-paper";
+import { useNotificationPrefs } from "@/lib/notifications";
 import { useAppTheme } from "@/lib/theme";
+import { NotificationToggleItem } from "@/components/account";
 
 export default function Notifications() {
   const theme = useAppTheme();
@@ -29,14 +20,6 @@ export default function Notifications() {
 
   const pushOff = !prefs.pushEnabled;
 
-  const renderSwitch = (key: keyof NotificationPrefs, disabled?: boolean) => (
-    <Switch
-      value={prefs[key]}
-      onValueChange={(value) => setPref(key, value)}
-      disabled={disabled}
-    />
-  );
-
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
@@ -44,48 +27,51 @@ export default function Notifications() {
       <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
         <List.Subheader>General</List.Subheader>
         <Card mode="contained">
-          <List.Item
+          <NotificationToggleItem
             title="Push Notifications"
             description="Turn all notifications on or off"
-            left={(props) => <List.Icon {...props} icon="bell-outline" />}
-            right={() => renderSwitch("pushEnabled")}
+            icon="bell-outline"
+            value={prefs.pushEnabled}
+            onValueChange={(value: boolean) => setPref("pushEnabled", value)}
           />
         </Card>
 
         <List.Subheader style={{ marginTop: 16 }}>Activity</List.Subheader>
         <Card mode="contained">
-          <List.Item
+          <NotificationToggleItem
             title="New Expenses"
             description="When someone adds an expense"
-            left={(props) => <List.Icon {...props} icon="receipt" />}
-            right={() => renderSwitch("newExpenses", pushOff)}
-            style={pushOff ? { opacity: 0.4 } : undefined}
+            icon="receipt"
+            value={prefs.newExpenses}
+            onValueChange={(value: boolean) => setPref("newExpenses", value)}
+            disabled={pushOff}
           />
           <Divider />
-          <List.Item
+          <NotificationToggleItem
             title="Settlements"
             description="When a payment is recorded"
-            left={(props) => (
-              <List.Icon {...props} icon="check-circle-outline" />
-            )}
-            right={() => renderSwitch("settlements", pushOff)}
-            style={pushOff ? { opacity: 0.4 } : undefined}
+            icon="check-circle-outline"
+            value={prefs.settlements}
+            onValueChange={(value: boolean) => setPref("settlements", value)}
+            disabled={pushOff}
           />
           <Divider />
-          <List.Item
+          <NotificationToggleItem
             title="Group Invites"
             description="When you're added to a group"
-            left={(props) => <List.Icon {...props} icon="account-group-outline" />}
-            right={() => renderSwitch("groupInvites", pushOff)}
-            style={pushOff ? { opacity: 0.4 } : undefined}
+            icon="account-group-outline"
+            value={prefs.groupInvites}
+            onValueChange={(value: boolean) => setPref("groupInvites", value)}
+            disabled={pushOff}
           />
           <Divider />
-          <List.Item
+          <NotificationToggleItem
             title="Payment Reminders"
             description="Periodic reminders for unsettled balances"
-            left={(props) => <List.Icon {...props} icon="alarm" />}
-            right={() => renderSwitch("paymentReminders", pushOff)}
-            style={pushOff ? { opacity: 0.4 } : undefined}
+            icon="alarm"
+            value={prefs.paymentReminders}
+            onValueChange={(value: boolean) => setPref("paymentReminders", value)}
+            disabled={pushOff}
           />
         </Card>
 

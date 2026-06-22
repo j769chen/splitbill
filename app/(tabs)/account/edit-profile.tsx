@@ -6,12 +6,13 @@ import {
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
-import { Avatar, Button, HelperText, TextInput } from "react-native-paper";
+import { Button, HelperText, TextInput } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useUpdateProfile } from "@/lib/queries/useProfile";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { getErrorMessage } from "@/lib/utils";
+import { ProfileAvatar } from "@/components/account";
 
 export default function EditProfile() {
   const theme = useAppTheme();
@@ -48,12 +49,7 @@ export default function EditProfile() {
     >
       <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
         <View style={{ alignItems: "center", marginBottom: 32 }}>
-          <Avatar.Icon
-            size={96}
-            icon="account"
-            style={{ backgroundColor: theme.colors.primaryContainer }}
-            color={theme.colors.onPrimaryContainer}
-          />
+          <ProfileAvatar size={96} />
         </View>
 
         <TextInput
