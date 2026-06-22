@@ -1,10 +1,12 @@
-import React, { ReactNode } from "react";
-import { act } from "@testing-library/react-native";
+import React, { ReactElement, ReactNode } from "react";
+import { act, render } from "@testing-library/react-native";
+import { PaperProvider } from "react-native-paper";
 import {
   QueryClient,
   QueryClientProvider,
   notifyManager,
 } from "@tanstack/react-query";
+import { lightTheme } from "@/lib/theme";
 
 // Flush React Query notifications synchronously so observer state updates
 // happen inside the awaited render/act scope, avoiding act(...) warnings.
@@ -20,6 +22,15 @@ export async function actAsync<T>(fn: () => Promise<T>): Promise<T> {
     value = await fn();
   });
   return value!;
+}
+
+/**
+ * Renders a screen wrapped in PaperProvider (with the app's light theme) so
+ * react-native-paper components and useAppTheme resolve correctly. render() is
+ * async in RNTL v14, so callers must await this.
+ */
+export function renderWithPaper(ui: ReactElement) {
+  return render(<PaperProvider theme={lightTheme}>{ui}</PaperProvider>);
 }
 
 /**
