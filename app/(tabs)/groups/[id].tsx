@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, SegmentedButtons } from "react-native-paper";
 import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
+import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage, simplifyDebts } from "@/lib/utils";
@@ -14,9 +15,15 @@ import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
 import { EmptyState } from "@/components/groups/EmptyState";
 import { ExpenseCard } from "@/components/groups/ExpenseCard";
+import { PaymentCard } from "@/components/groups/PaymentCard";
 import { MemberBalanceCard } from "@/components/groups/MemberBalanceCard";
+import type { ExpenseWithSplits, PaymentWithProfiles } from "@/lib/types";
 
-type TabType = "expenses" | "balances";
+type TabType = "activity" | "balances";
+
+type ActivityItem =
+  | { kind: "expense"; ts: string; expense: ExpenseWithSplits }
+  | { kind: "payment"; ts: string; payment: PaymentWithProfiles };
 
 export default function GroupDetail() {
   const theme = useAppTheme();
@@ -24,17 +31,15 @@ export default function GroupDetail() {
   const { user } = useAuth();
   const { data: group, refetch: refetchGroup } = useGroup(id!);
   const { data: expenses, refetch: refetchExpenses } = useExpenses(id!);
+  const { data: payments, refetch: refetchPayments } = useGroupPayments(id!);
   const { data: balances, refetch: refetchBalances } = useGroupBalances(id!);
   const deleteExpense = useDeleteExpense();
+  const deletePayment = useDeletePayment();
   const leaveGroup = useLeaveGroup();
   const { showError, showInfo } = useSnackbar();
   const confirm = useConfirm();
-  const [activeTab, setActiveTab] = useState<TabType>("expenses");
+  const [activeTab, setActiveTab] = useState<TabType>("activity");
   const [refreshing, setRefreshing] = useState(false);
-  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
-  const deleteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
-    {}
-  );
 
   useRealtimeSubscription(id);
 
@@ -71,70 +76,77 @@ export default function GroupDetail() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchGroup(), refetchExpenses(), refetchBalances()]);
+    await Promise.all([
+      refetchGroup(),
+      refetchExpenses(),
+      refetchPayments(),
+      refetchBalances(),
+    ]);
     setRefreshing(false);
-  }, [refetchGroup, refetchExpenses, refetchBalances]);
-
-  const commitDeleteExpense = useCallback(
-    (expenseId: string) => {
-      delete deleteTimers.current[expenseId];
-      deleteExpense.mutate(
-        { expenseId, groupId: id! },
-        {
-          onError: (error) => {
-            setPendingDeleteIds((prev) => prev.filter((x) => x !== expenseId));
-            showError(
-              getErrorMessage(
-                error,
-                "Couldn't delete the expense. Please try again."
-              )
-            );
-          },
-        }
-      );
-    },
-    [deleteExpense, id, showError]
-  );
-
-  const commitRef = useRef(commitDeleteExpense);
-  commitRef.current = commitDeleteExpense;
-
-  useEffect(() => {
-    return () => {
-      Object.keys(deleteTimers.current).forEach((expenseId) => {
-        clearTimeout(deleteTimers.current[expenseId]);
-        commitRef.current(expenseId);
-      });
-      deleteTimers.current = {};
-    };
-  }, []);
+  }, [refetchGroup, refetchExpenses, refetchPayments, refetchBalances]);
 
   const handleDeleteExpense = (expenseId: string) => {
-    if (deleteTimers.current[expenseId]) return;
-    setPendingDeleteIds((prev) => [...prev, expenseId]);
-    deleteTimers.current[expenseId] = setTimeout(
-      () => commitDeleteExpense(expenseId),
-      5000
-    );
-    showInfo("Expense deleted", {
-      duration: 5000,
-      action: {
-        label: "Undo",
-        onPress: () => {
-          const timer = deleteTimers.current[expenseId];
-          if (timer) {
-            clearTimeout(timer);
-            delete deleteTimers.current[expenseId];
+    confirm({
+      title: "Delete Expense",
+      message: "Are you sure you want to delete this expense?",
+      confirmText: "Delete",
+      destructive: true,
+      onConfirm: () => {
+        deleteExpense.mutate(
+          { expenseId, groupId: id! },
+          {
+            onError: (error) =>
+              showError(
+                getErrorMessage(
+                  error,
+                  "Couldn't delete the expense. Please try again."
+                )
+              ),
           }
-          setPendingDeleteIds((prev) => prev.filter((x) => x !== expenseId));
-        },
+        );
       },
     });
   };
 
-  const visibleExpenses = expenses?.filter(
-    (e) => !pendingDeleteIds.includes(e.id)
-  );
+  const handleDeletePayment = (paymentId: string) => {
+    confirm({
+      title: "Delete Payment",
+      message: "Are you sure you want to delete this payment?",
+      confirmText: "Delete",
+      destructive: true,
+      onConfirm: () => {
+        deletePayment.mutate(
+          { paymentId, groupId: id! },
+          {
+            onError: (error) =>
+              showError(
+                getErrorMessage(
+                  error,
+                  "Couldn't delete the payment. Please try again."
+                )
+              ),
+          }
+        );
+      },
+    });
+  };
+
+  const activityItems: ActivityItem[] = [
+    ...(expenses ?? []).map(
+      (expense): ActivityItem => ({
+        kind: "expense",
+        ts: expense.date,
+        expense,
+      })
+    ),
+    ...(payments ?? []).map(
+      (payment): ActivityItem => ({
+        kind: "payment",
+        ts: payment.created_at,
+        payment,
+      })
+    ),
+  ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
   const debts = balances ? simplifyDebts(balances) : [];
 
@@ -189,7 +201,11 @@ export default function GroupDetail() {
               },
             }}
             buttons={[
-              { value: "expenses", label: "Expenses", icon: "receipt" },
+              {
+                value: "activity",
+                label: "Activity",
+                icon: "format-list-bulleted",
+              },
               { value: "balances", label: "Balances", icon: "scale-balance" },
             ]}
           />
@@ -202,23 +218,32 @@ export default function GroupDetail() {
           }
           contentContainerStyle={{ padding: 16 }}
         >
-          {activeTab === "expenses" ? (
+          {activeTab === "activity" ? (
             <>
-              {!visibleExpenses || visibleExpenses.length === 0 ? (
+              {activityItems.length === 0 ? (
                 <EmptyState
-                  icon="receipt-text-outline"
-                  title="No expenses yet"
+                  icon="timeline-text-outline"
+                  title="No activity yet"
                 />
               ) : (
                 <View style={{ gap: 12 }}>
-                  {visibleExpenses.map((expense) => (
-                    <ExpenseCard
-                      key={expense.id}
-                      expense={expense}
-                      currentUserId={user?.id}
-                      onDelete={handleDeleteExpense}
-                    />
-                  ))}
+                  {activityItems.map((item) =>
+                    item.kind === "expense" ? (
+                      <ExpenseCard
+                        key={`expense-${item.expense.id}`}
+                        expense={item.expense}
+                        currentUserId={user?.id}
+                        onDelete={handleDeleteExpense}
+                      />
+                    ) : (
+                      <PaymentCard
+                        key={`payment-${item.payment.id}`}
+                        payment={item.payment}
+                        currentUserId={user?.id}
+                        onDelete={handleDeletePayment}
+                      />
+                    )
+                  )}
                 </View>
               )}
             </>

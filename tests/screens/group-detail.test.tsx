@@ -9,12 +9,14 @@ const mockCanGoBack = jest.fn();
 const mockScreenHolder: { options: any } = { options: null };
 
 const mockDeleteMutate = jest.fn();
+const mockDeletePaymentMutate = jest.fn();
 const mockLeaveAsync = jest.fn();
 const mockShowError = jest.fn();
 const mockShowInfo = jest.fn();
 const mockConfirm = jest.fn();
 const mockRefetchGroup = jest.fn();
 const mockRefetchExpenses = jest.fn();
+const mockRefetchPayments = jest.fn();
 const mockRefetchBalances = jest.fn();
 
 jest.mock("expo-router", () => ({
@@ -41,6 +43,10 @@ jest.mock("@/lib/queries/useExpenses", () => ({
   useExpenses: jest.fn(),
   useDeleteExpense: jest.fn(),
 }));
+jest.mock("@/lib/queries/usePayments", () => ({
+  useGroupPayments: jest.fn(),
+  useDeletePayment: jest.fn(),
+}));
 jest.mock("@/lib/queries/useBalances", () => ({ useGroupBalances: jest.fn() }));
 jest.mock("@/lib/realtime", () => ({ useRealtimeSubscription: jest.fn() }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
@@ -50,6 +56,7 @@ import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
+import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
@@ -69,6 +76,18 @@ const expensesFixture = [
     ],
   },
 ];
+const paymentsFixture = [
+  {
+    id: "p1",
+    amount: 20,
+    paid_by: "u1",
+    paid_to: "u2",
+    payer: { full_name: "Me" },
+    payee: { full_name: "Bob" },
+    note: "Venmo transfer",
+    created_at: "2024-01-02",
+  },
+];
 const owingBalances = [
   { user_id: "u1", full_name: "Me", balance: -15 },
   { user_id: "u2", full_name: "Bob", balance: 15 },
@@ -76,6 +95,7 @@ const owingBalances = [
 
 function setup(overrides?: {
   expenses?: unknown;
+  payments?: unknown;
   balances?: unknown;
   group?: unknown;
 }) {
@@ -86,6 +106,10 @@ function setup(overrides?: {
   (useExpenses as jest.Mock).mockReturnValue({
     data: overrides && "expenses" in overrides ? overrides.expenses : expensesFixture,
     refetch: mockRefetchExpenses,
+  });
+  (useGroupPayments as jest.Mock).mockReturnValue({
+    data: overrides && "payments" in overrides ? overrides.payments : [],
+    refetch: mockRefetchPayments,
   });
   (useGroupBalances as jest.Mock).mockReturnValue({
     data: overrides && "balances" in overrides ? overrides.balances : owingBalances,
@@ -100,6 +124,7 @@ beforeEach(() => {
   mockCanGoBack.mockReturnValue(true);
   mockRefetchGroup.mockResolvedValue(undefined);
   mockRefetchExpenses.mockResolvedValue(undefined);
+  mockRefetchPayments.mockResolvedValue(undefined);
   mockRefetchBalances.mockResolvedValue(undefined);
   (router as unknown as Record<string, jest.Mock>).push = mockPush;
   (router as unknown as Record<string, jest.Mock>).back = mockBack;
@@ -108,6 +133,9 @@ beforeEach(() => {
   (useAuth as jest.Mock).mockReturnValue({ user: { id: "u1" } });
   (useLeaveGroup as jest.Mock).mockReturnValue({ mutateAsync: mockLeaveAsync });
   (useDeleteExpense as jest.Mock).mockReturnValue({ mutate: mockDeleteMutate });
+  (useDeletePayment as jest.Mock).mockReturnValue({
+    mutate: mockDeletePaymentMutate,
+  });
   (useSnackbar as jest.Mock).mockReturnValue({
     showError: mockShowError,
     showInfo: mockShowInfo,
@@ -130,11 +158,52 @@ describe("GroupDetail screen", () => {
     expect(screen.getByText("Bob")).toBeTruthy();
   });
 
-  it("shows the empty state when there are no expenses", async () => {
-    setup({ expenses: [] });
+  it("shows the empty state when there is no activity", async () => {
+    setup({ expenses: [], payments: [] });
     await renderWithPaper(<GroupDetail />);
 
-    expect(screen.getByText("No expenses yet")).toBeTruthy();
+    expect(screen.getByText("No activity yet")).toBeTruthy();
+  });
+
+  it("renders debt payments in the activity feed, differentiated from expenses", async () => {
+    setup({ expenses: [], payments: paymentsFixture });
+    await renderWithPaper(<GroupDetail />);
+
+    expect(screen.getByText("You paid Bob")).toBeTruthy();
+    expect(screen.getByText("Payment")).toBeTruthy();
+    expect(screen.getByText("$20.00")).toBeTruthy();
+    expect(screen.getByText("Venmo transfer")).toBeTruthy();
+  });
+
+  it("asks for confirmation and deletes a payment on confirm", async () => {
+    setup({ expenses: [], payments: paymentsFixture });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent(screen.getByText("You paid Bob"), "longPress");
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    const confirmArg = mockConfirm.mock.calls[0][0];
+    expect(confirmArg.title).toBe("Delete Payment");
+    expect(confirmArg.destructive).toBe(true);
+
+    await actAsync(async () => {
+      confirmArg.onConfirm();
+    });
+
+    expect(mockDeletePaymentMutate).toHaveBeenCalledWith(
+      { paymentId: "p1", groupId: "g1" },
+      expect.objectContaining({ onError: expect.any(Function) })
+    );
+  });
+
+  it("does not delete a payment when confirmation is dismissed", async () => {
+    setup({ expenses: [], payments: paymentsFixture });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent(screen.getByText("You paid Bob"), "longPress");
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(mockDeletePaymentMutate).not.toHaveBeenCalled();
   });
 
   it("switches to the balances tab and shows a per-member balance accordion", async () => {
@@ -249,45 +318,32 @@ describe("GroupDetail screen", () => {
     );
   });
 
-  it("soft-deletes an expense with an undo option and restores it on undo", async () => {
+  it("asks for confirmation and deletes an expense on confirm", async () => {
     await renderWithPaper(<GroupDetail />);
 
     await fireEvent(screen.getByText("Dinner"), "longPress");
 
-    expect(screen.queryByText("Dinner")).toBeNull();
-    expect(mockShowInfo).toHaveBeenCalledWith(
-      "Expense deleted",
-      expect.objectContaining({
-        action: expect.objectContaining({ label: "Undo" }),
-      })
-    );
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    const confirmArg = mockConfirm.mock.calls[0][0];
+    expect(confirmArg.title).toBe("Delete Expense");
+    expect(confirmArg.destructive).toBe(true);
 
-    const undoAction = mockShowInfo.mock.calls[0][1].action.onPress;
     await actAsync(async () => {
-      undoAction();
+      confirmArg.onConfirm();
     });
 
-    expect(screen.getByText("Dinner")).toBeTruthy();
-    expect(mockDeleteMutate).not.toHaveBeenCalled();
+    expect(mockDeleteMutate).toHaveBeenCalledWith(
+      { expenseId: "e1", groupId: "g1" },
+      expect.objectContaining({ onError: expect.any(Function) })
+    );
   });
 
-  it("commits the delete after the undo window elapses", async () => {
-    jest.useFakeTimers();
-    try {
-      await renderWithPaper(<GroupDetail />);
+  it("does not delete an expense when confirmation is dismissed", async () => {
+    await renderWithPaper(<GroupDetail />);
 
-      await fireEvent(screen.getByText("Dinner"), "longPress");
+    await fireEvent(screen.getByText("Dinner"), "longPress");
 
-      await actAsync(async () => {
-        jest.advanceTimersByTime(5000);
-      });
-
-      expect(mockDeleteMutate).toHaveBeenCalledWith(
-        { expenseId: "e1", groupId: "g1" },
-        expect.objectContaining({ onError: expect.any(Function) })
-      );
-    } finally {
-      jest.useRealTimers();
-    }
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(mockDeleteMutate).not.toHaveBeenCalled();
   });
 });

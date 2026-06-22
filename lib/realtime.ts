@@ -55,6 +55,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
           filter: `group_id=eq.${groupId}`,
         },
         () => {
+          queryClient.invalidateQueries({ queryKey: ["payments", groupId] });
           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
           queryClient.invalidateQueries({ queryKey: ["total-balance"] });
         }

@@ -209,6 +209,11 @@ export interface ExpenseWithSplits extends Expense {
   payer: Profile;
 }
 
+export interface PaymentWithProfiles extends Payment {
+  payer: Profile;
+  payee: Profile;
+}
+
 export interface GroupWithMembers extends Group {
   group_members: (GroupMember & { profiles: Profile })[];
 }
