@@ -19,10 +19,12 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # --maxsockets avoids npm/cli#9386 where queued tarball fetches
-        # are stranded on a transient timeout, hanging with
-        # "Exit handler never called!" on large dependency trees.
-        run: npm ci --maxsockets 64
+        # The committed package-lock.json resolves tarballs from a private
+        # corporate Artifactory registry that CI cannot reach. All packages
+        # are public OSS, so install from the public registry and rewrite the
+        # lockfile's resolved hosts (integrity hashes are content-based, so
+        # they still match).
+        run: npm ci --registry=https://registry.npmjs.org --replace-registry-host=always
 
       - name: Type-check
         run: npx tsc --noEmit
