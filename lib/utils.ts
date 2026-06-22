@@ -1,4 +1,4 @@
-import type { DebtEdge, GroupBalance } from "./types";
+import type { DebtEdge, GroupBalance, SplitType } from "./types";
 
 export function formatCurrency(amount: number): string {
   const absAmount = Math.abs(amount);
@@ -64,4 +64,62 @@ export function validateSplitsTotal(total: number, splits: number[]): boolean {
 
 export function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+export type ComputeSplitsResult =
+  | { ok: true; splits: { userId: string; amount: number }[] }
+  | { ok: false; error: string };
+
+export function computeSplits(
+  splitType: SplitType,
+  totalAmount: number,
+  memberIds: string[],
+  rawInputs: Record<string, string>
+): ComputeSplitsResult {
+  if (splitType === "equal") {
+    const amounts = splitEqual(totalAmount, memberIds.length);
+    return {
+      ok: true,
+      splits: memberIds.map((userId, i) => ({ userId, amount: amounts[i] })),
+    };
+  }
+
+  if (splitType === "exact") {
+    const splits = memberIds.map((userId) => ({
+      userId,
+      amount: parseFloat(rawInputs[userId] || "0"),
+    }));
+    const sum = splits.reduce((acc, s) => acc + s.amount, 0);
+    if (Math.abs(sum - totalAmount) > 0.01) {
+      return {
+        ok: false,
+        error: `Split amounts ($${sum.toFixed(2)}) don't add up to total ($${totalAmount.toFixed(2)})`,
+      };
+    }
+    return { ok: true, splits };
+  }
+
+  const pctSum = memberIds.reduce(
+    (acc, userId) => acc + parseFloat(rawInputs[userId] || "0"),
+    0
+  );
+  if (Math.abs(pctSum - 100) > 0.01) {
+    return {
+      ok: false,
+      error: `Percentages must add up to 100% (currently ${pctSum.toFixed(1)}%)`,
+    };
+  }
+  // Distribute by percentage, assigning any rounding remainder to the
+  // last member so splits always sum exactly to the total.
+  const splits = memberIds.map((userId) => {
+    const pct = parseFloat(rawInputs[userId] || "0");
+    return { userId, amount: Math.round(totalAmount * pct) / 100 };
+  });
+  const splitSum = splits.reduce((acc, s) => acc + s.amount, 0);
+  const remainder = Math.round((totalAmount - splitSum) * 100) / 100;
+  if (remainder !== 0 && splits.length > 0) {
+    const last = splits[splits.length - 1];
+    last.amount = Math.round((last.amount + remainder) * 100) / 100;
+  }
+  return { ok: true, splits };
 }

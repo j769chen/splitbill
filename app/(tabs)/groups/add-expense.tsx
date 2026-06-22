@@ -18,7 +18,7 @@ import {
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
-import { getErrorMessage, splitEqual } from "@/lib/utils";
+import { computeSplits, getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import type { SplitType } from "@/lib/types";
@@ -79,50 +79,17 @@ export default function AddExpense() {
       return;
     }
 
-    let splits: { userId: string; amount: number }[];
-
-    if (splitType === "equal") {
-      const amounts = splitEqual(totalAmount, selectedMembers.length);
-      splits = selectedMembers.map((userId, i) => ({
-        userId,
-        amount: amounts[i],
-      }));
-    } else if (splitType === "exact") {
-      splits = selectedMembers.map((userId) => ({
-        userId,
-        amount: parseFloat(customSplits[userId] || "0"),
-      }));
-      const sum = splits.reduce((acc, s) => acc + s.amount, 0);
-      if (Math.abs(sum - totalAmount) > 0.01) {
-        showError(
-          `Split amounts ($${sum.toFixed(2)}) don't add up to total ($${totalAmount.toFixed(2)})`
-        );
-        return;
-      }
-    } else {
-      const pctSum = selectedMembers.reduce(
-        (acc, userId) => acc + parseFloat(customSplits[userId] || "0"),
-        0
-      );
-      if (Math.abs(pctSum - 100) > 0.01) {
-        showError(
-          `Percentages must add up to 100% (currently ${pctSum.toFixed(1)}%)`
-        );
-        return;
-      }
-      // Distribute by percentage, assigning any rounding remainder to the
-      // last member so splits always sum exactly to the total.
-      splits = selectedMembers.map((userId) => {
-        const pct = parseFloat(customSplits[userId] || "0");
-        return { userId, amount: Math.round(totalAmount * pct) / 100 };
-      });
-      const splitSum = splits.reduce((acc, s) => acc + s.amount, 0);
-      const remainder = Math.round((totalAmount - splitSum) * 100) / 100;
-      if (remainder !== 0 && splits.length > 0) {
-        const last = splits[splits.length - 1];
-        last.amount = Math.round((last.amount + remainder) * 100) / 100;
-      }
+    const result = computeSplits(
+      splitType,
+      totalAmount,
+      selectedMembers,
+      customSplits
+    );
+    if (!result.ok) {
+      showError(result.error);
+      return;
     }
+    const splits = result.splits;
 
     try {
       await createExpense.mutateAsync({
