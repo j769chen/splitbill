@@ -1,5 +1,5 @@
-import { Pressable, View } from "react-native";
-import { Card, RadioButton, Text } from "react-native-paper";
+import { View } from "react-native";
+import { Card, RadioButton, Text, TouchableRipple } from "react-native-paper";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
 import type { DebtEdge } from "@/lib/types";
@@ -22,7 +22,7 @@ export function DebtCard({
   const theme = useAppTheme();
 
   return (
-    <Pressable
+    <TouchableRipple
       testID={`debt-card-${debt.from}-${debt.to}`}
       onPress={onSelect}
       accessibilityRole="button"
@@ -68,6 +68,6 @@ export function DebtCard({
           </View>
         </Card.Content>
       </Card>
-    </Pressable>
+    </TouchableRipple>
   );
 }
