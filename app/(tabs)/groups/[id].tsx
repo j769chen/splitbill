@@ -330,14 +330,16 @@ export default function GroupDetail() {
                       <Card
                         key={b.user_id}
                         mode="contained"
-                        style={{ overflow: "hidden" }}
+                        style={{ overflow: "hidden", backgroundColor: theme.colors.surfaceVariant }}
                       >
                         <List.Accordion
+                          theme={{ colors: { background: "transparent" } }}
                           title={b.full_name}
                           titleStyle={{
                             color: theme.colors.onSurface,
                             fontWeight: "700",
                           }}
+
                           description={summary}
                           descriptionStyle={{ color: accent }}
                           left={(props) => (
