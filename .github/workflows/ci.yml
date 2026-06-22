@@ -18,13 +18,17 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
+      - name: Point lockfile at the public npm registry
         # The committed package-lock.json resolves tarballs from a private
-        # corporate Artifactory registry that CI cannot reach. All packages
-        # are public OSS, so install from the public registry and rewrite the
-        # lockfile's resolved hosts (integrity hashes are content-based, so
-        # they still match).
-        run: npm ci --registry=https://registry.npmjs.org --replace-registry-host=always
+        # corporate Artifactory registry that CI cannot reach. All deps are
+        # public OSS, so rewrite the resolved URLs to registry.npmjs.org in
+        # this ephemeral checkout. Integrity hashes are content-based, so they
+        # still validate. The committed lockfile is left untouched.
+        run: |
+          sed -i 's#https://artifactory.stackadapt.dev/artifactory/api/npm/npm/#https://registry.npmjs.org/#g' package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org
 
       - name: Type-check
         run: npx tsc --noEmit
