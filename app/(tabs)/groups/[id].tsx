@@ -146,8 +146,8 @@ export default function GroupDetail() {
     value > 0
       ? theme.colors.success
       : value < 0
-      ? theme.colors.error
-      : theme.colors.onSurfaceVariant;
+        ? theme.colors.error
+        : theme.colors.onSurfaceVariant;
 
   return (
     <>
@@ -173,6 +173,12 @@ export default function GroupDetail() {
           <SegmentedButtons
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as TabType)}
+            theme={{
+              colors: {
+                secondaryContainer: theme.colors.secondaryContainer,
+                onSecondaryContainer: theme.colors.onSecondaryContainer,
+              },
+            }}
             buttons={[
               { value: "expenses", label: "Expenses", icon: "receipt" },
               { value: "balances", label: "Balances", icon: "scale-balance" },

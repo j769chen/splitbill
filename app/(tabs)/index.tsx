@@ -87,7 +87,7 @@ export default function Dashboard() {
             Your Groups
           </Text>
           <Button
-            mode="contained-tonal"
+            mode="contained"
             icon="plus"
             compact
             contentStyle={{ paddingHorizontal: 12 }}

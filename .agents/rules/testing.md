@@ -3,8 +3,9 @@
 Guidelines for verifying changes in this app. For an overview of the stack, see
 the [README](../../README.md).
 
-> **Current state**: This project uses Jest with the `jest-expo` preset. The first
-> tests cover pure money utilities in `lib/utils.test.ts`. Expand coverage from
+> **Current state**: This project uses Jest with the `jest-expo` preset. Tests live
+> in the root-level `tests/` folder beside `app/`. The first tests cover pure money
+> utilities in `tests/utils.test.ts`. Expand coverage from
 > pure financial logic outward before adding heavier component tests.
 
 ---
@@ -33,7 +34,7 @@ npm test -- --runInBand
 Run focused tests while developing:
 
 ```bash
-npm test -- --runInBand lib/utils.test.ts
+npm test -- --runInBand tests/utils.test.ts
 ```
 
 ### Rule 3: Manually Exercise the Change

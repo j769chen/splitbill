@@ -1,4 +1,4 @@
-import { getErrorMessage, splitEqual, validateSplitsTotal } from "./utils";
+import { getErrorMessage, splitEqual, validateSplitsTotal } from "@/lib/utils";
 
 describe("money utilities", () => {
   it("splits an amount evenly while preserving the total", () => {
