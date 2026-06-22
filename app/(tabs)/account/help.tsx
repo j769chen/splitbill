@@ -1,7 +1,6 @@
 import { ScrollView, View } from "react-native";
 import { List } from "react-native-paper";
 import { useAppTheme } from "@/lib/theme";
-import { AppVersion } from "@/components/account";
 import { FaqItem } from "@/components/account/FaqItem";
 
 const FAQS: { question: string; answer: string }[] = [
@@ -42,7 +41,6 @@ export default function HelpAndSupport() {
           />
         ))}
 
-        <AppVersion style={{ marginTop: 32 }} />
       </View>
     </ScrollView>
   );

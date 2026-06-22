@@ -6,7 +6,6 @@ import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
 import { useThemePreference } from "@/lib/theme-preference";
 import {
-  AppVersion,
   ProfileHeader,
   SettingsLinkRow,
 } from "@/components/account";
@@ -87,7 +86,6 @@ export default function Account() {
         </Card>
       </View>
 
-      <AppVersion style={{ marginTop: 32, marginBottom: 24 }} />
     </ScrollView>
   );
 }

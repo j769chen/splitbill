@@ -2,7 +2,6 @@ export { ProfileAvatar } from "./ProfileAvatar";
 export { ProfileHeader } from "./ProfileHeader";
 export { SettingsLinkRow } from "./SettingsLinkRow";
 export { NotificationToggleItem } from "./NotificationToggleItem";
-export { AppVersion } from "./AppVersion";
 
 // FaqItem is intentionally not re-exported here: it depends on
 // react-native-reanimated, which is not initialized in the Jest environment.
