@@ -284,6 +284,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.get_user_ids_by_email(emails TEXT[])
 RETURNS TABLE (id UUID, email TEXT) AS $$
 BEGIN
+  IF array_length(emails, 1) > 20 THEN
+    RAISE EXCEPTION 'Too many emails requested';
+  END IF;
+
   RETURN QUERY
   SELECT au.id, au.email::TEXT
   FROM auth.users au

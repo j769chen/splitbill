@@ -44,4 +44,22 @@ describe("SQL security guards", () => {
       /p_user_id <> auth\.uid\(\)/i
     );
   });
+
+  it("caps email lookup batches to limit account enumeration", () => {
+    const fullSetup = readMigration("000_full_setup.sql");
+
+    expect(functionBody(fullSetup, "get_user_ids_by_email")).toMatch(
+      /array_length\(emails,\s*1\)\s*>\s*20/i
+    );
+  });
+
+  it("patches existing installs with a capped email lookup RPC", () => {
+    const patchName = "011_limit_user_email_lookup.sql";
+
+    expect(existsSync(migrationPath(patchName))).toBe(true);
+    const patch = readMigration(patchName);
+    expect(functionBody(patch, "get_user_ids_by_email")).toMatch(
+      /array_length\(emails,\s*1\)\s*>\s*20/i
+    );
+  });
 });
