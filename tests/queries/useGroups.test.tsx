@@ -4,8 +4,10 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import {
   useGroups,
+  useGroup,
   useCreateGroup,
   useCheckEmailExists,
+  useLeaveGroup,
 } from "@/lib/queries/useGroups";
 
 jest.mock("@/lib/supabase", () => ({
@@ -58,6 +60,66 @@ describe("useGroups", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual([{ id: "g1", name: "Trip" }]);
     expect(groupsBuilder.in).toHaveBeenCalledWith("id", ["g1", "g2"]);
+  });
+});
+
+describe("useGroup", () => {
+  it("fetches a single group by id", async () => {
+    const group = { id: "g1", name: "Trip" };
+    const builder = queryBuilder({ data: group, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useGroup("g1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(group);
+    expect(builder.eq).toHaveBeenCalledWith("id", "g1");
+    expect(builder.single).toHaveBeenCalled();
+  });
+
+  it("surfaces query errors", async () => {
+    mockedSupabase.from.mockReturnValue(
+      queryBuilder({ data: null, error: new Error("missing") })
+    );
+
+    const { result } = await renderHook(() => useGroup("g1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe("useLeaveGroup", () => {
+  it("calls the leave_group RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
+
+    const { result } = await renderHook(() => useLeaveGroup(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() => result.current.mutateAsync("g1"));
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("leave_group", {
+      p_group_id: "g1",
+    });
+  });
+
+  it("propagates RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: new Error("cannot leave"),
+    });
+
+    const { result } = await renderHook(() => useLeaveGroup(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() => result.current.mutateAsync("g1"))
+    ).rejects.toThrow("cannot leave");
   });
 });
 

@@ -1,8 +1,13 @@
-import { renderHook } from "@testing-library/react-native";
+import { renderHook, waitFor } from "@testing-library/react-native";
 import { actAsync, createWrapper, queryBuilder } from "../helpers/testUtils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
-import { useCreateExpense, useDeleteExpense } from "@/lib/queries/useExpenses";
+import {
+  useCreateExpense,
+  useDeleteExpense,
+  useExpenses,
+  useRecentActivity,
+} from "@/lib/queries/useExpenses";
 
 jest.mock("@/lib/supabase", () => ({
   supabase: { from: jest.fn(), rpc: jest.fn() },
@@ -18,6 +23,66 @@ const mockedUseAuth = useAuth as unknown as jest.Mock;
 beforeEach(() => {
   jest.clearAllMocks();
   mockedUseAuth.mockReturnValue({ user: { id: "user-1" } });
+});
+
+describe("useRecentActivity", () => {
+  it("fetches the recent expenses ordered by date", async () => {
+    const rows = [{ id: "exp-1", description: "Lunch" }];
+    const builder = queryBuilder({ data: rows, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useRecentActivity(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(rows);
+    expect(mockedSupabase.from).toHaveBeenCalledWith("expenses");
+    expect(builder.order).toHaveBeenCalledWith("date", { ascending: false });
+    expect(builder.limit).toHaveBeenCalledWith(50);
+  });
+
+  it("surfaces query errors", async () => {
+    mockedSupabase.from.mockReturnValue(
+      queryBuilder({ data: null, error: new Error("boom") })
+    );
+
+    const { result } = await renderHook(() => useRecentActivity(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error).toEqual(new Error("boom"));
+  });
+});
+
+describe("useExpenses", () => {
+  it("fetches expenses for a group ordered by date", async () => {
+    const rows = [{ id: "exp-1" }];
+    const builder = queryBuilder({ data: rows, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useExpenses("g1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(rows);
+    expect(builder.eq).toHaveBeenCalledWith("group_id", "g1");
+    expect(builder.order).toHaveBeenCalledWith("date", { ascending: false });
+  });
+
+  it("surfaces query errors", async () => {
+    mockedSupabase.from.mockReturnValue(
+      queryBuilder({ data: null, error: new Error("nope") })
+    );
+
+    const { result } = await renderHook(() => useExpenses("g1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
 });
 
 describe("useCreateExpense", () => {

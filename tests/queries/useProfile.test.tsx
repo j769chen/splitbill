@@ -54,4 +54,21 @@ describe("useUpdateProfile", () => {
 
     expect(mockedSupabase.auth.updateUser).not.toHaveBeenCalled();
   });
+
+  it("propagates an auth metadata update error", async () => {
+    const builder = queryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+    mockedSupabase.auth.updateUser.mockResolvedValue({
+      data: {},
+      error: new Error("auth down"),
+    });
+
+    const { result } = await renderHook(() => useUpdateProfile(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() => result.current.mutateAsync({ fullName: "New Name" }))
+    ).rejects.toThrow("auth down");
+  });
 });

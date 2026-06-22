@@ -46,6 +46,19 @@ describe("useGroupBalances", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual([]);
   });
+
+  it("surfaces RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: new Error("rpc boom"),
+    });
+
+    const { result } = await renderHook(() => useGroupBalances("g1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
 });
 
 describe("useUserTotalBalance", () => {
@@ -80,5 +93,18 @@ describe("useUserTotalBalance", () => {
       totalOwing: 0,
       net: 0,
     });
+  });
+
+  it("surfaces RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: new Error("rpc boom"),
+    });
+
+    const { result } = await renderHook(() => useUserTotalBalance(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });

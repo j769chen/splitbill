@@ -1,0 +1,47 @@
+import { fireEvent, screen } from "@testing-library/react-native";
+import { Button } from "react-native-paper";
+import { renderWithPaper } from "../helpers/testUtils";
+import { SnackbarProvider, useSnackbar } from "@/lib/snackbar";
+
+function Trigger() {
+  const { showError, showSuccess, hide } = useSnackbar();
+  return (
+    <>
+      <Button onPress={() => showError("Something failed")}>Error</Button>
+      <Button onPress={() => showSuccess("Saved!")}>Success</Button>
+      <Button onPress={hide}>Hide</Button>
+    </>
+  );
+}
+
+function renderWithSnackbar() {
+  return renderWithPaper(
+    <SnackbarProvider>
+      <Trigger />
+    </SnackbarProvider>
+  );
+}
+
+describe("SnackbarProvider / useSnackbar", () => {
+  it("shows an error message", async () => {
+    await renderWithSnackbar();
+
+    await fireEvent.press(screen.getByText("Error"));
+
+    expect(screen.getByText("Something failed")).toBeTruthy();
+  });
+
+  it("shows a success message", async () => {
+    await renderWithSnackbar();
+
+    await fireEvent.press(screen.getByText("Success"));
+
+    expect(screen.getByText("Saved!")).toBeTruthy();
+  });
+
+  it("throws when used outside of a provider", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await expect(renderWithPaper(<Trigger />)).rejects.toThrow();
+    spy.mockRestore();
+  });
+});

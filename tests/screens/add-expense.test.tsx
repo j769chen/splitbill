@@ -114,4 +114,98 @@ describe("AddExpense screen", () => {
     );
     expect(mockBack).not.toHaveBeenCalled();
   });
+
+  async function fillBasics() {
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("What was this expense for?"),
+      "Dinner"
+    );
+    await fireEvent.changeText(screen.getByPlaceholderText("0.00"), "30");
+  }
+
+  it("submits an exact split with per-member amounts", async () => {
+    await renderWithPaper(<AddExpense />);
+    await fillBasics();
+
+    await fireEvent.press(screen.getByText("Exact"));
+    const inputs = screen.getAllByPlaceholderText("$0.00");
+    await fireEvent.changeText(inputs[0], "10");
+    await fireEvent.changeText(inputs[1], "12");
+    await fireEvent.changeText(inputs[2], "8");
+
+    await fireEvent.press(screen.getByText("Add Expense"));
+
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        splitType: "exact",
+        splits: [
+          { userId: "u1", amount: 10 },
+          { userId: "u2", amount: 12 },
+          { userId: "u3", amount: 8 },
+        ],
+      })
+    );
+  });
+
+  it("rejects an exact split that does not reconcile to the total", async () => {
+    await renderWithPaper(<AddExpense />);
+    await fillBasics();
+
+    await fireEvent.press(screen.getByText("Exact"));
+    const inputs = screen.getAllByPlaceholderText("$0.00");
+    await fireEvent.changeText(inputs[0], "10");
+    await fireEvent.changeText(inputs[1], "10");
+    await fireEvent.changeText(inputs[2], "5");
+
+    await fireEvent.press(screen.getByText("Add Expense"));
+
+    expect(mockShowError).toHaveBeenCalledWith(
+      "Split amounts ($25.00) don't add up to total ($30.00)"
+    );
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("submits a percentage split distributing the total", async () => {
+    await renderWithPaper(<AddExpense />);
+    await fillBasics();
+
+    await fireEvent.press(screen.getByText("%"));
+    const inputs = screen.getAllByPlaceholderText("%");
+    await fireEvent.changeText(inputs[0], "50");
+    await fireEvent.changeText(inputs[1], "30");
+    await fireEvent.changeText(inputs[2], "20");
+
+    await fireEvent.press(screen.getByText("Add Expense"));
+
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        splitType: "percentage",
+        splits: [
+          { userId: "u1", amount: 15 },
+          { userId: "u2", amount: 9 },
+          { userId: "u3", amount: 6 },
+        ],
+      })
+    );
+  });
+
+  it("rejects a percentage split that does not total 100%", async () => {
+    await renderWithPaper(<AddExpense />);
+    await fillBasics();
+
+    await fireEvent.press(screen.getByText("%"));
+    const inputs = screen.getAllByPlaceholderText("%");
+    await fireEvent.changeText(inputs[0], "40");
+    await fireEvent.changeText(inputs[1], "40");
+    await fireEvent.changeText(inputs[2], "10");
+
+    await fireEvent.press(screen.getByText("Add Expense"));
+
+    expect(mockShowError).toHaveBeenCalledWith(
+      "Percentages must add up to 100% (currently 90.0%)"
+    );
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
 });
