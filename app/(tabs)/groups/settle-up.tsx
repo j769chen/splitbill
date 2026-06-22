@@ -6,13 +6,14 @@ import {
   Platform,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Button, Card, RadioButton, Text, TextInput } from "react-native-paper";
+import { Button, Text, TextInput } from "react-native-paper";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
-import { getErrorMessage, simplifyDebts, formatCurrency } from "@/lib/utils";
+import { getErrorMessage, simplifyDebts } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { DebtCard, EmptyState } from "@/components/groups";
 
 export default function SettleUp() {
   const theme = useAppTheme();
@@ -69,17 +70,7 @@ export default function SettleUp() {
     >
       <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
         {userDebts.length === 0 ? (
-          <View style={{ alignItems: "center", paddingVertical: 80 }}>
-            <Text
-              variant="titleMedium"
-              style={{
-                color: theme.colors.onSurfaceVariant,
-                textAlign: "center",
-              }}
-            >
-              You're all settled up in this group!
-            </Text>
-          </View>
+          <EmptyState title="You're all settled up in this group!" />
         ) : (
           <>
             <Text
@@ -89,70 +80,19 @@ export default function SettleUp() {
               Select a payment to settle
             </Text>
             <View style={{ gap: 8 }}>
-              {userDebts.map((debt, idx) => {
-                const isFrom = debt.from === user?.id;
-                const selected = selectedDebt === idx;
-                return (
-                  <Card
-                    key={idx}
-                    mode={selected ? "contained" : "outlined"}
-                    style={
-                      selected
-                        ? { backgroundColor: theme.colors.primaryContainer }
-                        : undefined
-                    }
-                    onPress={() => {
-                      setSelectedDebt(idx);
-                      setAmount(debt.amount.toFixed(2));
-                    }}
-                  >
-                    <Card.Content
-                      style={{ flexDirection: "row", alignItems: "center" }}
-                    >
-                      <RadioButton
-                        value={String(idx)}
-                        status={selected ? "checked" : "unchecked"}
-                        onPress={() => {
-                          setSelectedDebt(idx);
-                          setAmount(debt.amount.toFixed(2));
-                        }}
-                      />
-                      <View style={{ flex: 1, marginLeft: 8 }}>
-                        <Text
-                          variant="bodyMedium"
-                          style={{ color: theme.colors.onSurface }}
-                        >
-                          {isFrom ? (
-                            <>
-                              You pay{" "}
-                              <Text style={{ fontWeight: "600" }}>
-                                {debt.to_name}
-                              </Text>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={{ fontWeight: "600" }}>
-                                {debt.from_name}
-                              </Text>{" "}
-                              pays you
-                            </>
-                          )}
-                        </Text>
-                        <Text
-                          variant="titleMedium"
-                          style={{
-                            fontWeight: "bold",
-                            color: theme.colors.primary,
-                            marginTop: 2,
-                          }}
-                        >
-                          {formatCurrency(debt.amount)}
-                        </Text>
-                      </View>
-                    </Card.Content>
-                  </Card>
-                );
-              })}
+              {userDebts.map((debt, idx) => (
+                <DebtCard
+                  key={idx}
+                  debt={debt}
+                  index={idx}
+                  isFrom={debt.from === user?.id}
+                  selected={selectedDebt === idx}
+                  onSelect={() => {
+                    setSelectedDebt(idx);
+                    setAmount(debt.amount.toFixed(2));
+                  }}
+                />
+              ))}
             </View>
 
             {selectedDebt !== null && (

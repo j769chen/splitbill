@@ -2,24 +2,21 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import {
-  Button,
-  Card,
-  Divider,
-  IconButton,
-  List,
-  SegmentedButtons,
-  Text,
-} from "react-native-paper";
+import { Button, SegmentedButtons } from "react-native-paper";
 import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
-import { formatCurrency, getErrorMessage, simplifyDebts } from "@/lib/utils";
+import { getErrorMessage, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
+import {
+  EmptyState,
+  ExpenseCard,
+  MemberBalanceCard,
+} from "@/components/groups";
 
 type TabType = "expenses" | "balances";
 
@@ -206,108 +203,19 @@ export default function GroupDetail() {
           {activeTab === "expenses" ? (
             <>
               {!visibleExpenses || visibleExpenses.length === 0 ? (
-                <View style={{ alignItems: "center", paddingVertical: 80 }}>
-                  <MaterialCommunityIcons
-                    name="receipt-text-outline"
-                    size={64}
-                    color={theme.colors.onSurfaceDisabled}
-                  />
-                  <Text
-                    variant="titleMedium"
-                    style={{
-                      color: theme.colors.onSurfaceVariant,
-                      marginTop: 16,
-                    }}
-                  >
-                    No expenses yet
-                  </Text>
-                </View>
+                <EmptyState
+                  icon="receipt-text-outline"
+                  title="No expenses yet"
+                />
               ) : (
                 <View style={{ gap: 12 }}>
                   {visibleExpenses.map((expense) => (
-                    <Card
+                    <ExpenseCard
                       key={expense.id}
-                      mode="elevated"
-                      onLongPress={() => handleDeleteExpense(expense.id)}
-                    >
-                      <Card.Content>
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                          <View style={{ flex: 1 }}>
-                            <Text
-                              variant="titleMedium"
-                              style={{ fontWeight: "600" }}
-                            >
-                              {expense.description}
-                            </Text>
-                            <Text
-                              variant="bodySmall"
-                              style={{ color: theme.colors.onSurfaceVariant }}
-                            >
-                              Paid by{" "}
-                              {expense.payer?.full_name ??
-                                (expense.paid_by === user?.id
-                                  ? "you"
-                                  : "someone")}
-                            </Text>
-                          </View>
-                          <View style={{ flexDirection: "row", alignItems: "center" }}>
-                            <Text
-                              variant="titleMedium"
-                              style={{ fontWeight: "bold" }}
-                            >
-                              {formatCurrency(expense.amount)}
-                            </Text>
-                            {expense.paid_by === user?.id && (
-                              <IconButton
-                                icon="trash-can-outline"
-                                size={18}
-                                iconColor={theme.colors.error}
-                                onPress={() => handleDeleteExpense(expense.id)}
-                                style={{ margin: 0, marginLeft: 4 }}
-                              />
-                            )}
-                          </View>
-                        </View>
-                        {expense.expense_splits &&
-                          expense.expense_splits.length > 0 && (
-                            <View style={{ marginTop: 12, paddingTop: 12 }}>
-                              <Divider style={{ marginBottom: 8 }} />
-                              {expense.expense_splits.map((split) => (
-                                <View
-                                  key={split.id}
-                                  style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}
-                                >
-                                  <Text
-                                    variant="bodySmall"
-                                    style={{
-                                      color: theme.colors.onSurfaceVariant,
-                                    }}
-                                  >
-                                    {split.profiles?.full_name ?? "Unknown"}
-                                  </Text>
-                                  <Text
-                                    variant="bodySmall"
-                                    style={{
-                                      color: theme.colors.onSurfaceVariant,
-                                    }}
-                                  >
-                                    {formatCurrency(split.amount)}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          )}
-                        <Text
-                          variant="labelSmall"
-                          style={{
-                            color: theme.colors.onSurfaceVariant,
-                            marginTop: 8,
-                          }}
-                        >
-                          {new Date(expense.date).toLocaleDateString()}
-                        </Text>
-                      </Card.Content>
-                    </Card>
+                      expense={expense}
+                      currentUserId={user?.id}
+                      onDelete={handleDeleteExpense}
+                    />
                   ))}
                 </View>
               )}
@@ -316,160 +224,22 @@ export default function GroupDetail() {
             <>
               {balances && balances.length > 0 && (
                 <View style={{ gap: 12 }}>
-                  {balances.map((b) => {
-                    const breakdown = memberBreakdown(b.user_id);
-                    const isOwed = b.balance > 0.01;
-                    const isOwing = b.balance < -0.01;
-                    const summary = isOwed
-                      ? "is owed overall"
-                      : isOwing
-                        ? "owes overall"
-                        : "settled up";
-                    const accent = balanceColor(b.balance);
-                    return (
-                      <Card
-                        key={b.user_id}
-                        mode="contained"
-                        style={{ overflow: "hidden", backgroundColor: theme.colors.surfaceVariant }}
-                      >
-                        <List.Accordion
-                          theme={{ colors: { background: "transparent" } }}
-                          title={b.full_name}
-                          titleStyle={{
-                            color: theme.colors.onSurface,
-                            fontWeight: "700",
-                          }}
-
-                          description={summary}
-                          descriptionStyle={{ color: accent }}
-                          left={(props) => (
-                            <View
-                              style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 20,
-                                marginLeft: props.style?.marginLeft,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                backgroundColor: accent + "22",
-                              }}
-                            >
-                              <Text style={{ color: accent, fontWeight: "700" }}>
-                                {b.full_name.trim().charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
-                          )}
-                          right={({ isExpanded }) => (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                              <View
-                                style={{
-                                  paddingHorizontal: 10,
-                                  paddingVertical: 4,
-                                  borderRadius: 999,
-                                  backgroundColor: accent + "22",
-                                }}
-                              >
-                                <Text
-                                  variant="bodyMedium"
-                                  style={{ fontWeight: "700", color: accent }}
-                                >
-                                  {b.balance > 0 ? "+" : ""}
-                                  {formatCurrency(b.balance)}
-                                </Text>
-                              </View>
-                              <List.Icon
-                                icon={isExpanded ? "chevron-up" : "chevron-down"}
-                                color={theme.colors.onSurfaceVariant}
-                              />
-                            </View>
-                          )}
-                        >
-                          <View
-                            style={{
-                              backgroundColor: theme.colors.surfaceVariant,
-                              paddingHorizontal: 16,
-                              paddingVertical: 4,
-                            }}
-                          >
-                            {breakdown.length === 0 ? (
-                              <Text
-                                variant="bodySmall"
-                                style={{
-                                  color: theme.colors.onSurfaceVariant,
-                                  paddingVertical: 10,
-                                }}
-                              >
-                                Settled up with everyone
-                              </Text>
-                            ) : (
-                              breakdown.map((item, i) => {
-                                const itemColor =
-                                  item.direction === "owes"
-                                    ? theme.colors.error
-                                    : theme.colors.success;
-                                return (
-                                  <View
-                                    key={i}
-                                    style={{
-                                      flexDirection: "row",
-                                      alignItems: "center",
-                                      paddingVertical: 8,
-                                      borderTopWidth: i === 0 ? 0 : 1,
-                                      borderTopColor: theme.colors.outlineVariant,
-                                    }}
-                                  >
-                                    <MaterialCommunityIcons
-                                      name={
-                                        item.direction === "owes"
-                                          ? "arrow-top-right"
-                                          : "arrow-bottom-left"
-                                      }
-                                      size={18}
-                                      color={itemColor}
-                                      style={{ marginRight: 8 }}
-                                    />
-                                    <Text
-                                      variant="bodyMedium"
-                                      style={{ color: theme.colors.onSurface, flex: 1 }}
-                                    >
-                                      {item.direction === "owes" ? "Owes " : "Owed by "}
-                                      <Text style={{ fontWeight: "600" }}>{item.name}</Text>
-                                    </Text>
-                                    <Text
-                                      variant="bodyMedium"
-                                      style={{ fontWeight: "700", color: itemColor }}
-                                    >
-                                      {formatCurrency(item.amount)}
-                                    </Text>
-                                  </View>
-                                );
-                              })
-                            )}
-                          </View>
-                        </List.Accordion>
-                      </Card>
-                    );
-                  })}
+                  {balances.map((b) => (
+                    <MemberBalanceCard
+                      key={b.user_id}
+                      balance={b}
+                      breakdown={memberBreakdown(b.user_id)}
+                      accentColor={balanceColor(b.balance)}
+                    />
+                  ))}
                 </View>
               )}
 
               {(!balances || balances.length === 0) && (
-                <View style={{ alignItems: "center", paddingVertical: 80 }}>
-                  <MaterialCommunityIcons
-                    name="check-circle-outline"
-                    size={64}
-                    color={theme.colors.onSurfaceDisabled}
-                  />
-                  <Text
-                    variant="titleMedium"
-                    style={{
-                      color: theme.colors.onSurfaceVariant,
-                      marginTop: 16,
-                    }}
-                  >
-                    All settled up!
-                  </Text>
-                </View>
+                <EmptyState
+                  icon="check-circle-outline"
+                  title="All settled up!"
+                />
               )}
             </>
           )}

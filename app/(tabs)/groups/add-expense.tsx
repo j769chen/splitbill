@@ -6,21 +6,14 @@ import {
   Platform,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import {
-  Button,
-  Checkbox,
-  Menu,
-  SegmentedButtons,
-  Text,
-  TextInput,
-  TouchableRipple,
-} from "react-native-paper";
+import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
 import { computeSplits, getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { MemberSplitRow, PaidByPicker } from "@/components/groups";
 import type { SplitType } from "@/lib/types";
 
 export default function AddExpense() {
@@ -37,7 +30,6 @@ export default function AddExpense() {
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [paidByMenuVisible, setPaidByMenuVisible] = useState(false);
 
   const members = group?.group_members ?? [];
   const totalAmount = parseFloat(amount) || 0;
@@ -45,9 +37,6 @@ export default function AddExpense() {
   const memberName = (member: { user_id: string; profiles?: { full_name?: string } | null }) =>
     member.profiles?.full_name ??
     (member.user_id === user?.id ? "You" : "Unknown");
-
-  const paidByMember = members.find((m) => m.user_id === paidBy);
-  const paidByLabel = paidByMember ? memberName(paidByMember) : "Select a person";
 
   useEffect(() => {
     if (group?.group_members) {
@@ -142,44 +131,12 @@ export default function AddExpense() {
           />
         </View>
 
-        <View style={{ marginTop: 24 }}>
-          <Text
-            variant="labelLarge"
-            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
-          >
-            Paid by
-          </Text>
-          <Menu
-            visible={paidByMenuVisible}
-            onDismiss={() => setPaidByMenuVisible(false)}
-            anchor={
-              <TouchableRipple onPress={() => setPaidByMenuVisible(true)}>
-                <View pointerEvents="none">
-                  <TextInput
-                    mode="outlined"
-                    editable={false}
-                    value={paidByLabel}
-                    right={<TextInput.Icon icon="menu-down" />}
-                  />
-                </View>
-              </TouchableRipple>
-            }
-          >
-            {members.map((member) => (
-              <Menu.Item
-                key={member.user_id}
-                title={memberName(member)}
-                trailingIcon={
-                  paidBy === member.user_id ? "check" : undefined
-                }
-                onPress={() => {
-                  setPaidBy(member.user_id);
-                  setPaidByMenuVisible(false);
-                }}
-              />
-            ))}
-          </Menu>
-        </View>
+        <PaidByPicker
+          members={members}
+          paidBy={paidBy}
+          onSelect={setPaidBy}
+          getMemberName={memberName}
+        />
 
         <View style={{ marginTop: 24 }}>
           <Text
@@ -209,79 +166,26 @@ export default function AddExpense() {
           <View style={{ gap: 8 }}>
             {members.map((member) => {
               const isSelected = selectedMembers.includes(member.user_id);
-              const name = memberName(member);
               const perPerson =
                 splitType === "equal" && isSelected && selectedMembers.length > 0
                   ? totalAmount / selectedMembers.length
                   : 0;
 
               return (
-                <View key={member.user_id}>
-                  <TouchableRipple
-                    onPress={() => toggleMember(member.user_id)}
-                    borderless
-                    style={{
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isSelected
-                        ? theme.colors.primary
-                        : theme.colors.outline,
-                      backgroundColor: isSelected
-                        ? theme.colors.primaryContainer
-                        : theme.colors.surface,
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center", padding: 12 }}>
-                      <Checkbox
-                        status={isSelected ? "checked" : "unchecked"}
-                        onPress={() => toggleMember(member.user_id)}
-                      />
-                      <Text
-                        variant="bodyMedium"
-                        style={{
-                          flex: 1,
-                          marginLeft: 8,
-                          fontWeight: "500",
-                          color: isSelected
-                            ? theme.colors.onPrimaryContainer
-                            : theme.colors.onSurface,
-                        }}
-                      >
-                        {name}
-                      </Text>
-                      {splitType === "equal" &&
-                        isSelected &&
-                        totalAmount > 0 && (
-                          <Text
-                            variant="bodyMedium"
-                            style={{
-                              fontWeight: "600",
-                              color: theme.colors.primary,
-                            }}
-                          >
-                            ${perPerson.toFixed(2)}
-                          </Text>
-                        )}
-                    </View>
-                  </TouchableRipple>
-
-                  {isSelected && splitType !== "equal" && (
-                    <TextInput
-                      mode="outlined"
-                      dense
-                      style={{ marginTop: 4, marginLeft: 32 }}
-                      placeholder={splitType === "percentage" ? "%" : "$0.00"}
-                      value={customSplits[member.user_id] || ""}
-                      onChangeText={(val) =>
-                        setCustomSplits({
-                          ...customSplits,
-                          [member.user_id]: val,
-                        })
-                      }
-                      keyboardType="decimal-pad"
-                    />
-                  )}
-                </View>
+                <MemberSplitRow
+                  key={member.user_id}
+                  userId={member.user_id}
+                  name={memberName(member)}
+                  isSelected={isSelected}
+                  splitType={splitType}
+                  perPerson={perPerson}
+                  totalAmount={totalAmount}
+                  customValue={customSplits[member.user_id] || ""}
+                  onToggle={toggleMember}
+                  onChangeCustom={(userId: string, val: string) =>
+                    setCustomSplits((prev) => ({ ...prev, [userId]: val }))
+                  }
+                />
               );
             })}
           </View>

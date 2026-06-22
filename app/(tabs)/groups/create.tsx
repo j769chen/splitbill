@@ -1,23 +1,13 @@
 import { useState } from "react";
-import {
-  View,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { router } from "expo-router";
-import {
-  ActivityIndicator,
-  Button,
-  Chip,
-  IconButton,
-  TextInput,
-} from "react-native-paper";
+import { Button, TextInput } from "react-native-paper";
 import { useCheckEmailExists, useCreateGroup } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
+import { MemberEmailInput } from "@/components/groups";
 
 export default function CreateGroup() {
   const theme = useAppTheme();
@@ -113,58 +103,14 @@ export default function CreateGroup() {
           autoFocus
         />
 
-        <View style={{ marginTop: 24 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TextInput
-              mode="outlined"
-              label="Add Members by Email"
-              placeholder="friend@example.com"
-              value={emailInput}
-              onChangeText={setEmailInput}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onSubmitEditing={addEmail}
-              returnKeyType="done"
-              editable={!checkEmail.isPending}
-              style={{ flex: 1 }}
-            />
-            {checkEmail.isPending ? (
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <ActivityIndicator color={theme.colors.primary} />
-              </View>
-            ) : (
-              <IconButton
-                mode="contained"
-                icon="plus"
-                size={24}
-                onPress={addEmail}
-                containerColor={theme.colors.primary}
-                iconColor={theme.colors.onPrimary}
-              />
-            )}
-          </View>
-        </View>
-
-        {memberEmails.length > 0 && (
-          <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {memberEmails.map((email) => (
-              <Chip
-                key={email}
-                icon="account"
-                onClose={() => removeEmail(email)}
-              >
-                {email}
-              </Chip>
-            ))}
-          </View>
-        )}
+        <MemberEmailInput
+          value={emailInput}
+          onChangeText={setEmailInput}
+          onAdd={addEmail}
+          onRemove={removeEmail}
+          emails={memberEmails}
+          isPending={checkEmail.isPending}
+        />
 
         <Button
           mode="contained"

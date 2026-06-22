@@ -1,15 +1,9 @@
 import { View, FlatList, RefreshControl } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import {
-  ActivityIndicator,
-  Avatar,
-  Card,
-  FAB,
-  Text,
-} from "react-native-paper";
+import { ActivityIndicator, FAB } from "react-native-paper";
 import { useGroups } from "@/lib/queries/useGroups";
 import { useAppTheme } from "@/lib/theme";
+import { EmptyState, GroupListItem } from "@/components/groups";
 import { useState, useCallback } from "react";
 
 export default function GroupsList() {
@@ -45,60 +39,17 @@ export default function GroupsList() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
-            <MaterialCommunityIcons
-              name="account-group-outline"
-              size={64}
-              color={theme.colors.onSurfaceDisabled}
-            />
-            <Text
-              variant="titleMedium"
-              style={{ color: theme.colors.onSurfaceVariant, marginTop: 16 }}
-            >
-              No groups yet
-            </Text>
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
-            >
-              Tap + to create your first group
-            </Text>
-          </View>
+          <EmptyState
+            icon="account-group-outline"
+            title="No groups yet"
+            subtitle="Tap + to create your first group"
+          />
         }
         renderItem={({ item }) => (
-          <Card
-            mode="elevated"
-            style={{ marginBottom: 12 }}
+          <GroupListItem
+            group={item}
             onPress={() => router.push(`/(tabs)/groups/${item.id}`)}
-          >
-            <Card.Content
-              style={{ flexDirection: "row", alignItems: "center" }}
-            >
-              <Avatar.Text
-                size={52}
-                label={item.name.charAt(0).toUpperCase()}
-                style={{ backgroundColor: theme.colors.primaryContainer }}
-                labelStyle={{ color: theme.colors.onPrimaryContainer }}
-              />
-              <View style={{ marginLeft: 16, flex: 1 }}>
-                <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                  {item.name}
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant }}
-                >
-                  {item.group_members.length} member
-                  {item.group_members.length !== 1 ? "s" : ""}
-                </Text>
-              </View>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={20}
-                color={theme.colors.onSurfaceVariant}
-              />
-            </Card.Content>
-          </Card>
+          />
         )}
       />
 
