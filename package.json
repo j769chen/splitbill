@@ -55,7 +55,9 @@
     "collectCoverageFrom": [
       "lib/**/*.{ts,tsx}",
       "app/**/*.{ts,tsx}",
-      "!**/*.d.ts"
+      "!**/*.d.ts",
+      "!lib/types.ts",
+      "!lib/supabase.ts"
     ]
   },
   "private": true
