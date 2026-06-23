@@ -40,8 +40,12 @@ export function renderWithPaper(ui: ReactElement) {
 export function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
+      // gcTime: 0 on both queries and mutations so cache entries are garbage
+      // collected immediately when their observers unmount. Without it the
+      // MutationCache keeps a 5-minute GC timer alive, which leaves the Jest
+      // worker hanging (and force-exited) after the tests finish.
       queries: { retry: false, gcTime: 0 },
-      mutations: { retry: false },
+      mutations: { retry: false, gcTime: 0 },
     },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
