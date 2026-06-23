@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import type {
   ContactExpenseWithSplits,
   ContactWithBalance,
+  Profile,
   SplitType,
 } from "../types";
 import { useAuth } from "../auth";
@@ -10,6 +11,51 @@ import { validateSplitsTotal } from "../utils";
 
 function sortPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
+}
+
+export interface ActivityContactExpense {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  paid_by: string;
+  user_lo: string;
+  user_hi: string;
+  payer: Profile | null;
+  user_lo_profile: Profile | null;
+  user_hi_profile: Profile | null;
+}
+
+export function useRecentContactActivity() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["contact-activity", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contact_expenses")
+        .select(
+          `
+          id,
+          description,
+          amount,
+          date,
+          paid_by,
+          user_lo,
+          user_hi,
+          payer:profiles!contact_expenses_paid_by_fkey (*),
+          user_lo_profile:profiles!contact_expenses_user_lo_fkey (*),
+          user_hi_profile:profiles!contact_expenses_user_hi_fkey (*)
+        `
+        )
+        .order("date", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data as unknown as ActivityContactExpense[];
+    },
+    enabled: !!user,
+  });
 }
 
 export function useContacts() {
@@ -155,7 +201,7 @@ export function useCreateContactExpense() {
         queryKey: ["contact-balance", user?.id, variables.contactUserId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
     },
   });
 }
@@ -187,7 +233,7 @@ export function useDeleteContactExpense() {
         queryKey: ["contact-balance", user?.id, variables.contactUserId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
     },
   });
 }

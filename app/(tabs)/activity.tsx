@@ -9,6 +9,10 @@ import {
   useRecentPayments,
   type ActivityPayment,
 } from "@/lib/queries/usePayments";
+import {
+  useRecentContactActivity,
+  type ActivityContactExpense,
+} from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
@@ -16,7 +20,12 @@ import { useState, useCallback } from "react";
 
 type ActivityFeedItem =
   | { kind: "expense"; ts: string; expense: ActivityExpense }
-  | { kind: "payment"; ts: string; payment: ActivityPayment };
+  | { kind: "payment"; ts: string; payment: ActivityPayment }
+  | {
+      kind: "contact-expense";
+      ts: string;
+      contactExpense: ActivityContactExpense;
+    };
 
 export default function Activity() {
   const theme = useAppTheme();
@@ -31,15 +40,25 @@ export default function Activity() {
     refetch: refetchPayments,
     isLoading: paymentsLoading,
   } = useRecentPayments();
+  const {
+    data: contactExpenses,
+    refetch: refetchContactExpenses,
+    isLoading: contactExpensesLoading,
+  } = useRecentContactActivity();
   const [refreshing, setRefreshing] = useState(false);
 
-  const isLoading = expensesLoading || paymentsLoading;
+  const isLoading =
+    expensesLoading || paymentsLoading || contactExpensesLoading;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchExpenses(), refetchPayments()]);
+    await Promise.all([
+      refetchExpenses(),
+      refetchPayments(),
+      refetchContactExpenses(),
+    ]);
     setRefreshing(false);
-  }, [refetchExpenses, refetchPayments]);
+  }, [refetchExpenses, refetchPayments, refetchContactExpenses]);
 
   const feed: ActivityFeedItem[] = [
     ...(expenses ?? []).map(
@@ -54,6 +73,13 @@ export default function Activity() {
         kind: "payment",
         ts: payment.created_at,
         payment,
+      })
+    ),
+    ...(contactExpenses ?? []).map(
+      (contactExpense): ActivityFeedItem => ({
+        kind: "contact-expense",
+        ts: contactExpense.date,
+        contactExpense,
       })
     ),
   ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
@@ -72,11 +98,16 @@ export default function Activity() {
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <FlatList
         data={feed}
-        keyExtractor={(item) =>
-          item.kind === "expense"
-            ? `expense-${item.expense.id}`
-            : `payment-${item.payment.id}`
-        }
+        keyExtractor={(item) => {
+          switch (item.kind) {
+            case "expense":
+              return `expense-${item.expense.id}`;
+            case "payment":
+              return `payment-${item.payment.id}`;
+            case "contact-expense":
+              return `contact-expense-${item.contactExpense.id}`;
+          }
+        }}
         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -106,13 +137,23 @@ export default function Activity() {
             </Text>
           </View>
         }
-        renderItem={({ item }) =>
-          item.kind === "expense" ? (
-            <ExpenseRow item={item.expense} currentUserId={user?.id} />
-          ) : (
-            <PaymentRow item={item.payment} currentUserId={user?.id} />
-          )
-        }
+        renderItem={({ item }) => {
+          switch (item.kind) {
+            case "expense":
+              return <ExpenseRow item={item.expense} currentUserId={user?.id} />;
+            case "payment":
+              return (
+                <PaymentRow item={item.payment} currentUserId={user?.id} />
+              );
+            case "contact-expense":
+              return (
+                <ContactExpenseRow
+                  item={item.contactExpense}
+                  currentUserId={user?.id}
+                />
+              );
+          }
+        }}
       />
     </View>
   );
@@ -151,6 +192,65 @@ function ExpenseRow({
                 style={{ color: theme.colors.onSurfaceVariant }}
               >
                 {payerName} paid in {item.groups?.name ?? "a group"}
+              </Text>
+            </View>
+          </View>
+          <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
+            {formatCurrency(item.amount)}
+          </Text>
+        </View>
+        <Text
+          variant="labelSmall"
+          style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
+        >
+          {new Date(item.date).toLocaleDateString()}
+        </Text>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function ContactExpenseRow({
+  item,
+  currentUserId,
+}: {
+  item: ActivityContactExpense;
+  currentUserId?: string;
+}) {
+  const theme = useAppTheme();
+  const payerName =
+    item.paid_by === currentUserId
+      ? "You"
+      : item.payer?.full_name ?? "Someone";
+  const otherProfile =
+    item.paid_by === item.user_lo
+      ? item.user_hi_profile
+      : item.user_lo_profile;
+  const otherName =
+    otherProfile?.id === currentUserId
+      ? "you"
+      : otherProfile?.full_name ?? "someone";
+
+  return (
+    <Card mode="elevated" style={{ marginBottom: 12 }}>
+      <Card.Content>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+            <MaterialCommunityIcons
+              name="account-cash"
+              size={22}
+              color={theme.colors.onSurfaceVariant}
+              style={{ marginRight: 10 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text variant="titleMedium" style={{ fontWeight: "600" }}>
+                {item.description}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                {payerName} paid · with {otherName}
               </Text>
             </View>
           </View>

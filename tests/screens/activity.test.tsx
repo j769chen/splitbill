@@ -4,14 +4,19 @@ import Activity from "@/app/(tabs)/activity";
 
 const mockRefetch = jest.fn();
 const mockRefetchPayments = jest.fn();
+const mockRefetchContactExpenses = jest.fn();
 
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useExpenses", () => ({ useRecentActivity: jest.fn() }));
 jest.mock("@/lib/queries/usePayments", () => ({ useRecentPayments: jest.fn() }));
+jest.mock("@/lib/queries/useContacts", () => ({
+  useRecentContactActivity: jest.fn(),
+}));
 
 import { useAuth } from "@/lib/auth";
 import { useRecentActivity } from "@/lib/queries/useExpenses";
 import { useRecentPayments } from "@/lib/queries/usePayments";
+import { useRecentContactActivity } from "@/lib/queries/useContacts";
 
 function setActivity(overrides?: { data?: unknown; isLoading?: boolean }) {
   (useRecentActivity as jest.Mock).mockReturnValue({
@@ -29,13 +34,26 @@ function setPayments(overrides?: { data?: unknown; isLoading?: boolean }) {
   });
 }
 
+function setContactExpenses(overrides?: {
+  data?: unknown;
+  isLoading?: boolean;
+}) {
+  (useRecentContactActivity as jest.Mock).mockReturnValue({
+    data: overrides?.data ?? [],
+    isLoading: overrides?.isLoading ?? false,
+    refetch: mockRefetchContactExpenses,
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockRefetch.mockResolvedValue(undefined);
   mockRefetchPayments.mockResolvedValue(undefined);
+  mockRefetchContactExpenses.mockResolvedValue(undefined);
   (useAuth as jest.Mock).mockReturnValue({ user: { id: "u1" } });
   setActivity();
   setPayments();
+  setContactExpenses();
 });
 
 describe("Activity screen", () => {
@@ -157,6 +175,52 @@ describe("Activity screen", () => {
 
     expect(screen.getByText("Carol paid you")).toBeTruthy();
     expect(screen.getByText("thanks!")).toBeTruthy();
+  });
+
+  it("shows a contact expense the current user paid", async () => {
+    setContactExpenses({
+      data: [
+        {
+          id: "ce1",
+          description: "Movie tickets",
+          amount: 24,
+          date: "2024-01-07",
+          paid_by: "u1",
+          user_lo: "u1",
+          user_hi: "u2",
+          payer: { id: "u1", full_name: "Me" },
+          user_lo_profile: { id: "u1", full_name: "Me" },
+          user_hi_profile: { id: "u2", full_name: "Bob" },
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    expect(screen.getByText("Movie tickets")).toBeTruthy();
+    expect(screen.getByText("You paid · with Bob")).toBeTruthy();
+    expect(screen.getByText("$24.00")).toBeTruthy();
+  });
+
+  it("labels a contact expense paid by the other person", async () => {
+    setContactExpenses({
+      data: [
+        {
+          id: "ce2",
+          description: "Groceries",
+          amount: 40,
+          date: "2024-01-08",
+          paid_by: "u2",
+          user_lo: "u1",
+          user_hi: "u2",
+          payer: { id: "u2", full_name: "Bob" },
+          user_lo_profile: { id: "u1", full_name: "Me" },
+          user_hi_profile: { id: "u2", full_name: "Bob" },
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    expect(screen.getByText("Bob paid · with you")).toBeTruthy();
   });
 
   it("merges expenses and payments newest first", async () => {
