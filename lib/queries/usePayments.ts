@@ -109,6 +109,9 @@ export function useCreatePayment() {
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 }
@@ -139,6 +142,9 @@ export function useDeletePayment() {
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 }

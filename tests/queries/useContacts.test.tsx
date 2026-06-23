@@ -6,6 +6,7 @@ import {
   useContacts,
   useContactBalance,
   useContactExpenses,
+  useContactGroupBreakdown,
   useAddContact,
   useCreateContactExpense,
   useDeleteContactExpense,
@@ -46,7 +47,9 @@ describe("useContacts", () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_contacts_with_balances");
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "get_contacts_with_combined_balances"
+    );
     expect(result.current.data).toEqual([
       {
         contact_user_id: "user-2",
@@ -80,9 +83,12 @@ describe("useContactBalance", () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_contact_balance", {
-      p_contact_user_id: "user-2",
-    });
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "get_contact_combined_balance",
+      {
+        p_contact_user_id: "user-2",
+      }
+    );
     expect(result.current.data).toBe(-7.25);
   });
 });
@@ -117,6 +123,47 @@ describe("useContactExpenses", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(builder.eq).toHaveBeenCalledWith("user_lo", "user-2");
     expect(builder.eq).toHaveBeenCalledWith("user_hi", "user-9");
+  });
+});
+
+describe("useContactGroupBreakdown", () => {
+  it("returns per-group pairwise balances with numeric amounts", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: [
+        { group_id: "g1", group_name: "Ski Trip", balance: "25.5" },
+        { group_id: "g2", group_name: "Roomies", balance: "-10" },
+      ],
+      error: null,
+    });
+
+    const { result } = await renderHook(
+      () => useContactGroupBreakdown("user-2"),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "get_contact_group_breakdown",
+      { p_contact_user_id: "user-2" }
+    );
+    expect(result.current.data).toEqual([
+      { group_id: "g1", group_name: "Ski Trip", balance: 25.5 },
+      { group_id: "g2", group_name: "Roomies", balance: -10 },
+    ]);
+  });
+
+  it("surfaces RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: new Error("boom"),
+    });
+
+    const { result } = await renderHook(
+      () => useContactGroupBreakdown("user-2"),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });
 

@@ -271,6 +271,27 @@ export interface Database {
           balance: number;
         }[];
       };
+      get_contact_combined_balance: {
+        Args: { p_contact_user_id: string };
+        Returns: number;
+      };
+      get_contacts_with_combined_balances: {
+        Args: Record<string, never>;
+        Returns: {
+          contact_user_id: string;
+          full_name: string;
+          avatar_url: string | null;
+          balance: number;
+        }[];
+      };
+      get_contact_group_breakdown: {
+        Args: { p_contact_user_id: string };
+        Returns: {
+          group_id: string;
+          group_name: string;
+          balance: number;
+        }[];
+      };
     };
     Enums: {
       split_type: SplitType;
@@ -329,4 +350,10 @@ export interface PaymentWithProfiles extends Payment {
 
 export interface GroupWithMembers extends Group {
   group_members: (GroupMember & { profiles: Profile })[];
+}
+
+export interface ContactGroupBreakdown {
+  group_id: string;
+  group_name: string;
+  balance: number;
 }

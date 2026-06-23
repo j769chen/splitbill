@@ -49,6 +49,36 @@ describe("SQL security guards", () => {
     );
   });
 
+  it("scopes the contact group-balance RPC to the authenticated caller", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contact_group_balance");
+
+    // Must require an authenticated caller and derive everything from auth.uid()
+    // so it can only ever reveal the caller's own pairwise position.
+    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/e\.paid_by = v_uid/i);
+  });
+
+  it("only returns the caller's own contacts from the combined-balance RPC", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contacts_with_combined_balances");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/c\.owner_id = v_uid/i);
+  });
+
+  it("scopes the per-group contact breakdown to the authenticated caller", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contact_group_breakdown");
+
+    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    // shared_groups intersects the caller's memberships with the contact's,
+    // so only groups the caller belongs to can ever appear.
+    expect(body).toMatch(/where gm\.user_id = v_uid/i);
+  });
+
   it("caps email lookup batches to limit account enumeration", () => {
     const fullSetup = readMigration("000_full_setup.sql");
 

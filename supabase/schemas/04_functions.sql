@@ -562,6 +562,213 @@ begin
 end;
 $$;
 
+-- Pairwise net between the caller and a contact across groups they both belong
+-- to (positive = the contact owes you). Mirrors the sign rules in
+-- get_contact_balance and get_group_balances:
+--   group expense you paid, contact in split    => + contact's split
+--   group expense contact paid, you in split    => - your split
+--   payment you -> contact                       => + amount
+--   payment contact -> you                       => - amount
+create or replace function public.get_contact_group_balance(p_contact_user_id uuid)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_expense_balance numeric(12, 2);
+  v_payment_balance numeric(12, 2);
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_contact_user_id is null or p_contact_user_id = v_uid then
+    return 0;
+  end if;
+
+  select coalesce(sum(
+    case
+      when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.amount
+      when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.amount
+      else 0
+    end
+  ), 0)
+  into v_expense_balance
+  from public.expenses e
+  join public.expense_splits es on es.expense_id = e.id
+  where e.group_id in (
+    select gm.group_id from public.group_members gm where gm.user_id = v_uid
+    intersect
+    select gm.group_id from public.group_members gm where gm.user_id = p_contact_user_id
+  )
+  and (
+    (e.paid_by = v_uid and es.user_id = p_contact_user_id)
+    or (e.paid_by = p_contact_user_id and es.user_id = v_uid)
+  );
+
+  select coalesce(sum(
+    case
+      when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.amount
+      when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.amount
+      else 0
+    end
+  ), 0)
+  into v_payment_balance
+  from public.payments pmt
+  where pmt.group_id in (
+    select gm.group_id from public.group_members gm where gm.user_id = v_uid
+    intersect
+    select gm.group_id from public.group_members gm where gm.user_id = p_contact_user_id
+  )
+  and (
+    (pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id)
+    or (pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid)
+  );
+
+  return coalesce(v_expense_balance, 0) + coalesce(v_payment_balance, 0);
+end;
+$$;
+
+-- Combined display balance for a contact: 1-on-1 ledger + shared-group pairwise
+-- net. Display only; get_user_total_balance must NOT use this (it would
+-- double-count group activity already summed via get_group_balances).
+create or replace function public.get_contact_combined_balance(p_contact_user_id uuid)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return public.get_contact_balance(p_contact_user_id)
+       + public.get_contact_group_balance(p_contact_user_id);
+end;
+$$;
+
+-- Same contact set as get_contacts_with_balances, but each balance folds in the
+-- shared-group pairwise net for display on contact cards.
+create or replace function public.get_contacts_with_combined_balances()
+returns table (
+  contact_user_id uuid,
+  full_name text,
+  avatar_url text,
+  balance numeric(12, 2)
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return query
+  with contact_ids as (
+    select c.contact_user_id as uid
+    from public.contacts c
+    where c.owner_id = v_uid
+    union
+    select case when ce.user_lo = v_uid then ce.user_hi else ce.user_lo end as uid
+    from public.contact_expenses ce
+    where ce.user_lo = v_uid or ce.user_hi = v_uid
+  )
+  select
+    ci.uid,
+    p.full_name,
+    p.avatar_url,
+    public.get_contact_combined_balance(ci.uid) as balance
+  from contact_ids ci
+  join public.profiles p on p.id = ci.uid
+  where ci.uid <> v_uid
+  order by p.full_name;
+end;
+$$;
+
+-- Per-group pairwise balance between the caller and a contact, for groups they
+-- both belong to that have pairwise activity. Same sign rules as
+-- get_contact_group_balance (positive = the contact owes you), but broken out
+-- one row per group so the contact page can show a card per shared group.
+create or replace function public.get_contact_group_breakdown(p_contact_user_id uuid)
+returns table (
+  group_id uuid,
+  group_name text,
+  balance numeric(12, 2)
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_contact_user_id is null or p_contact_user_id = v_uid then
+    return;
+  end if;
+
+  return query
+  with shared_groups as (
+    select gm.group_id as gid from public.group_members gm where gm.user_id = v_uid
+    intersect
+    select gm.group_id as gid from public.group_members gm where gm.user_id = p_contact_user_id
+  ),
+  expense_bal as (
+    select e.group_id as gid, sum(
+      case
+        when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.amount
+        when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.amount
+        else 0
+      end
+    ) as bal
+    from public.expenses e
+    join public.expense_splits es on es.expense_id = e.id
+    where e.group_id in (select sg.gid from shared_groups sg)
+      and (
+        (e.paid_by = v_uid and es.user_id = p_contact_user_id)
+        or (e.paid_by = p_contact_user_id and es.user_id = v_uid)
+      )
+    group by e.group_id
+  ),
+  payment_bal as (
+    select pmt.group_id as gid, sum(
+      case
+        when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.amount
+        when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.amount
+        else 0
+      end
+    ) as bal
+    from public.payments pmt
+    where pmt.group_id in (select sg.gid from shared_groups sg)
+      and (
+        (pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id)
+        or (pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid)
+      )
+    group by pmt.group_id
+  ),
+  combined as (
+    select eb.gid, eb.bal from expense_bal eb
+    union all
+    select pb.gid, pb.bal from payment_bal pb
+  ),
+  per_group as (
+    select c.gid, sum(c.bal) as bal
+    from combined c
+    group by c.gid
+  )
+  select pg.gid, g.name, pg.bal
+  from per_group pg
+  join public.groups g on g.id = pg.gid
+  order by g.name;
+end;
+$$;
+
 -- Folds both group balances and contact balances into the overall total.
 create or replace function public.get_user_total_balance(p_user_id uuid)
 returns table (

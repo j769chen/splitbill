@@ -24,6 +24,7 @@ jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
   useContactBalance: jest.fn(),
   useContactExpenses: jest.fn(),
+  useContactGroupBreakdown: jest.fn(),
   useDeleteContactExpense: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
@@ -35,6 +36,7 @@ import {
   useContacts,
   useContactBalance,
   useContactExpenses,
+  useContactGroupBreakdown,
   useDeleteContactExpense,
 } from "@/lib/queries/useContacts";
 import { useSnackbar } from "@/lib/snackbar";
@@ -55,13 +57,21 @@ const expensesFixture = [
   },
 ];
 
-function setup(overrides?: { balance?: number; expenses?: unknown }) {
+function setup(overrides?: {
+  balance?: number;
+  expenses?: unknown;
+  groupBreakdown?: unknown[];
+}) {
   (useContactBalance as jest.Mock).mockReturnValue({
     data: overrides?.balance ?? 15,
     refetch: jest.fn().mockResolvedValue(undefined),
   });
   (useContactExpenses as jest.Mock).mockReturnValue({
     data: overrides && "expenses" in overrides ? overrides.expenses : expensesFixture,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  });
+  (useContactGroupBreakdown as jest.Mock).mockReturnValue({
+    data: overrides?.groupBreakdown ?? [],
     refetch: jest.fn().mockResolvedValue(undefined),
   });
 }
@@ -127,12 +137,39 @@ describe("ContactDetail screen", () => {
     expect(screen.getByText("You owe Bob")).toBeTruthy();
   });
 
-  it("shows the settled state and empty expenses", async () => {
+  it("shows the settled state and empty activity", async () => {
     setup({ balance: 0, expenses: [] });
     await renderWithPaper(<ContactDetail />);
 
     expect(screen.getByText("You're all settled up")).toBeTruthy();
-    expect(screen.getByText("No expenses yet")).toBeTruthy();
+    expect(screen.getByText("No activity yet")).toBeTruthy();
+  });
+
+  it("shows a card per shared group with the pairwise balance", async () => {
+    setup({
+      groupBreakdown: [
+        { group_id: "g1", group_name: "Ski Trip", balance: 40 },
+        { group_id: "g2", group_name: "Roomies", balance: -15 },
+      ],
+    });
+    await renderWithPaper(<ContactDetail />);
+
+    expect(screen.getByText("In shared groups")).toBeTruthy();
+    expect(screen.getByText("Ski Trip")).toBeTruthy();
+    expect(screen.getByText("Bob owes you $40.00")).toBeTruthy();
+    expect(screen.getByText("Roomies")).toBeTruthy();
+    expect(screen.getByText("You owe $15.00")).toBeTruthy();
+  });
+
+  it("navigates to the group when a shared-group card is pressed", async () => {
+    setup({
+      groupBreakdown: [{ group_id: "g1", group_name: "Ski Trip", balance: 40 }],
+    });
+    await renderWithPaper(<ContactDetail />);
+
+    await fireEvent.press(screen.getByText("Ski Trip"));
+
+    expect(mockPush).toHaveBeenCalledWith("/(tabs)/groups/g1");
   });
 
   it("navigates to add-expense with the contact id", async () => {

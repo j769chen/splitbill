@@ -6,6 +6,13 @@
 
 project_id = "splitbill"
 
+[analytics]
+# Disabled so `supabase start` does not launch the Logflare/`vector` containers.
+# On colima the `vector` container fails to bind-mount the Docker socket
+# (`/Users/.../.colima/default/docker.sock: operation not supported`), which
+# aborts the whole local stack. We don't need log analytics for local dev.
+enabled = false
+
 [db]
 # Postgres major version running on your Supabase project.
 major_version = 15

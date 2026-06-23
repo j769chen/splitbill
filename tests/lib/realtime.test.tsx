@@ -76,6 +76,12 @@ describe("useRealtimeSubscription", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["expenses", "g1"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["balances", "g1"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["total-balance"] });
+    // Group activity feeds combined contact balances, so contact queries refresh.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contacts"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contact-balance"] });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["contact-group-breakdown"],
+    });
 
     // The last registration is for group_members.
     const membersHandler = mockOn.mock.calls[3][2] as () => void;

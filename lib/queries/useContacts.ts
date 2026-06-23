@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type {
   ContactExpenseWithSplits,
+  ContactGroupBreakdown,
   ContactWithBalance,
   Profile,
   SplitType,
@@ -64,7 +65,9 @@ export function useContacts() {
   return useQuery({
     queryKey: ["contacts", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_contacts_with_balances");
+      const { data, error } = await supabase.rpc(
+        "get_contacts_with_combined_balances"
+      );
       if (error) throw error;
       return (data ?? []).map((row) => ({
         ...row,
@@ -81,11 +84,37 @@ export function useContactBalance(contactUserId: string) {
   return useQuery({
     queryKey: ["contact-balance", user?.id, contactUserId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_contact_balance", {
-        p_contact_user_id: contactUserId,
-      });
+      const { data, error } = await supabase.rpc(
+        "get_contact_combined_balance",
+        {
+          p_contact_user_id: contactUserId,
+        }
+      );
       if (error) throw error;
       return Number(data ?? 0);
+    },
+    enabled: !!user && !!contactUserId,
+  });
+}
+
+export function useContactGroupBreakdown(contactUserId: string) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["contact-group-breakdown", user?.id, contactUserId],
+    queryFn: async (): Promise<ContactGroupBreakdown[]> => {
+      const { data, error } = await supabase.rpc(
+        "get_contact_group_breakdown",
+        {
+          p_contact_user_id: contactUserId,
+        }
+      );
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        group_id: row.group_id,
+        group_name: row.group_name,
+        balance: Number(row.balance),
+      }));
     },
     enabled: !!user && !!contactUserId,
   });

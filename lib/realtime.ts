@@ -1,8 +1,16 @@
 import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "./supabase";
 
 let channelSeq = 0;
+
+// Group expenses/payments feed the combined contact balance and the per-group
+// breakdown, so realtime changes must refresh contact queries too.
+function invalidateContactQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ["contacts"] });
+  queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+  queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+}
 
 export function useRealtimeSubscription(groupId: string | undefined) {
   const queryClient = useQueryClient();
@@ -31,6 +39,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
           queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+          invalidateContactQueries(queryClient);
         }
       )
       .on(
@@ -44,6 +53,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
           queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+          invalidateContactQueries(queryClient);
         }
       )
       .on(
@@ -58,6 +68,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
           queryClient.invalidateQueries({ queryKey: ["payments", groupId] });
           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
           queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+          invalidateContactQueries(queryClient);
         }
       )
       .on(

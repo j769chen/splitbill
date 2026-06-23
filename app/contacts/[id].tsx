@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
 import { View, ScrollView, RefreshControl } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
-import { Button, Card, Text } from "react-native-paper";
+import { Avatar, Button, Card, Text } from "react-native-paper";
 import {
   useContacts,
   useContactBalance,
   useContactExpenses,
+  useContactGroupBreakdown,
   useDeleteContactExpense,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
@@ -24,6 +25,8 @@ export default function ContactDetail() {
   const { data: contacts } = useContacts();
   const { data: balance = 0, refetch: refetchBalance } = useContactBalance(id!);
   const { data: expenses, refetch: refetchExpenses } = useContactExpenses(id!);
+  const { data: groupBreakdown, refetch: refetchGroupBreakdown } =
+    useContactGroupBreakdown(id!);
   const deleteContactExpense = useDeleteContactExpense();
   const { showError } = useSnackbar();
   const confirm = useConfirm();
@@ -34,9 +37,17 @@ export default function ContactDetail() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchBalance(), refetchExpenses()]);
+    await Promise.all([
+      refetchBalance(),
+      refetchExpenses(),
+      refetchGroupBreakdown(),
+    ]);
     setRefreshing(false);
-  }, [refetchBalance, refetchExpenses]);
+  }, [refetchBalance, refetchExpenses, refetchGroupBreakdown]);
+
+  const groups = groupBreakdown ?? [];
+  const hasGroups = groups.length > 0;
+  const hasExpenses = (expenses?.length ?? 0) > 0;
 
   const handleDeleteExpense = (expenseId: string) => {
     confirm({
@@ -109,23 +120,98 @@ export default function ContactDetail() {
             </Card.Content>
           </Card>
 
-          {!expenses || expenses.length === 0 ? (
+          {hasGroups && (
+            <View style={{ marginBottom: 16 }}>
+              <Text
+                variant="titleMedium"
+                style={{ fontWeight: "bold", marginBottom: 12 }}
+              >
+                In shared groups
+              </Text>
+              <View style={{ gap: 12 }}>
+                {groups.map((group) => {
+                  const groupOwed = group.balance > 0.01;
+                  const groupOwing = group.balance < -0.01;
+                  const groupColor = groupOwed
+                    ? theme.colors.success
+                    : groupOwing
+                      ? theme.colors.error
+                      : theme.colors.onSurfaceVariant;
+                  const groupLabel = groupOwed
+                    ? `${contactName} owes you ${formatCurrency(group.balance)}`
+                    : groupOwing
+                      ? `You owe ${formatCurrency(Math.abs(group.balance))}`
+                      : "Settled up";
+
+                  return (
+                    <Card
+                      key={group.group_id}
+                      mode="elevated"
+                      onPress={() =>
+                        router.push(`/(tabs)/groups/${group.group_id}`)
+                      }
+                    >
+                      <Card.Content
+                        style={{ flexDirection: "row", alignItems: "center" }}
+                      >
+                        <Avatar.Text
+                          size={40}
+                          label={group.group_name.charAt(0).toUpperCase()}
+                          style={{
+                            backgroundColor: theme.colors.primaryContainer,
+                          }}
+                          labelStyle={{
+                            color: theme.colors.onPrimaryContainer,
+                          }}
+                        />
+                        <View style={{ marginLeft: 16, flex: 1 }}>
+                          <Text
+                            variant="titleMedium"
+                            style={{ fontWeight: "600" }}
+                          >
+                            {group.group_name}
+                          </Text>
+                          <Text variant="bodySmall" style={{ color: groupColor }}>
+                            {groupLabel}
+                          </Text>
+                        </View>
+                      </Card.Content>
+                    </Card>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {hasExpenses && (
+            <View>
+              {hasGroups && (
+                <Text
+                  variant="titleMedium"
+                  style={{ fontWeight: "bold", marginBottom: 12 }}
+                >
+                  One-on-one
+                </Text>
+              )}
+              <View style={{ gap: 12 }}>
+                {expenses!.map((expense) => (
+                  <ExpenseCard
+                    key={expense.id}
+                    expense={expense as unknown as ExpenseWithSplits}
+                    currentUserId={user?.id}
+                    onDelete={handleDeleteExpense}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {!hasGroups && !hasExpenses && (
             <EmptyState
               icon="timeline-text-outline"
-              title="No expenses yet"
+              title="No activity yet"
               subtitle="Add an expense to start tracking"
             />
-          ) : (
-            <View style={{ gap: 12 }}>
-              {expenses.map((expense) => (
-                <ExpenseCard
-                  key={expense.id}
-                  expense={expense as unknown as ExpenseWithSplits}
-                  currentUserId={user?.id}
-                  onDelete={handleDeleteExpense}
-                />
-              ))}
-            </View>
           )}
         </ScrollView>
 
