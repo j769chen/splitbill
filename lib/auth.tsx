@@ -23,6 +23,7 @@ interface AuthContextType {
     password: string
   ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -70,6 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    setSession((current) => (current ? { ...current, user } : current));
+  }, []);
+
   const value = useMemo(
     () => ({
       session,
@@ -78,8 +87,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signIn,
       signOut,
+      refreshUser,
     }),
-    [loading, session, signIn, signOut, signUp]
+    [loading, session, signIn, signOut, signUp, refreshUser]
   );
 
   return (

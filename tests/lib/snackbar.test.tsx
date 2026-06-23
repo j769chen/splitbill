@@ -50,6 +50,17 @@ describe("SnackbarProvider / useSnackbar", () => {
     await fireEvent.press(dismiss);
   });
 
+  it("dismisses when the snackbar body is pressed", async () => {
+    await renderWithSnackbar();
+
+    await fireEvent.press(screen.getByText("Success"));
+    expect(screen.getByText("Saved!")).toBeTruthy();
+
+    const body = screen.getByTestId("snackbar-dismiss");
+    expect(body.props.accessibilityRole).toBe("button");
+    await fireEvent.press(body);
+  });
+
   it("throws when used outside of a provider", async () => {
     const spy = jest.spyOn(console, "error").mockImplementation(() => {});
     await expect(renderWithPaper(<Trigger />)).rejects.toThrow();

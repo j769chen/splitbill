@@ -4,6 +4,7 @@ import { actAsync } from "../helpers/testUtils";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 const mockGetSession = jest.fn();
+const mockGetUser = jest.fn();
 const mockOnAuthStateChange = jest.fn();
 const mockSignUp = jest.fn();
 const mockSignInWithPassword = jest.fn();
@@ -14,6 +15,7 @@ jest.mock("@/lib/supabase", () => ({
   supabase: {
     auth: {
       getSession: (...args: unknown[]) => mockGetSession(...args),
+      getUser: (...args: unknown[]) => mockGetUser(...args),
       onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
       signUp: (...args: unknown[]) => mockSignUp(...args),
       signInWithPassword: (...args: unknown[]) =>
@@ -33,6 +35,7 @@ beforeEach(() => {
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: mockUnsubscribe } },
   });
+  mockGetUser.mockResolvedValue({ data: { user: null } });
   mockSignUp.mockResolvedValue({ error: null });
   mockSignInWithPassword.mockResolvedValue({ error: null });
   mockSignOut.mockResolvedValue(undefined);
@@ -106,6 +109,43 @@ describe("AuthProvider / useAuth", () => {
     });
 
     expect(result.current.user).toEqual({ id: "u2" });
+  });
+
+  it("refreshUser merges the latest user into the session", async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: "u1" }, access_token: "tok" } },
+    });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "u1", user_metadata: { full_name: "New Name" } } },
+    });
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+
+    await actAsync(() => result.current.refreshUser());
+
+    expect(result.current.user).toEqual({
+      id: "u1",
+      user_metadata: { full_name: "New Name" },
+    });
+    expect(result.current.session).toEqual({
+      user: { id: "u1", user_metadata: { full_name: "New Name" } },
+      access_token: "tok",
+    });
+  });
+
+  it("refreshUser is a no-op when no user is returned", async () => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: "u1" }, access_token: "tok" } },
+    });
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const { result } = await renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+
+    await actAsync(() => result.current.refreshUser());
+
+    expect(result.current.user).toEqual({ id: "u1" });
   });
 
   it("unsubscribes on unmount", async () => {

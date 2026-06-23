@@ -4,7 +4,7 @@ import { useAuth } from "../auth";
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   return useMutation({
     mutationFn: async ({ fullName }: { fullName: string }) => {
@@ -21,7 +21,8 @@ export function useUpdateProfile() {
       });
       if (authError) throw authError;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refreshUser();
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       queryClient.invalidateQueries({ queryKey: ["group"] });
       queryClient.invalidateQueries({ queryKey: ["expenses"] });

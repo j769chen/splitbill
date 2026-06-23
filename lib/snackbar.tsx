@@ -5,7 +5,8 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Portal, Snackbar } from "react-native-paper";
+import { Pressable } from "react-native";
+import { Portal, Snackbar, Text } from "react-native-paper";
 import { useAppTheme } from "./theme";
 
 export type SnackbarVariant = "error" | "success" | "info";
@@ -133,7 +134,17 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
               : undefined
           }
         >
-          {snackbar?.message ?? ""}
+          <Pressable
+            onPress={hide}
+            accessibilityRole="button"
+            accessibilityLabel={`Dismiss: ${snackbar?.message ?? ""}`}
+            testID="snackbar-dismiss"
+            style={{ flexGrow: 1 }}
+          >
+            <Text variant="bodyMedium" style={{ color: current.fg }}>
+              {snackbar?.message ?? ""}
+            </Text>
+          </Pressable>
         </Snackbar>
       </Portal>
     </SnackbarContext.Provider>

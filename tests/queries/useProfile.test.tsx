@@ -15,9 +15,11 @@ const mockedSupabase = supabase as unknown as {
 };
 const mockedUseAuth = useAuth as unknown as jest.Mock;
 
+const refreshUser = jest.fn().mockResolvedValue(undefined);
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mockedUseAuth.mockReturnValue({ user: { id: "user-1" } });
+  mockedUseAuth.mockReturnValue({ user: { id: "user-1" }, refreshUser });
 });
 
 describe("useUpdateProfile", () => {
@@ -38,6 +40,7 @@ describe("useUpdateProfile", () => {
     expect(mockedSupabase.auth.updateUser).toHaveBeenCalledWith({
       data: { full_name: "New Name" },
     });
+    expect(refreshUser).toHaveBeenCalledTimes(1);
   });
 
   it("propagates a profile update error before touching auth", async () => {
