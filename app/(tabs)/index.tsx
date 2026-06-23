@@ -212,7 +212,13 @@ export default function Dashboard() {
                   key={contact.contact_user_id}
                   mode="elevated"
                   onPress={() =>
-                    router.push(`/contacts/${contact.contact_user_id}`)
+                    router.push({
+                      pathname: "/contacts/[id]",
+                      params: {
+                        id: contact.contact_user_id,
+                        name: contact.full_name,
+                      },
+                    })
                   }
                 >
                   <Card.Content

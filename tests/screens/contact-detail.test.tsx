@@ -7,10 +7,11 @@ const mockDeleteMutate = jest.fn();
 const mockShowError = jest.fn();
 const mockConfirm = jest.fn();
 const mockScreenHolder: { options: any } = { options: null };
+const mockParams: { id: string; name?: string } = { id: "user-2" };
 
 jest.mock("expo-router", () => ({
   router: { push: jest.fn() },
-  useLocalSearchParams: () => ({ id: "user-2" }),
+  useLocalSearchParams: () => mockParams,
   Stack: {
     Screen: (props: any) => {
       mockScreenHolder.options = props.options;
@@ -68,6 +69,8 @@ function setup(overrides?: { balance?: number; expenses?: unknown }) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockScreenHolder.options = null;
+  mockParams.id = "user-2";
+  mockParams.name = undefined;
   (router as unknown as Record<string, jest.Mock>).push = mockPush;
   (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-1" } });
   (useContacts as jest.Mock).mockReturnValue({
@@ -83,6 +86,28 @@ beforeEach(() => {
 
 describe("ContactDetail screen", () => {
   it("sets the screen title to the contact name", async () => {
+    await renderWithPaper(<ContactDetail />);
+
+    expect(mockScreenHolder.options.title).toBe("Bob");
+  });
+
+  it("uses the name param for the title before the contacts list loads", async () => {
+    mockParams.name = "Bob";
+    (useContacts as jest.Mock).mockReturnValue({ data: undefined });
+    await renderWithPaper(<ContactDetail />);
+
+    expect(mockScreenHolder.options.title).toBe("Bob");
+  });
+
+  it("falls back to 'Contact' when there is no loaded contact or name param", async () => {
+    (useContacts as jest.Mock).mockReturnValue({ data: undefined });
+    await renderWithPaper(<ContactDetail />);
+
+    expect(mockScreenHolder.options.title).toBe("Contact");
+  });
+
+  it("prefers the loaded contact name over the name param", async () => {
+    mockParams.name = "Stale Name";
     await renderWithPaper(<ContactDetail />);
 
     expect(mockScreenHolder.options.title).toBe("Bob");

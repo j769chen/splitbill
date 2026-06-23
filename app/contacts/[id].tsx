@@ -19,7 +19,7 @@ import type { ExpenseWithSplits } from "@/lib/types";
 
 export default function ContactDetail() {
   const theme = useAppTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const { user } = useAuth();
   const { data: contacts } = useContacts();
   const { data: balance = 0, refetch: refetchBalance } = useContactBalance(id!);
@@ -30,7 +30,7 @@ export default function ContactDetail() {
   const [refreshing, setRefreshing] = useState(false);
 
   const contact = contacts?.find((c) => c.contact_user_id === id);
-  const contactName = contact?.full_name ?? "Contact";
+  const contactName = contact?.full_name ?? name ?? "Contact";
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
