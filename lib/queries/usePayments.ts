@@ -1,6 +1,50 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
-import type { PaymentWithProfiles } from "../types";
+import type { PaymentWithProfiles, Profile } from "../types";
+import { useAuth } from "../auth";
+
+export interface ActivityPayment {
+  id: string;
+  amount: number;
+  created_at: string;
+  paid_by: string;
+  paid_to: string;
+  note: string | null;
+  payer: Profile | null;
+  payee: Profile | null;
+  groups: { name: string } | null;
+}
+
+export function useRecentPayments() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["activity-payments", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select(
+          `
+          id,
+          amount,
+          created_at,
+          paid_by,
+          paid_to,
+          note,
+          payer:profiles!payments_paid_by_fkey (*),
+          payee:profiles!payments_paid_to_fkey (*),
+          groups (name)
+        `
+        )
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data as unknown as ActivityPayment[];
+    },
+    enabled: !!user,
+  });
+}
 
 export function useGroupPayments(groupId: string) {
   return useQuery({
@@ -64,6 +108,7 @@ export function useCreatePayment() {
         queryKey: ["expenses", variables.groupId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
     },
   });
 }
@@ -93,6 +138,7 @@ export function useDeletePayment() {
         queryKey: ["balances", variables.groupId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
     },
   });
 }
