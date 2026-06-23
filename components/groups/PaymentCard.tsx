@@ -18,7 +18,7 @@ export function PaymentCard({
 }: PaymentCardProps) {
   const theme = useAppTheme();
   const isPayer = payment.paid_by === currentUserId;
-  const canDelete = isPayer && !!onDelete;
+  const canDelete = !!onDelete;
 
   const payerName = isPayer ? "You" : (payment.payer?.full_name ?? "Someone");
   const payeeName =

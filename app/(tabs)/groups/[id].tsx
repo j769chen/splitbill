@@ -88,7 +88,7 @@ export default function GroupDetail() {
   const handleDeleteExpense = (expenseId: string) => {
     confirm({
       title: "Delete Expense",
-      message: "Are you sure you want to delete this expense?",
+      message: "Are you sure you want to delete this expense? This will remove it for ALL people involved.",
       confirmText: "Delete",
       destructive: true,
       onConfirm: () => {
@@ -111,7 +111,7 @@ export default function GroupDetail() {
   const handleDeletePayment = (paymentId: string) => {
     confirm({
       title: "Delete Payment",
-      message: "Are you sure you want to delete this payment?",
+      message: "Are you sure you want to delete this payment? This will remove it for ALL people involved.",
       confirmText: "Delete",
       destructive: true,
       onConfirm: () => {

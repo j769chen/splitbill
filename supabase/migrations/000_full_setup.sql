@@ -165,8 +165,9 @@ CREATE POLICY "Members can create expenses"
 CREATE POLICY "Expense creator can update"
   ON public.expenses FOR UPDATE USING (auth.uid() = paid_by);
 
-CREATE POLICY "Expense creator can delete"
-  ON public.expenses FOR DELETE USING (auth.uid() = paid_by);
+CREATE POLICY "Members can delete expenses"
+  ON public.expenses FOR DELETE
+  USING (public.is_group_member(group_id, auth.uid()));
 
 CREATE POLICY "Members can view expense splits"
   ON public.expense_splits FOR SELECT
@@ -186,9 +187,12 @@ CREATE POLICY "Expense payer can update splits"
   ON public.expense_splits FOR UPDATE
   USING (expense_id IN (SELECT id FROM public.expenses WHERE paid_by = auth.uid()));
 
-CREATE POLICY "Expense payer can delete splits"
+CREATE POLICY "Members can delete expense splits"
   ON public.expense_splits FOR DELETE
-  USING (expense_id IN (SELECT id FROM public.expenses WHERE paid_by = auth.uid()));
+  USING (expense_id IN (
+    SELECT e.id FROM public.expenses e
+    WHERE public.is_group_member(e.group_id, auth.uid())
+  ));
 
 CREATE POLICY "Members can view group payments"
   ON public.payments FOR SELECT
@@ -198,8 +202,9 @@ CREATE POLICY "Members can create payments"
   ON public.payments FOR INSERT
   WITH CHECK (public.is_group_member(group_id, auth.uid()));
 
-CREATE POLICY "Payment creator can delete"
-  ON public.payments FOR DELETE USING (auth.uid() = paid_by);
+CREATE POLICY "Members can delete payments"
+  ON public.payments FOR DELETE
+  USING (public.is_group_member(group_id, auth.uid()));
 
 -- ============================================================
 -- 3. FUNCTIONS

@@ -346,4 +346,60 @@ describe("GroupDetail screen", () => {
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     expect(mockDeleteMutate).not.toHaveBeenCalled();
   });
+
+  it("lets a non-payer delete an expense they did not create", async () => {
+    setup({
+      expenses: [
+        {
+          ...expensesFixture[0],
+          id: "e2",
+          paid_by: "u2",
+          payer: { full_name: "Bob" },
+        },
+      ],
+      payments: [],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent(screen.getByText("Dinner"), "longPress");
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    await actAsync(async () => {
+      mockConfirm.mock.calls[0][0].onConfirm();
+    });
+
+    expect(mockDeleteMutate).toHaveBeenCalledWith(
+      { expenseId: "e2", groupId: "g1" },
+      expect.objectContaining({ onError: expect.any(Function) })
+    );
+  });
+
+  it("lets a non-payer delete a payment they did not create", async () => {
+    setup({
+      expenses: [],
+      payments: [
+        {
+          ...paymentsFixture[0],
+          id: "p2",
+          paid_by: "u2",
+          paid_to: "u1",
+          payer: { full_name: "Bob" },
+          payee: { full_name: "Me" },
+        },
+      ],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent(screen.getByText("Bob paid you"), "longPress");
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    await actAsync(async () => {
+      mockConfirm.mock.calls[0][0].onConfirm();
+    });
+
+    expect(mockDeletePaymentMutate).toHaveBeenCalledWith(
+      { paymentId: "p2", groupId: "g1" },
+      expect.objectContaining({ onError: expect.any(Function) })
+    );
+  });
 });

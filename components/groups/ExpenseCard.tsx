@@ -44,15 +44,13 @@ export function ExpenseCard({
             <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
               {formatCurrency(expense.amount)}
             </Text>
-            {isPayer && (
-              <IconButton
-                icon="trash-can-outline"
-                size={18}
-                iconColor={theme.colors.error}
-                onPress={() => onDelete(expense.id)}
-                style={{ margin: 0, marginLeft: 4 }}
-              />
-            )}
+            <IconButton
+              icon="trash-can-outline"
+              size={18}
+              iconColor={theme.colors.error}
+              onPress={() => onDelete(expense.id)}
+              style={{ margin: 0, marginLeft: 4 }}
+            />
           </View>
         </View>
         {expense.expense_splits && expense.expense_splits.length > 0 && (
