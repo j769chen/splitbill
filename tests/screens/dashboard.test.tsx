@@ -27,13 +27,32 @@ beforeEach(() => {
 });
 
 describe("Dashboard screen", () => {
-  it("renders the formatted overall balance and owed/owing totals", async () => {
+  it("renders the overall balance message when owed", async () => {
     await renderWithPaper(<Dashboard />);
 
-    expect(screen.getByText("Overall Balance")).toBeTruthy();
-    expect(screen.getByText("+$25.00")).toBeTruthy();
-    expect(screen.getByText("$30.00")).toBeTruthy();
-    expect(screen.getByText("$5.00")).toBeTruthy();
+    expect(screen.getByText("You are owed $25.00 overall")).toBeTruthy();
+  });
+
+  it("renders the overall balance message when owing", async () => {
+    (useUserTotalBalance as jest.Mock).mockReturnValue({
+      data: { net: -10, totalOwed: 0, totalOwing: 10 },
+      refetch: jest.fn(),
+    });
+
+    await renderWithPaper(<Dashboard />);
+
+    expect(screen.getByText("You owe $10.00 overall")).toBeTruthy();
+  });
+
+  it("renders the settled-up message when balance is zero", async () => {
+    (useUserTotalBalance as jest.Mock).mockReturnValue({
+      data: { net: 0, totalOwed: 0, totalOwing: 0 },
+      refetch: jest.fn(),
+    });
+
+    await renderWithPaper(<Dashboard />);
+
+    expect(screen.getByText("You are settled up!")).toBeTruthy();
   });
 
   it("shows the empty state when there are no groups", async () => {

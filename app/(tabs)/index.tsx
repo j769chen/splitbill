@@ -25,6 +25,22 @@ export default function Dashboard() {
 
   const net = balance?.net ?? 0;
 
+  let balancePrefix = "You are settled up!";
+  let balanceAmount = "";
+  let balanceSuffix = "";
+  let amountColor = theme.colors.onBrand;
+  if (net > 0.01) {
+    balancePrefix = "You are owed ";
+    balanceAmount = formatCurrency(net);
+    balanceSuffix = " overall";
+    amountColor = theme.colors.success;
+  } else if (net < -0.01) {
+    balancePrefix = "You owe ";
+    balanceAmount = formatCurrency(Math.abs(net));
+    balanceSuffix = " overall";
+    amountColor = theme.colors.error;
+  }
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.colors.background }}
@@ -42,45 +58,22 @@ export default function Dashboard() {
           backgroundColor: theme.colors.brand,
         }}
       >
-        <Text style={{ color: "rgba(255,255,255,0.8)" }} variant="labelLarge">
-          Overall Balance
-        </Text>
         <Text
-          variant="displaySmall"
+          variant="titleMedium"
           style={{
-            color: net >= 0 ? theme.colors.onBrand : theme.colors.error,
+            color: theme.colors.onBrand,
             fontWeight: "bold",
             marginTop: 4,
           }}
         >
-          {net > 0 ? "+" : ""}
-          {formatCurrency(net)}
+          {balancePrefix}
+          {balanceAmount ? (
+            <Text style={{ color: amountColor, fontWeight: "bold" }}>
+              {balanceAmount}
+            </Text>
+          ) : null}
+          {balanceSuffix}
         </Text>
-
-        <View style={{ flexDirection: "row", marginTop: 24, gap: 16 }}>
-          <View style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 16, padding: 16 }}>
-            <Text style={{ color: "rgba(255,255,255,0.7)" }} variant="labelSmall">
-              You are owed
-            </Text>
-            <Text
-              variant="titleLarge"
-              style={{ color: theme.colors.onBrand, fontWeight: "bold", marginTop: 4 }}
-            >
-              {formatCurrency(balance?.totalOwed ?? 0)}
-            </Text>
-          </View>
-          <View style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 16, padding: 16 }}>
-            <Text style={{ color: "rgba(255,255,255,0.7)" }} variant="labelSmall">
-              You owe
-            </Text>
-            <Text
-              variant="titleLarge"
-              style={{ color: theme.colors.onBrand, fontWeight: "bold", marginTop: 4 }}
-            >
-              {formatCurrency(balance?.totalOwing ?? 0)}
-            </Text>
-          </View>
-        </View>
       </View>
 
       <View style={{ paddingHorizontal: 24, marginTop: 24 }}>
