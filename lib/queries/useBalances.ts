@@ -18,6 +18,27 @@ export function useGroupBalances(groupId: string) {
   });
 }
 
+export function useMyGroupPairwiseBalances(groupId: string) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["group-pairwise", groupId, user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "get_group_pairwise_balances_for_me",
+        { p_group_id: groupId }
+      );
+
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        ...row,
+        balance: Number(row.balance),
+      })) as GroupBalance[];
+    },
+    enabled: !!user && !!groupId,
+  });
+}
+
 export function useUserTotalBalance() {
   const { user } = useAuth();
 

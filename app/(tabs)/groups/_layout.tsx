@@ -22,6 +22,13 @@ export default function GroupsLayout() {
         }}
       />
       <Stack.Screen
+        name="manage"
+        options={{
+          title: "Group Settings",
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
         name="add-expense"
         options={{
           title: "Add Expense",

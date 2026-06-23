@@ -247,6 +247,22 @@ export interface Database {
         Args: { p_name: string; p_member_ids: string[] };
         Returns: Database["public"]["Tables"]["groups"]["Row"];
       };
+      add_group_members: {
+        Args: { p_group_id: string; p_member_ids: string[] };
+        Returns: void;
+      };
+      rename_group: {
+        Args: { p_group_id: string; p_name: string };
+        Returns: Database["public"]["Tables"]["groups"]["Row"];
+      };
+      get_group_pairwise_balances_for_me: {
+        Args: { p_group_id: string };
+        Returns: {
+          user_id: string;
+          full_name: string;
+          balance: number;
+        }[];
+      };
       create_expense_with_splits: {
         Args: {
           p_group_id: string;

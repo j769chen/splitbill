@@ -83,6 +83,9 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         () => {
           queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+          queryClient.invalidateQueries({
+            queryKey: ["group-pairwise", groupId],
+          });
           queryClient.invalidateQueries({ queryKey: ["total-balance"] });
           invalidateContactQueries(queryClient);
         }
@@ -97,6 +100,9 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         () => {
           queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+          queryClient.invalidateQueries({
+            queryKey: ["group-pairwise", groupId],
+          });
           queryClient.invalidateQueries({ queryKey: ["total-balance"] });
           invalidateContactQueries(queryClient);
         }
@@ -112,6 +118,9 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         () => {
           queryClient.invalidateQueries({ queryKey: ["payments", groupId] });
           queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+          queryClient.invalidateQueries({
+            queryKey: ["group-pairwise", groupId],
+          });
           queryClient.invalidateQueries({ queryKey: ["total-balance"] });
           invalidateContactQueries(queryClient);
         }
@@ -127,6 +136,9 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         () => {
           queryClient.invalidateQueries({ queryKey: ["group", groupId] });
           queryClient.invalidateQueries({ queryKey: ["groups"] });
+          queryClient.invalidateQueries({
+            queryKey: ["group-pairwise", groupId],
+          });
         }
       )
       .subscribe();

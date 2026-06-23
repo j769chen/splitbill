@@ -130,6 +130,43 @@ describe("SQL security guards", () => {
     );
   });
 
+  it("guards the group pairwise-balance RPC to authenticated members", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_group_pairwise_balances_for_me");
+
+    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+    // Everything is derived from the caller, so it can only reveal the caller's
+    // own pairwise positions in the group.
+    expect(body).toMatch(/e\.paid_by = v_uid/i);
+  });
+
+  it("restricts adding group members to authenticated members", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "add_group_members");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+    // Re-adding an existing member is rejected rather than silently skipped.
+    expect(body).toMatch(/User is already a member of this group/i);
+  });
+
+  it("restricts renaming to members and rejects blank names", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "rename_group");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+    expect(body).toMatch(/btrim\(coalesce\(p_name, ''\)\) = ''/i);
+  });
+
   it("caps email lookup batches to limit account enumeration", () => {
     const fullSetup = readMigration("000_full_setup.sql");
 

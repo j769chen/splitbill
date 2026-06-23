@@ -2,11 +2,14 @@ import { useState, useCallback } from "react";
 import { View, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Button, SegmentedButtons } from "react-native-paper";
+import { Button, Card, SegmentedButtons, Text } from "react-native-paper";
 import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
-import { useGroupBalances } from "@/lib/queries/useBalances";
+import {
+  useGroupBalances,
+  useMyGroupPairwiseBalances,
+} from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
@@ -17,6 +20,7 @@ import { EmptyState } from "@/components/groups/EmptyState";
 import { ExpenseCard } from "@/components/groups/ExpenseCard";
 import { PaymentCard } from "@/components/groups/PaymentCard";
 import { MemberBalanceCard } from "@/components/groups/MemberBalanceCard";
+import { GroupMemberRow } from "@/components/groups/GroupMemberRow";
 import type { ExpenseWithSplits, PaymentWithProfiles } from "@/lib/types";
 
 type TabType = "activity" | "balances";
@@ -33,6 +37,8 @@ export default function GroupDetail() {
   const { data: expenses, refetch: refetchExpenses } = useExpenses(id!);
   const { data: payments, refetch: refetchPayments } = useGroupPayments(id!);
   const { data: balances, refetch: refetchBalances } = useGroupBalances(id!);
+  const { data: pairwise, refetch: refetchPairwise } =
+    useMyGroupPairwiseBalances(id!);
   const deleteExpense = useDeleteExpense();
   const deletePayment = useDeletePayment();
   const leaveGroup = useLeaveGroup();
@@ -81,9 +87,16 @@ export default function GroupDetail() {
       refetchExpenses(),
       refetchPayments(),
       refetchBalances(),
+      refetchPairwise(),
     ]);
     setRefreshing(false);
-  }, [refetchGroup, refetchExpenses, refetchPayments, refetchBalances]);
+  }, [
+    refetchGroup,
+    refetchExpenses,
+    refetchPayments,
+    refetchBalances,
+    refetchPairwise,
+  ]);
 
   const handleDeleteExpense = (expenseId: string) => {
     confirm({
@@ -166,30 +179,90 @@ export default function GroupDetail() {
       .map((d) => ({ direction: "owed" as const, name: d.from_name, amount: d.amount })),
   ];
 
+  const pairwiseByUser = new Map(pairwise?.map((p) => [p.user_id, p.balance]));
+  const members = [...(group?.group_members ?? [])].sort((a, b) => {
+    if (a.user_id === user?.id) return -1;
+    if (b.user_id === user?.id) return 1;
+    return (a.profiles?.full_name ?? "").localeCompare(
+      b.profiles?.full_name ?? ""
+    );
+  });
+
   return (
     <>
       <Stack.Screen
         options={{
           title: group?.name ?? "Group",
           headerRight: () => (
-            <Pressable
-              role="button"
-              onPress={handleLeaveGroup}
-              hitSlop={8}
-              style={{ paddingHorizontal: 8 }}
-            >
-              <MaterialCommunityIcons
-                name="logout"
-                size={22}
-                color={theme.colors.onPrimary}
-              />
-            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Pressable
+                role="button"
+                accessibilityLabel="Group settings"
+                onPress={() =>
+                  router.push({
+                    pathname: "/(tabs)/groups/manage",
+                    params: { groupId: id },
+                  })
+                }
+                hitSlop={8}
+                style={{ paddingHorizontal: 8 }}
+              >
+                <MaterialCommunityIcons
+                  name="cog-outline"
+                  size={22}
+                  color={theme.colors.onPrimary}
+                />
+              </Pressable>
+              <Pressable
+                role="button"
+                accessibilityLabel="Leave group"
+                onPress={handleLeaveGroup}
+                hitSlop={8}
+                style={{ paddingHorizontal: 8 }}
+              >
+                <MaterialCommunityIcons
+                  name="logout"
+                  size={22}
+                  color={theme.colors.onPrimary}
+                />
+              </Pressable>
+            </View>
           ),
         }}
       />
       <View
         style={{ flex: 1, backgroundColor: theme.colors.background }}
       >
+        {members.length > 0 && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <Card mode="contained">
+              <Card.Content style={{ paddingVertical: 4 }}>
+                <Text
+                  variant="labelLarge"
+                  style={{
+                    color: theme.colors.onSurfaceVariant,
+                    paddingTop: 8,
+                  }}
+                >
+                  Members ({members.length})
+                </Text>
+                {members.map((member) => (
+                  <GroupMemberRow
+                    key={member.user_id}
+                    name={member.profiles?.full_name ?? "Unknown"}
+                    isSelf={member.user_id === user?.id}
+                    balance={
+                      member.user_id === user?.id
+                        ? undefined
+                        : pairwiseByUser.get(member.user_id) ?? 0
+                    }
+                  />
+                ))}
+              </Card.Content>
+            </Card>
+          </View>
+        )}
+
         <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
           <SegmentedButtons
             value={activeTab}

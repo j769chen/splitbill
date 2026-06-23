@@ -18,6 +18,7 @@ const mockRefetchGroup = jest.fn();
 const mockRefetchExpenses = jest.fn();
 const mockRefetchPayments = jest.fn();
 const mockRefetchBalances = jest.fn();
+const mockRefetchPairwise = jest.fn();
 
 jest.mock("expo-router", () => ({
   router: {
@@ -47,7 +48,10 @@ jest.mock("@/lib/queries/usePayments", () => ({
   useGroupPayments: jest.fn(),
   useDeletePayment: jest.fn(),
 }));
-jest.mock("@/lib/queries/useBalances", () => ({ useGroupBalances: jest.fn() }));
+jest.mock("@/lib/queries/useBalances", () => ({
+  useGroupBalances: jest.fn(),
+  useMyGroupPairwiseBalances: jest.fn(),
+}));
 jest.mock("@/lib/realtime", () => ({ useRealtimeSubscription: jest.fn() }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 jest.mock("@/lib/confirm", () => ({ useConfirm: jest.fn() }));
@@ -57,7 +61,10 @@ import { useAuth } from "@/lib/auth";
 import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
-import { useGroupBalances } from "@/lib/queries/useBalances";
+import {
+  useGroupBalances,
+  useMyGroupPairwiseBalances,
+} from "@/lib/queries/useBalances";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 
@@ -98,10 +105,15 @@ function setup(overrides?: {
   payments?: unknown;
   balances?: unknown;
   group?: unknown;
+  pairwise?: unknown;
 }) {
   (useGroup as jest.Mock).mockReturnValue({
     data: overrides?.group ?? group,
     refetch: mockRefetchGroup,
+  });
+  (useMyGroupPairwiseBalances as jest.Mock).mockReturnValue({
+    data: overrides && "pairwise" in overrides ? overrides.pairwise : [],
+    refetch: mockRefetchPairwise,
   });
   (useExpenses as jest.Mock).mockReturnValue({
     data: overrides && "expenses" in overrides ? overrides.expenses : expensesFixture,
@@ -126,6 +138,7 @@ beforeEach(() => {
   mockRefetchExpenses.mockResolvedValue(undefined);
   mockRefetchPayments.mockResolvedValue(undefined);
   mockRefetchBalances.mockResolvedValue(undefined);
+  mockRefetchPairwise.mockResolvedValue(undefined);
   (router as unknown as Record<string, jest.Mock>).push = mockPush;
   (router as unknown as Record<string, jest.Mock>).back = mockBack;
   (router as unknown as Record<string, jest.Mock>).replace = mockReplace;
@@ -146,7 +159,13 @@ beforeEach(() => {
 
 function pressLeave() {
   const el = mockScreenHolder.options.headerRight();
-  el.props.onPress();
+  // headerRight renders <View>{settingsPressable}{leavePressable}</View>
+  el.props.children[1].props.onPress();
+}
+
+function pressSettings() {
+  const el = mockScreenHolder.options.headerRight();
+  el.props.children[0].props.onPress();
 }
 
 describe("GroupDetail screen", () => {
@@ -236,6 +255,46 @@ describe("GroupDetail screen", () => {
     await fireEvent.press(screen.getByText("Me"));
 
     expect(screen.getByText("$15.00")).toBeTruthy();
+  });
+
+  it("renders the member roster with pairwise balances above the tabs", async () => {
+    setup({
+      group: {
+        id: "g1",
+        name: "Trip",
+        group_members: [
+          { user_id: "u1", profiles: { full_name: "Me" } },
+          { user_id: "u2", profiles: { full_name: "Bob" } },
+          { user_id: "u3", profiles: { full_name: "Carol" } },
+        ],
+      },
+      pairwise: [
+        { user_id: "u2", full_name: "Bob", balance: 15 },
+        { user_id: "u3", full_name: "Carol", balance: 0 },
+      ],
+      expenses: [],
+      payments: [],
+      balances: [],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    expect(screen.getByText("Members (3)")).toBeTruthy();
+    expect(screen.getByText("Me (You)")).toBeTruthy();
+    expect(screen.getByText("owes you $15.00")).toBeTruthy();
+    expect(screen.getByText("settled up")).toBeTruthy();
+  });
+
+  it("navigates to the manage screen from the settings header action", async () => {
+    await renderWithPaper(<GroupDetail />);
+
+    await actAsync(async () => {
+      pressSettings();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/groups/manage",
+      params: { groupId: "g1" },
+    });
   });
 
   it("shows the all-settled state when there are no balances", async () => {

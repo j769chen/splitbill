@@ -78,6 +78,9 @@ describe("useRealtimeSubscription", () => {
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["expenses", "g1"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["balances", "g1"] });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["group-pairwise", "g1"],
+    });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["total-balance"] });
     // Group activity feeds combined contact balances, so contact queries refresh.
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contacts"] });
@@ -91,6 +94,9 @@ describe("useRealtimeSubscription", () => {
     membersHandler();
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["group", "g1"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["groups"] });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["group-pairwise", "g1"],
+    });
   });
 
   it("removes the channel on unmount", async () => {

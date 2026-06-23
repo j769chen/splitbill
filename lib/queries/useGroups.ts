@@ -135,6 +135,104 @@ export function useCreateGroup() {
   });
 }
 
+export function useAddGroupMembers() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      groupId,
+      memberEmails,
+      existingMemberIds = [],
+    }: {
+      groupId: string;
+      memberEmails: string[];
+      existingMemberIds?: string[];
+    }) => {
+      const uniqueEmails = Array.from(
+        new Set(memberEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))
+      ).filter((e) => e !== user!.email?.toLowerCase());
+
+      if (uniqueEmails.length === 0) {
+        throw new Error("Add at least one other person's email");
+      }
+
+      const { data: matches, error: lookupError } = await supabase.rpc(
+        "get_user_ids_by_email",
+        { emails: uniqueEmails }
+      );
+      if (lookupError) throw lookupError;
+
+      const rows = matches ?? [];
+      const resolvedEmails = new Set(rows.map((r) => r.email.toLowerCase()));
+      const unresolved = uniqueEmails.filter((e) => !resolvedEmails.has(e));
+
+      if (unresolved.length > 0) {
+        throw new Error(
+          `No SplitBill account found for: ${unresolved.join(", ")}`
+        );
+      }
+
+      // Block people who already belong to the group before hitting the RPC so
+      // the user gets a clear, named error instead of a silent no-op.
+      const existing = new Set(existingMemberIds);
+      const alreadyMembers = rows.filter((r) => existing.has(r.id));
+      if (alreadyMembers.length > 0) {
+        throw new Error(
+          `Already in this group: ${alreadyMembers
+            .map((r) => r.email)
+            .join(", ")}`
+        );
+      }
+
+      const memberIds = Array.from(new Set(rows.map((r) => r.id))).filter(
+        (id) => id !== user!.id
+      );
+
+      const { error } = await supabase.rpc("add_group_members", {
+        p_group_id: groupId,
+        p_member_ids: memberIds,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["group", variables.groupId] });
+      queryClient.invalidateQueries({
+        queryKey: ["balances", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise", variables.groupId],
+      });
+    },
+  });
+}
+
+export function useRenameGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      groupId,
+      name,
+    }: {
+      groupId: string;
+      name: string;
+    }) => {
+      const { data, error } = await supabase.rpc("rename_group", {
+        p_group_id: groupId,
+        p_name: name,
+      });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["group", variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+    },
+  });
+}
+
 export function useCheckEmailExists() {
   return useMutation({
     mutationFn: async (email: string) => {

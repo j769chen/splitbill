@@ -8,6 +8,8 @@ import {
   useCreateGroup,
   useCheckEmailExists,
   useLeaveGroup,
+  useAddGroupMembers,
+  useRenameGroup,
 } from "@/lib/queries/useGroups";
 
 jest.mock("@/lib/supabase", () => ({
@@ -193,6 +195,137 @@ describe("useCreateGroup", () => {
     ).rejects.toThrow("No SplitBill account found for: ghost@x.com");
 
     expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useAddGroupMembers", () => {
+  it("resolves emails and calls add_group_members with member ids", async () => {
+    mockedSupabase.rpc
+      .mockResolvedValueOnce({
+        data: [{ id: "u2", email: "a@x.com" }],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+
+    const { result } = await renderHook(() => useAddGroupMembers(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({
+        groupId: "g1",
+        memberEmails: ["a@x.com", "me@x.com", " A@X.com "],
+      })
+    );
+
+    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(
+      1,
+      "get_user_ids_by_email",
+      { emails: ["a@x.com"] }
+    );
+    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(2, "add_group_members", {
+      p_group_id: "g1",
+      p_member_ids: ["u2"],
+    });
+  });
+
+  it("throws when no emails resolve to invitees", async () => {
+    const { result } = await renderHook(() => useAddGroupMembers(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({ groupId: "g1", memberEmails: ["me@x.com"] })
+      )
+    ).rejects.toThrow("Add at least one other person's email");
+
+    expect(mockedSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("throws when an invited email has no account", async () => {
+    mockedSupabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const { result } = await renderHook(() => useAddGroupMembers(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          groupId: "g1",
+          memberEmails: ["ghost@x.com"],
+        })
+      )
+    ).rejects.toThrow("No SplitBill account found for: ghost@x.com");
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks an email that resolves to an existing group member", async () => {
+    mockedSupabase.rpc.mockResolvedValueOnce({
+      data: [{ id: "u2", email: "bob@x.com" }],
+      error: null,
+    });
+
+    const { result } = await renderHook(() => useAddGroupMembers(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          groupId: "g1",
+          memberEmails: ["bob@x.com"],
+          existingMemberIds: ["u1", "u2"],
+        })
+      )
+    ).rejects.toThrow("Already in this group: bob@x.com");
+
+    // Only the email lookup runs; the add RPC is never reached.
+    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_user_ids_by_email", {
+      emails: ["bob@x.com"],
+    });
+  });
+});
+
+describe("useRenameGroup", () => {
+  it("calls rename_group with the group id and name", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: { id: "g1", name: "Ski Trip" },
+      error: null,
+    });
+
+    const { result } = await renderHook(() => useRenameGroup(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({ groupId: "g1", name: "Ski Trip" })
+    );
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("rename_group", {
+      p_group_id: "g1",
+      p_name: "Ski Trip",
+    });
+  });
+
+  it("propagates RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You are not a member of this group" },
+    });
+
+    const { result } = await renderHook(() => useRenameGroup(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({ groupId: "g1", name: "X" })
+      )
+    ).rejects.toThrow("You are not a member of this group");
   });
 });
 
