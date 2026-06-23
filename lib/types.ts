@@ -129,6 +129,72 @@ export interface Database {
         };
         Relationships: [];
       };
+      contacts: {
+        Row: {
+          id: string;
+          owner_id: string;
+          contact_user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          contact_user_id: string;
+        };
+        Update: {};
+        Relationships: [];
+      };
+      contact_expenses: {
+        Row: {
+          id: string;
+          paid_by: string;
+          user_lo: string;
+          user_hi: string;
+          amount: number;
+          description: string;
+          category: string | null;
+          split_type: SplitType;
+          date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          paid_by: string;
+          user_lo: string;
+          user_hi: string;
+          amount: number;
+          description: string;
+          category?: string | null;
+          split_type: SplitType;
+          date?: string;
+        };
+        Update: {
+          amount?: number;
+          description?: string;
+          category?: string | null;
+          split_type?: SplitType;
+          date?: string;
+        };
+        Relationships: [];
+      };
+      contact_expense_splits: {
+        Row: {
+          id: string;
+          expense_id: string;
+          user_id: string;
+          amount: number;
+        };
+        Insert: {
+          id?: string;
+          expense_id: string;
+          user_id: string;
+          amount: number;
+        };
+        Update: {
+          amount?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {
@@ -175,6 +241,36 @@ export interface Database {
         Args: { p_group_id: string };
         Returns: void;
       };
+      add_contact: {
+        Args: { p_contact_user_id: string };
+        Returns: void;
+      };
+      create_contact_expense_with_splits: {
+        Args: {
+          p_contact_user_id: string;
+          p_paid_by: string;
+          p_amount: number;
+          p_description: string;
+          p_category: string | null;
+          p_split_type: SplitType;
+          p_splits: { userId: string; amount: number }[];
+          p_date?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["contact_expenses"]["Row"];
+      };
+      get_contact_balance: {
+        Args: { p_contact_user_id: string };
+        Returns: number;
+      };
+      get_contacts_with_balances: {
+        Args: Record<string, never>;
+        Returns: {
+          contact_user_id: string;
+          full_name: string;
+          avatar_url: string | null;
+          balance: number;
+        }[];
+      };
     };
     Enums: {
       split_type: SplitType;
@@ -189,6 +285,23 @@ export type GroupMember = Database["public"]["Tables"]["group_members"]["Row"];
 export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 export type ExpenseSplit = Database["public"]["Tables"]["expense_splits"]["Row"];
 export type Payment = Database["public"]["Tables"]["payments"]["Row"];
+export type Contact = Database["public"]["Tables"]["contacts"]["Row"];
+export type ContactExpense =
+  Database["public"]["Tables"]["contact_expenses"]["Row"];
+export type ContactExpenseSplit =
+  Database["public"]["Tables"]["contact_expense_splits"]["Row"];
+
+export interface ContactWithBalance {
+  contact_user_id: string;
+  full_name: string;
+  avatar_url: string | null;
+  balance: number;
+}
+
+export interface ContactExpenseWithSplits extends ContactExpense {
+  expense_splits: (ContactExpenseSplit & { profiles: Profile })[];
+  payer: Profile;
+}
 
 export interface GroupBalance {
   user_id: string;

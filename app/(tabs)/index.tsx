@@ -3,6 +3,7 @@ import { Avatar, Button, Card, Text } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
+import { useContacts } from "@/lib/queries/useContacts";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
 import { router } from "expo-router";
@@ -13,13 +14,14 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { data: balance, refetch: refetchBalance } = useUserTotalBalance();
   const { data: groups, refetch: refetchGroups } = useGroups();
+  const { data: contacts, refetch: refetchContacts } = useContacts();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchBalance(), refetchGroups()]);
+    await Promise.all([refetchBalance(), refetchGroups(), refetchContacts()]);
     setRefreshing(false);
-  }, [refetchBalance, refetchGroups]);
+  }, [refetchBalance, refetchGroups, refetchContacts]);
 
   const net = balance?.net ?? 0;
 
@@ -149,6 +151,91 @@ export default function Dashboard() {
                 </Card.Content>
               </Card>
             ))}
+          </View>
+        )}
+      </View>
+
+      <View style={{ paddingHorizontal: 24, marginTop: 32 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
+            Contacts
+          </Text>
+          <Button
+            mode="contained"
+            icon="plus"
+            compact
+            contentStyle={{ paddingHorizontal: 12 }}
+            onPress={() => router.push("/contacts/add")}
+          >
+            New
+          </Button>
+        </View>
+        {!contacts || contacts.length === 0 ? (
+          <Card mode="contained">
+            <Card.Content style={{ alignItems: "center", paddingVertical: 32 }}>
+              <Text
+                variant="bodyLarge"
+                style={{
+                  color: theme.colors.onSurfaceVariant,
+                  textAlign: "center",
+                }}
+              >
+                No contacts yet. Add someone to split one-on-one expenses!
+              </Text>
+              <Button
+                mode="contained"
+                style={{ marginTop: 16 }}
+                onPress={() => router.push("/contacts/add")}
+              >
+                Add Contact
+              </Button>
+            </Card.Content>
+          </Card>
+        ) : (
+          <View style={{ gap: 12 }}>
+            {contacts.map((contact) => {
+              const owed = contact.balance > 0.01;
+              const owing = contact.balance < -0.01;
+              const balanceColor = owed
+                ? theme.colors.success
+                : owing
+                  ? theme.colors.error
+                  : theme.colors.onSurfaceVariant;
+              const balanceLabel = owed
+                ? `owes you ${formatCurrency(contact.balance)}`
+                : owing
+                  ? `you owe ${formatCurrency(Math.abs(contact.balance))}`
+                  : "settled up";
+
+              return (
+                <Card
+                  key={contact.contact_user_id}
+                  mode="elevated"
+                  onPress={() =>
+                    router.push(`/contacts/${contact.contact_user_id}`)
+                  }
+                >
+                  <Card.Content
+                    style={{ flexDirection: "row", alignItems: "center" }}
+                  >
+                    <Avatar.Text
+                      size={48}
+                      label={contact.full_name.charAt(0).toUpperCase()}
+                      style={{ backgroundColor: theme.colors.secondaryContainer }}
+                      labelStyle={{ color: theme.colors.onSecondaryContainer }}
+                    />
+                    <View style={{ marginLeft: 16, flex: 1 }}>
+                      <Text variant="titleMedium" style={{ fontWeight: "600" }}>
+                        {contact.full_name}
+                      </Text>
+                      <Text variant="bodySmall" style={{ color: balanceColor }}>
+                        {balanceLabel}
+                      </Text>
+                    </View>
+                  </Card.Content>
+                </Card>
+              );
+            })}
           </View>
         )}
       </View>

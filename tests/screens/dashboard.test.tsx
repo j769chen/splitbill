@@ -8,10 +8,12 @@ jest.mock("@/lib/queries/useBalances", () => ({
   useUserTotalBalance: jest.fn(),
 }));
 jest.mock("@/lib/queries/useGroups", () => ({ useGroups: jest.fn() }));
+jest.mock("@/lib/queries/useContacts", () => ({ useContacts: jest.fn() }));
 
 import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
+import { useContacts } from "@/lib/queries/useContacts";
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -21,6 +23,7 @@ beforeEach(() => {
     refetch: jest.fn(),
   });
   (useGroups as jest.Mock).mockReturnValue({ data: [], refetch: jest.fn() });
+  (useContacts as jest.Mock).mockReturnValue({ data: [], refetch: jest.fn() });
 });
 
 describe("Dashboard screen", () => {
