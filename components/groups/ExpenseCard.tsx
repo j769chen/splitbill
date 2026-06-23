@@ -111,7 +111,7 @@ export function ExpenseCard({
             <IconButton
               icon="trash-can-outline"
               size={18}
-              iconColor="#fff"
+              iconColor={theme.colors.onSecondaryContainer}
               onPress={() => onDelete(expense.id)}
               style={{ margin: 0, marginLeft: 4 }}
             />

@@ -41,6 +41,9 @@ export function useGroups() {
 }
 
 export function useGroup(groupId: string) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ["group", groupId],
     queryFn: async () => {
@@ -62,6 +65,12 @@ export function useGroup(groupId: string) {
       return data as unknown as GroupWithMembers;
     },
     enabled: !!groupId,
+    initialData: () =>
+      queryClient
+        .getQueryData<GroupWithMembers[]>(["groups", user?.id])
+        ?.find((g) => g.id === groupId),
+    initialDataUpdatedAt: () =>
+      queryClient.getQueryState(["groups", user?.id])?.dataUpdatedAt,
   });
 }
 

@@ -86,7 +86,7 @@ export function PaymentCard({
             <IconButton
               icon="trash-can-outline"
               size={18}
-              iconColor="#fff"
+              iconColor={theme.colors.onSecondaryContainer}
               onPress={() => onDelete!(payment.id)}
               style={{ margin: 0, marginLeft: 4 }}
             />
