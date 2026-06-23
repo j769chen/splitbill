@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { Card, Divider, IconButton, Text } from "react-native-paper";
+import { Card, IconButton, Text } from "react-native-paper";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
 import type { ExpenseWithSplits } from "@/lib/types";
@@ -24,14 +24,23 @@ export function ExpenseCard({
       ?.amount ?? 0;
   const lentAmount = expense.amount - userShare;
   const isInvolved = isPayer || userShare > 0;
-  const summaryLabel = isPayer ? "You lent" : "You owe";
   const summaryAmount = isPayer ? lentAmount : userShare;
   const summaryColor =
-    summaryAmount <= 0
+    !isInvolved || summaryAmount <= 0
       ? theme.colors.onSurfaceVariant
       : isPayer
         ? theme.colors.success
         : theme.colors.error;
+
+  const payerName = isPayer ? "You" : (expense.payer?.full_name ?? "Someone");
+  const summaryLabel = isPayer ? "You lent" : "You borrowed";
+
+  const date = new Date(expense.date);
+  const monthDay = date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const year = date.getFullYear();
 
   return (
     <Card mode="elevated" onLongPress={() => onDelete(expense.id)}>
@@ -43,72 +52,71 @@ export function ExpenseCard({
             justifyContent: "space-between",
           }}
         >
-          <MaterialCommunityIcons
-            name="receipt"
-            size={22}
-            color={theme.colors.onSecondaryContainer}
-            style={{ marginRight: 10 }}
-          />
-          <View style={{ flex: 1 }}>
-            <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-              {expense.description}
-            </Text>
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              Paid by{" "}
-              {isPayer ? "you" : (expense.payer?.full_name ?? "someone")}
-            </Text>
+          <View
+            style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+          >
+            <View style={{ alignItems: "center", marginRight: 10 }}>
+              <Text
+                variant="labelMedium"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                {monthDay}
+              </Text>
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                {year}
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name="receipt"
+              size={22}
+              color={theme.colors.onSecondaryContainer}
+              style={{ marginRight: 10 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text variant="titleMedium" style={{ fontWeight: "600" }}>
+                {expense.description}
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                {payerName} paid {formatCurrency(expense.amount)}
+              </Text>
+            </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-              {formatCurrency(expense.amount)}
-            </Text>
+            {isInvolved ? (
+              <View style={{ alignItems: "flex-end" }}>
+                <Text variant="labelSmall" style={{ color: summaryColor }}>
+                  {summaryLabel}
+                </Text>
+                <Text
+                  variant="titleMedium"
+                  style={{ fontWeight: "600", color: summaryColor }}
+                >
+                  {formatCurrency(summaryAmount)}
+                </Text>
+              </View>
+            ) : (
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                Not involved
+              </Text>
+            )}
             <IconButton
               icon="trash-can-outline"
               size={18}
-              iconColor={theme.colors.error}
+              iconColor="#fff"
               onPress={() => onDelete(expense.id)}
               style={{ margin: 0, marginLeft: 4 }}
             />
           </View>
         </View>
-        <View style={{ marginTop: 12, paddingTop: 12 }}>
-          <Divider style={{ marginBottom: 8 }} />
-          {isInvolved ? (
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                paddingVertical: 2,
-              }}
-            >
-              <Text variant="titleMedium" style={{ color: summaryColor }}>
-                {summaryLabel}
-              </Text>
-              <Text
-                variant="titleMedium"
-                style={{ color: summaryColor, fontWeight: "600" }}
-              >
-                {formatCurrency(summaryAmount)}
-              </Text>
-            </View>
-          ) : (
-            <Text
-              variant="titleMedium"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              You&apos;re not involved
-            </Text>
-          )}
-        </View>
-        <Text
-          variant="labelSmall"
-          style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-        >
-          {new Date(expense.date).toLocaleDateString()}
-        </Text>
       </Card.Content>
     </Card>
   );

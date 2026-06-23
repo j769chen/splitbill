@@ -26,6 +26,13 @@ export function PaymentCard({
       ? "you"
       : (payment.payee?.full_name ?? "someone");
 
+  const date = new Date(payment.created_at);
+  const monthDay = date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const year = date.getFullYear();
+
   return (
     <Card
       mode="contained"
@@ -43,6 +50,20 @@ export function PaymentCard({
           <View
             style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
           >
+            <View style={{ alignItems: "center", marginRight: 10 }}>
+              <Text
+                variant="labelMedium"
+                style={{ color: theme.colors.onSecondaryContainer }}
+              >
+                {monthDay}
+              </Text>
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.colors.onSecondaryContainer }}
+              >
+                {year}
+              </Text>
+            </View>
             <MaterialCommunityIcons
               name="cash-fast"
               size={22}
@@ -57,30 +78,19 @@ export function PaymentCard({
                   color: theme.colors.onSecondaryContainer,
                 }}
               >
-                {payerName} paid {payeeName}
+                {payerName} paid {payeeName} {formatCurrency(payment.amount)}
               </Text>
             </View>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              variant="titleMedium"
-              style={{
-                fontWeight: "bold",
-                color: theme.colors.onSecondaryContainer,
-              }}
-            >
-              {formatCurrency(payment.amount)}
-            </Text>
-            {canDelete && (
-              <IconButton
-                icon="trash-can-outline"
-                size={18}
-                iconColor={theme.colors.error}
-                onPress={() => onDelete!(payment.id)}
-                style={{ margin: 0, marginLeft: 4 }}
-              />
-            )}
-          </View>
+          {canDelete && (
+            <IconButton
+              icon="trash-can-outline"
+              size={18}
+              iconColor="#fff"
+              onPress={() => onDelete!(payment.id)}
+              style={{ margin: 0, marginLeft: 4 }}
+            />
+          )}
         </View>
         {payment.note ? (
           <Text
@@ -90,12 +100,6 @@ export function PaymentCard({
             {payment.note}
           </Text>
         ) : null}
-        <Text
-          variant="labelSmall"
-          style={{ color: theme.colors.onSecondaryContainer, marginTop: 8 }}
-        >
-          {new Date(payment.created_at).toLocaleDateString()}
-        </Text>
       </Card.Content>
     </Card>
   );

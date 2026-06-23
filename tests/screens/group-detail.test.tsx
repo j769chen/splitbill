@@ -154,8 +154,7 @@ describe("GroupDetail screen", () => {
     await renderWithPaper(<GroupDetail />);
 
     expect(screen.getByText("Dinner")).toBeTruthy();
-    expect(screen.getByText("$30.00")).toBeTruthy();
-    expect(screen.getByText("Paid by you")).toBeTruthy();
+    expect(screen.getByText("You paid $30.00")).toBeTruthy();
     expect(screen.getByText("You lent")).toBeTruthy();
     expect(screen.getByText("$15.00")).toBeTruthy();
   });
@@ -173,8 +172,8 @@ describe("GroupDetail screen", () => {
     });
     await renderWithPaper(<GroupDetail />);
 
-    expect(screen.getByText("Paid by Bob")).toBeTruthy();
-    expect(screen.getByText("You owe")).toBeTruthy();
+    expect(screen.getByText("Bob paid $30.00")).toBeTruthy();
+    expect(screen.getByText("You borrowed")).toBeTruthy();
     expect(screen.getByText("$15.00")).toBeTruthy();
   });
 
@@ -189,9 +188,7 @@ describe("GroupDetail screen", () => {
     setup({ expenses: [], payments: paymentsFixture });
     await renderWithPaper(<GroupDetail />);
 
-    expect(screen.getByText("You paid Bob")).toBeTruthy();
-    expect(screen.getByText("Payment")).toBeTruthy();
-    expect(screen.getByText("$20.00")).toBeTruthy();
+    expect(screen.getByText("You paid Bob $20.00")).toBeTruthy();
     expect(screen.getByText("Venmo transfer")).toBeTruthy();
   });
 
@@ -199,7 +196,7 @@ describe("GroupDetail screen", () => {
     setup({ expenses: [], payments: paymentsFixture });
     await renderWithPaper(<GroupDetail />);
 
-    await fireEvent(screen.getByText("You paid Bob"), "longPress");
+    await fireEvent(screen.getByText("You paid Bob $20.00"), "longPress");
 
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     const confirmArg = mockConfirm.mock.calls[0][0];
@@ -220,7 +217,7 @@ describe("GroupDetail screen", () => {
     setup({ expenses: [], payments: paymentsFixture });
     await renderWithPaper(<GroupDetail />);
 
-    await fireEvent(screen.getByText("You paid Bob"), "longPress");
+    await fireEvent(screen.getByText("You paid Bob $20.00"), "longPress");
 
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     expect(mockDeletePaymentMutate).not.toHaveBeenCalled();
@@ -410,7 +407,7 @@ describe("GroupDetail screen", () => {
     });
     await renderWithPaper(<GroupDetail />);
 
-    await fireEvent(screen.getByText("Bob paid you"), "longPress");
+    await fireEvent(screen.getByText("Bob paid you $20.00"), "longPress");
 
     expect(mockConfirm).toHaveBeenCalledTimes(1);
     await actAsync(async () => {
