@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import { join } from "path";
 
 const migrationPath = (fileName: string) =>
@@ -6,6 +6,12 @@ const migrationPath = (fileName: string) =>
 
 const readMigration = (fileName: string) =>
   readFileSync(migrationPath(fileName), "utf8");
+
+const schemaPath = (fileName: string) =>
+  join(process.cwd(), "supabase", "schemas", fileName);
+
+const readSchema = (fileName: string) =>
+  readFileSync(schemaPath(fileName), "utf8");
 
 const functionBody = (sql: string, functionName: string) => {
   const match = sql.match(
@@ -32,15 +38,13 @@ describe("SQL security guards", () => {
     );
   });
 
-  it("patches existing installs with guarded balance RPC definitions", () => {
-    const patchName = "010_guard_balance_rpcs.sql";
+  it("keeps the declarative schema source guarding balance RPCs", () => {
+    const functions = readSchema("04_functions.sql");
 
-    expect(existsSync(migrationPath(patchName))).toBe(true);
-    const patch = readMigration(patchName);
-    expect(functionBody(patch, "get_group_balances")).toMatch(
+    expect(functionBody(functions, "get_group_balances")).toMatch(
       /IF NOT public\.is_group_member\(p_group_id,\s*auth\.uid\(\)\) THEN/i
     );
-    expect(functionBody(patch, "get_user_total_balance")).toMatch(
+    expect(functionBody(functions, "get_user_total_balance")).toMatch(
       /p_user_id <> auth\.uid\(\)/i
     );
   });
@@ -53,12 +57,10 @@ describe("SQL security guards", () => {
     );
   });
 
-  it("patches existing installs with a capped email lookup RPC", () => {
-    const patchName = "011_limit_user_email_lookup.sql";
+  it("keeps the declarative schema source capping the email lookup RPC", () => {
+    const functions = readSchema("04_functions.sql");
 
-    expect(existsSync(migrationPath(patchName))).toBe(true);
-    const patch = readMigration(patchName);
-    expect(functionBody(patch, "get_user_ids_by_email")).toMatch(
+    expect(functionBody(functions, "get_user_ids_by_email")).toMatch(
       /array_length\(emails,\s*1\)\s*>\s*20/i
     );
   });
