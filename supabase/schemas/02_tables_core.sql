@@ -1,0 +1,75 @@
+-- Core group-expense tables, indexes, and RLS enablement.
+--
+-- NOTE: append new columns at the END of each table. The diff tool emits
+-- positional ALTERs, so inserting a column mid-table produces a noisier diff.
+
+create table public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  full_name text not null,
+  avatar_url text,
+  created_at timestamptz not null default now()
+);
+
+create table public.groups (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  image_url text,
+  created_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+create table public.group_members (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  unique (group_id, user_id)
+);
+
+create table public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups (id) on delete cascade,
+  paid_by uuid not null references public.profiles (id) on delete cascade,
+  amount numeric(12, 2) not null check (amount > 0),
+  description text not null,
+  category text,
+  split_type public.split_type not null default 'equal',
+  date timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table public.expense_splits (
+  id uuid primary key default gen_random_uuid(),
+  expense_id uuid not null references public.expenses (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  amount numeric(12, 2) not null check (amount >= 0),
+  unique (expense_id, user_id)
+);
+
+create table public.payments (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups (id) on delete cascade,
+  paid_by uuid not null references public.profiles (id) on delete cascade,
+  paid_to uuid not null references public.profiles (id) on delete cascade,
+  amount numeric(12, 2) not null check (amount > 0),
+  note text,
+  created_at timestamptz not null default now(),
+  check (paid_by != paid_to)
+);
+
+create index idx_group_members_group on public.group_members (group_id);
+create index idx_group_members_user on public.group_members (user_id);
+create index idx_expenses_group on public.expenses (group_id);
+create index idx_expenses_paid_by on public.expenses (paid_by);
+create index idx_expense_splits_expense on public.expense_splits (expense_id);
+create index idx_expense_splits_user on public.expense_splits (user_id);
+create index idx_payments_group on public.payments (group_id);
+create index idx_payments_paid_by on public.payments (paid_by);
+create index idx_payments_paid_to on public.payments (paid_to);
+
+alter table public.profiles enable row level security;
+alter table public.groups enable row level security;
+alter table public.group_members enable row level security;
+alter table public.expenses enable row level security;
+alter table public.expense_splits enable row level security;
+alter table public.payments enable row level security;

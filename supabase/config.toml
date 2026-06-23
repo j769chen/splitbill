@@ -1,0 +1,27 @@
+# Supabase CLI configuration.
+#
+# This is a minimal config focused on enabling the declarative-schema
+# workflow. Running `supabase init` will regenerate a fuller file with all
+# default sections; merge the [db.migrations] block below into it if so.
+
+project_id = "splitbill"
+
+[db]
+# Postgres major version running on your Supabase project.
+major_version = 15
+
+[db.migrations]
+# Declarative schema files describing the DESIRED end-state of the database.
+# `supabase db diff -f <name>` diffs these against the current migration
+# history and generates the migration needed to reach this state.
+#
+# Order matters: each glob is applied in sequence, so dependencies
+# (types -> tables -> functions -> policies) must come first. Files matched
+# by an earlier pattern are not matched again by `*`.
+schema_paths = [
+  "./schemas/01_types.sql",
+  "./schemas/02_tables_core.sql",
+  "./schemas/03_tables_contacts.sql",
+  "./schemas/04_functions.sql",
+  "./schemas/05_policies.sql",
+]
