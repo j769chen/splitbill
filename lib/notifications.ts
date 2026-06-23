@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback } from "react";
+import { useAsyncStorageState } from "./useAsyncStorageState";
 
 export interface NotificationPrefs {
   pushEnabled: boolean;
@@ -19,39 +19,30 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 
 const STORAGE_KEY = "@splitbill/notification-prefs";
 
-export function useNotificationPrefs() {
-  const [prefs, setPrefs] = useState<NotificationPrefs>(
-    DEFAULT_NOTIFICATION_PREFS
-  );
-  const [loading, setLoading] = useState(true);
+function deserializeNotificationPrefs(raw: string): NotificationPrefs {
+  return { ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) };
+}
 
-  useEffect(() => {
-    let mounted = true;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (!mounted || !raw) return;
-        try {
-          setPrefs({ ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) });
-        } catch {
-        }
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+export function useNotificationPrefs() {
+  const {
+    value: prefs,
+    setValue: setPrefs,
+    loading,
+  } = useAsyncStorageState<NotificationPrefs>({
+    key: STORAGE_KEY,
+    initialValue: DEFAULT_NOTIFICATION_PREFS,
+    deserialize: deserializeNotificationPrefs,
+    serialize: JSON.stringify,
+  });
 
   const setPref = useCallback(
     <K extends keyof NotificationPrefs>(key: K, value: NotificationPrefs[K]) => {
       setPrefs((prev) => {
         const next = { ...prev, [key]: value };
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
         return next;
       });
     },
-    []
+    [setPrefs]
   );
 
   return { prefs, setPref, loading };

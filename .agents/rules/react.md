@@ -207,9 +207,8 @@ const theme = useAppTheme();
 
 **⚠️ NEVER suggest adding useEffect as a fix.** If code avoids `useEffect`, that is correct. The alternatives above (compute during render, handle in events, use a key, use a query hook) are always preferred.
 
-> Note: a couple of `useEffect`s in `add-expense.tsx` initialize state from fetched
-> `group` data. These are candidates for deriving during render or using a `key`,
-> not patterns to copy.
+> Note: one-time hydration from async device storage should live in a small
+> shared hook, not repeated ad hoc in feature components.
 
 ---
 

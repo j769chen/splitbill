@@ -2,13 +2,11 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
 } from "react";
 import { useColorScheme } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { darkTheme, lightTheme, type AppTheme } from "./theme";
+import { useAsyncStorageState } from "./useAsyncStorageState";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -27,30 +25,26 @@ function isThemeMode(value: string | null): value is ThemeMode {
   return value === "light" || value === "dark" || value === "system";
 }
 
+function deserializeThemeMode(raw: string): ThemeMode {
+  return isThemeMode(raw) ? raw : "system";
+}
+
 export function ThemePreferenceProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const systemScheme = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>("system");
-
-  useEffect(() => {
-    let mounted = true;
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (mounted && isThemeMode(raw)) {
-        setModeState(raw);
-      }
+  const { value: mode, setValue: setModeState } =
+    useAsyncStorageState<ThemeMode>({
+      key: STORAGE_KEY,
+      initialValue: "system",
+      deserialize: deserializeThemeMode,
     });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const setMode = useCallback((next: ThemeMode) => {
     setModeState(next);
-    AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
-  }, []);
+  }, [setModeState]);
 
   const isDark =
     mode === "system" ? systemScheme === "dark" : mode === "dark";
