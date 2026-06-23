@@ -12,6 +12,51 @@ function invalidateContactQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
 }
 
+// Keeps the contact-requests list + badge live for the signed-in user.
+//
+// We intentionally do NOT use a server-side `filter` here. Supabase Realtime
+// redacts the row payload via RLS before postgres_changes filters are applied,
+// so a `recipient_id=eq.<id>` filter never matches (the record is `{}` to the
+// subscriber) and no events arrive. Instead we listen to every change and let
+// the follow-up query refetch under RLS, which mirrors how the group
+// subscription invalidates on any event rather than trusting the payload.
+export function useContactRequestsSubscription(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const prefix = "realtime:contact-requests-";
+    for (const existing of supabase.getChannels()) {
+      if (existing.topic.startsWith(prefix)) {
+        supabase.removeChannel(existing);
+      }
+    }
+
+    // Accepting a request creates the contacts pair, so refresh those too.
+    const channel = supabase
+      .channel(`contact-requests-${channelSeq++}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "contact_requests",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["contact-requests"] });
+          queryClient.invalidateQueries({ queryKey: ["contacts"] });
+          queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, queryClient]);
+}
+
 export function useRealtimeSubscription(groupId: string | undefined) {
   const queryClient = useQueryClient();
 

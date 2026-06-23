@@ -2,7 +2,7 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { Button, Text, TextInput } from "react-native-paper";
-import { useAddContact } from "@/lib/queries/useContacts";
+import { useSendContactRequest } from "@/lib/queries/useContacts";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
@@ -12,10 +12,10 @@ export default function AddContact() {
   const theme = useAppTheme();
   const { user } = useAuth();
   const [email, setEmail] = useState("");
-  const addContact = useAddContact();
+  const sendRequest = useSendContactRequest();
   const { showError, showSuccess } = useSnackbar();
 
-  const handleAdd = async () => {
+  const handleSend = async () => {
     const normalized = email.trim().toLowerCase();
     if (!normalized) {
       showError("Please enter an email address");
@@ -31,12 +31,12 @@ export default function AddContact() {
     }
 
     try {
-      await addContact.mutateAsync(normalized);
-      showSuccess("Contact added");
+      await sendRequest.mutateAsync(normalized);
+      showSuccess("Request sent");
       router.back();
     } catch (error) {
       showError(
-        getErrorMessage(error, "Couldn't add the contact. Please try again.")
+        getErrorMessage(error, "Couldn't send the request. Please try again.")
       );
     }
   };
@@ -51,8 +51,8 @@ export default function AddContact() {
           variant="bodyMedium"
           style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}
         >
-          Add an existing SplitBill user by their email to start splitting
-          one-on-one expenses.
+          Send a contact request to an existing SplitBill user by their email.
+          They'll need to accept before you can split one-on-one expenses.
         </Text>
 
         <TextInput
@@ -63,20 +63,20 @@ export default function AddContact() {
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
-          onSubmitEditing={handleAdd}
+          onSubmitEditing={handleSend}
           returnKeyType="done"
           autoFocus
         />
 
         <Button
           mode="contained"
-          onPress={handleAdd}
-          loading={addContact.isPending}
-          disabled={addContact.isPending}
+          onPress={handleSend}
+          loading={sendRequest.isPending}
+          disabled={sendRequest.isPending}
           contentStyle={{ paddingVertical: 6 }}
           style={{ marginTop: 32 }}
         >
-          Add Contact
+          Send Request
         </Button>
       </ScrollView>
     </KeyboardAvoidingView>

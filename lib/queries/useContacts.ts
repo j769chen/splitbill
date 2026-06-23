@@ -1,8 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type {
   ContactExpenseWithSplits,
   ContactGroupBreakdown,
+  ContactRequest,
   ContactWithBalance,
   Profile,
   SplitType,
@@ -151,7 +157,13 @@ export function useContactExpenses(contactUserId: string) {
   });
 }
 
-export function useAddContact() {
+function invalidateContactRequestQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ["contact-requests"] });
+  queryClient.invalidateQueries({ queryKey: ["contacts"] });
+  queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+}
+
+export function useSendContactRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -169,15 +181,84 @@ export function useAddContact() {
         throw new Error(`No SplitBill account found for ${normalized}`);
       }
 
-      const { error } = await supabase.rpc("add_contact", {
-        p_contact_user_id: match.id,
+      const { error } = await supabase.rpc("send_contact_request", {
+        p_recipient_user_id: match.id,
       });
       if (error) throw new Error(error.message);
 
       return match.id;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      invalidateContactRequestQueries(queryClient);
+    },
+  });
+}
+
+export function useContactRequests() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["contact-requests", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_contact_requests");
+      if (error) throw error;
+
+      const requests: ContactRequest[] = (data ?? []).map((row) => ({
+        id: row.id,
+        direction: row.direction,
+        status: row.status,
+        created_at: row.created_at,
+        profile: {
+          id: row.user_id,
+          full_name: row.full_name,
+          avatar_url: row.avatar_url,
+        },
+      }));
+
+      return {
+        incoming: requests.filter((r) => r.direction === "incoming"),
+        outgoing: requests.filter((r) => r.direction === "outgoing"),
+      };
+    },
+    enabled: !!user,
+  });
+}
+
+export function useRespondContactRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      accept,
+    }: {
+      requestId: string;
+      accept: boolean;
+    }) => {
+      const { error } = await supabase.rpc("respond_contact_request", {
+        p_request_id: requestId,
+        p_accept: accept,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      invalidateContactRequestQueries(queryClient);
+    },
+  });
+}
+
+export function useCancelContactRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const { error } = await supabase.rpc("cancel_contact_request", {
+        p_request_id: requestId,
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      invalidateContactRequestQueries(queryClient);
     },
   });
 }

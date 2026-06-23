@@ -16,6 +16,9 @@ jest.mock("expo-router", () => {
   return { Redirect, Stack, Tabs };
 });
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
+jest.mock("@/lib/realtime", () => ({
+  useContactRequestsSubscription: jest.fn(),
+}));
 
 import { useAuth } from "@/lib/auth";
 

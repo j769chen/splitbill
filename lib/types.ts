@@ -195,6 +195,29 @@ export interface Database {
         };
         Relationships: [];
       };
+      contact_requests: {
+        Row: {
+          id: string;
+          requester_id: string;
+          recipient_id: string;
+          status: "pending" | "accepted" | "declined";
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          requester_id: string;
+          recipient_id: string;
+          status?: "pending" | "accepted" | "declined";
+          created_at?: string;
+          responded_at?: string | null;
+        };
+        Update: {
+          status?: "pending" | "accepted" | "declined";
+          responded_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {
@@ -241,9 +264,29 @@ export interface Database {
         Args: { p_group_id: string };
         Returns: void;
       };
-      add_contact: {
-        Args: { p_contact_user_id: string };
+      send_contact_request: {
+        Args: { p_recipient_user_id: string };
         Returns: void;
+      };
+      respond_contact_request: {
+        Args: { p_request_id: string; p_accept: boolean };
+        Returns: void;
+      };
+      cancel_contact_request: {
+        Args: { p_request_id: string };
+        Returns: void;
+      };
+      get_contact_requests: {
+        Args: Record<string, never>;
+        Returns: {
+          id: string;
+          direction: "incoming" | "outgoing";
+          status: "pending" | "accepted" | "declined";
+          created_at: string;
+          user_id: string;
+          full_name: string;
+          avatar_url: string | null;
+        }[];
       };
       create_contact_expense_with_splits: {
         Args: {
@@ -356,4 +399,16 @@ export interface ContactGroupBreakdown {
   group_id: string;
   group_name: string;
   balance: number;
+}
+
+export interface ContactRequest {
+  id: string;
+  direction: "incoming" | "outgoing";
+  status: "pending" | "accepted" | "declined";
+  created_at: string;
+  profile: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+  };
 }

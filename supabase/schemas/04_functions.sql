@@ -326,8 +326,170 @@ begin
 end;
 $$;
 
-create or replace function public.add_contact(p_contact_user_id uuid)
+-- Inserts the bidirectional accepted-contact pair. Helper shared by request
+-- acceptance and the mutual-send auto-accept path.
+create or replace function public.create_contact_pair(p_user_a uuid, p_user_b uuid)
 returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.contacts (owner_id, contact_user_id)
+  values (p_user_a, p_user_b)
+  on conflict (owner_id, contact_user_id) do nothing;
+
+  insert into public.contacts (owner_id, contact_user_id)
+  values (p_user_b, p_user_a)
+  on conflict (owner_id, contact_user_id) do nothing;
+end;
+$$;
+
+-- Sends a contact request. If the recipient already sent the caller a pending
+-- request, the two are auto-accepted (mutual intent). A prior declined/stale
+-- request for the same pair is reset to pending.
+create or replace function public.send_contact_request(p_recipient_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_reverse public.contact_requests;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_recipient_user_id is null or p_recipient_user_id = v_uid then
+    raise exception 'You cannot add yourself as a contact';
+  end if;
+
+  if not exists (select 1 from public.profiles where id = p_recipient_user_id) then
+    raise exception 'Contact user does not exist';
+  end if;
+
+  if exists (
+    select 1 from public.contacts
+    where owner_id = v_uid and contact_user_id = p_recipient_user_id
+  ) then
+    raise exception 'This person is already a contact';
+  end if;
+
+  -- Mutual intent: if they already requested me, accept it instead.
+  select * into v_reverse
+  from public.contact_requests
+  where requester_id = p_recipient_user_id
+    and recipient_id = v_uid
+    and status = 'pending';
+
+  if found then
+    update public.contact_requests
+    set status = 'accepted', responded_at = now()
+    where id = v_reverse.id;
+    perform public.create_contact_pair(v_uid, p_recipient_user_id);
+    return;
+  end if;
+
+  insert into public.contact_requests (requester_id, recipient_id, status)
+  values (v_uid, p_recipient_user_id, 'pending')
+  on conflict (requester_id, recipient_id)
+  do update set status = 'pending', created_at = now(), responded_at = null;
+end;
+$$;
+
+-- Recipient accepts or declines a pending request. Accepting creates the
+-- bidirectional contact pair.
+create or replace function public.respond_contact_request(
+  p_request_id uuid,
+  p_accept boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_request public.contact_requests;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select * into v_request
+  from public.contact_requests
+  where id = p_request_id;
+
+  if not found then
+    raise exception 'Request not found';
+  end if;
+
+  if v_request.recipient_id <> v_uid then
+    raise exception 'You can only respond to requests sent to you';
+  end if;
+
+  if v_request.status <> 'pending' then
+    raise exception 'This request has already been handled';
+  end if;
+
+  if p_accept then
+    update public.contact_requests
+    set status = 'accepted', responded_at = now()
+    where id = p_request_id;
+    perform public.create_contact_pair(v_request.requester_id, v_request.recipient_id);
+  else
+    update public.contact_requests
+    set status = 'declined', responded_at = now()
+    where id = p_request_id;
+  end if;
+end;
+$$;
+
+-- Requester withdraws a pending request they sent.
+create or replace function public.cancel_contact_request(p_request_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_request public.contact_requests;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select * into v_request
+  from public.contact_requests
+  where id = p_request_id;
+
+  if not found then
+    raise exception 'Request not found';
+  end if;
+
+  if v_request.requester_id <> v_uid then
+    raise exception 'You can only cancel requests you sent';
+  end if;
+
+  delete from public.contact_requests where id = p_request_id;
+end;
+$$;
+
+-- Pending requests involving the caller, with the other person's profile and a
+-- direction marker ('incoming' = sent to me, 'outgoing' = sent by me).
+create or replace function public.get_contact_requests()
+returns table (
+  id uuid,
+  direction text,
+  status text,
+  created_at timestamptz,
+  user_id uuid,
+  full_name text,
+  avatar_url text
+)
 language plpgsql
 security definer
 set search_path = public
@@ -339,27 +501,21 @@ begin
     raise exception 'Not authenticated';
   end if;
 
-  if p_contact_user_id is null or p_contact_user_id = v_uid then
-    raise exception 'You cannot add yourself as a contact';
-  end if;
-
-  if not exists (select 1 from public.profiles where id = p_contact_user_id) then
-    raise exception 'Contact user does not exist';
-  end if;
-
-  if exists (
-    select 1 from public.contacts
-    where owner_id = v_uid and contact_user_id = p_contact_user_id
-  ) then
-    raise exception 'This contact is already added';
-  end if;
-
-  insert into public.contacts (owner_id, contact_user_id)
-  values (v_uid, p_contact_user_id);
-
-  insert into public.contacts (owner_id, contact_user_id)
-  values (p_contact_user_id, v_uid)
-  on conflict (owner_id, contact_user_id) do nothing;
+  return query
+  select
+    cr.id,
+    case when cr.recipient_id = v_uid then 'incoming' else 'outgoing' end as direction,
+    cr.status,
+    cr.created_at,
+    p.id as user_id,
+    p.full_name,
+    p.avatar_url
+  from public.contact_requests cr
+  join public.profiles p
+    on p.id = case when cr.recipient_id = v_uid then cr.requester_id else cr.recipient_id end
+  where cr.status = 'pending'
+    and (cr.requester_id = v_uid or cr.recipient_id = v_uid)
+  order by cr.created_at desc;
 end;
 $$;
 
@@ -395,6 +551,13 @@ begin
 
   if p_contact_user_id is null or p_contact_user_id = v_uid then
     raise exception 'Invalid contact';
+  end if;
+
+  if not exists (
+    select 1 from public.contacts
+    where owner_id = v_uid and contact_user_id = p_contact_user_id
+  ) then
+    raise exception 'You can only add expenses with accepted contacts';
   end if;
 
   if p_paid_by <> v_uid and p_paid_by <> p_contact_user_id then

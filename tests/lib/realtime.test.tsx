@@ -1,7 +1,10 @@
 import React from "react";
 import { renderHook, act } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useRealtimeSubscription } from "@/lib/realtime";
+import {
+  useRealtimeSubscription,
+  useContactRequestsSubscription,
+} from "@/lib/realtime";
 
 const mockOn = jest.fn();
 const mockSubscribe = jest.fn();
@@ -96,6 +99,82 @@ describe("useRealtimeSubscription", () => {
     const { unmount } = await renderHook(() => useRealtimeSubscription("g1"), {
       wrapper: Wrapper,
     });
+
+    await act(async () => {
+      unmount();
+    });
+    expect(mockRemoveChannel).toHaveBeenCalledWith(channelObj);
+  });
+});
+
+describe("useContactRequestsSubscription", () => {
+  it("does nothing when no user id is provided", async () => {
+    const { Wrapper } = makeWrapper();
+
+    await renderHook(() => useContactRequestsSubscription(undefined), {
+      wrapper: Wrapper,
+    });
+
+    expect(mockChannelFn).not.toHaveBeenCalled();
+  });
+
+  it("removes stale contact-request channels before subscribing", async () => {
+    const stale = { topic: "realtime:contact-requests-0" };
+    const other = { topic: "realtime:group-g1-0" };
+    mockGetChannels.mockReturnValue([stale, other]);
+    const { Wrapper } = makeWrapper();
+
+    await renderHook(() => useContactRequestsSubscription("user-1"), {
+      wrapper: Wrapper,
+    });
+
+    expect(mockRemoveChannel).toHaveBeenCalledWith(stale);
+    expect(mockRemoveChannel).not.toHaveBeenCalledWith(other);
+    expect(mockChannelFn).toHaveBeenCalledTimes(1);
+    // A single unfiltered binding (RLS redacts payloads, so server-side
+    // filters never match — see useContactRequestsSubscription).
+    expect(mockOn).toHaveBeenCalledTimes(1);
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("subscribes to contact_requests without a server-side filter", async () => {
+    const { Wrapper } = makeWrapper();
+
+    await renderHook(() => useContactRequestsSubscription("user-1"), {
+      wrapper: Wrapper,
+    });
+
+    const binding = mockOn.mock.calls[0][1];
+    expect(binding).toMatchObject({
+      event: "*",
+      schema: "public",
+      table: "contact_requests",
+    });
+    expect(binding).not.toHaveProperty("filter");
+  });
+
+  it("invalidates contact-request and contact queries on a change", async () => {
+    const { Wrapper, invalidate } = makeWrapper();
+
+    await renderHook(() => useContactRequestsSubscription("user-1"), {
+      wrapper: Wrapper,
+    });
+
+    const handler = mockOn.mock.calls[0][2] as () => void;
+    handler();
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contact-requests"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contacts"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contact-balance"] });
+  });
+
+  it("removes the channel on unmount", async () => {
+    const { Wrapper } = makeWrapper();
+
+    const { unmount } = await renderHook(
+      () => useContactRequestsSubscription("user-1"),
+      { wrapper: Wrapper }
+    );
 
     await act(async () => {
       unmount();

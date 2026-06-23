@@ -165,3 +165,10 @@ create policy "Payer can delete contact expense splits"
   using (expense_id in (
     select id from public.contact_expenses where paid_by = auth.uid()
   ));
+
+-- contact_requests
+-- Reads are allowed for either party; all writes go through SECURITY DEFINER
+-- RPCs (send/respond/cancel), so no direct insert/update/delete policies.
+create policy "Participants can view contact requests"
+  on public.contact_requests for select
+  using (requester_id = auth.uid() or recipient_id = auth.uid());

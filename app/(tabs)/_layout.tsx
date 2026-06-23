@@ -3,11 +3,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { ActivityIndicator } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useAppTheme } from "@/lib/theme";
+import { useContactRequestsSubscription } from "@/lib/realtime";
 import { View } from "react-native";
 
 export default function TabsLayout() {
   const theme = useAppTheme();
-  const { session, loading } = useAuth();
+  const { session, loading, user } = useAuth();
+
+  useContactRequestsSubscription(user?.id);
 
   if (loading) {
     return (

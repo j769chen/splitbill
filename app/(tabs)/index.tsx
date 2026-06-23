@@ -1,9 +1,9 @@
 import { View, ScrollView, RefreshControl } from "react-native";
-import { Avatar, Button, Card, Text } from "react-native-paper";
+import { Avatar, Badge, Button, Card, IconButton, Text } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
-import { useContacts } from "@/lib/queries/useContacts";
+import { useContacts, useContactRequests } from "@/lib/queries/useContacts";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
 import { router } from "expo-router";
@@ -15,13 +15,22 @@ export default function Dashboard() {
   const { data: balance, refetch: refetchBalance } = useUserTotalBalance();
   const { data: groups, refetch: refetchGroups } = useGroups();
   const { data: contacts, refetch: refetchContacts } = useContacts();
+  const { data: contactRequests, refetch: refetchContactRequests } =
+    useContactRequests();
   const [refreshing, setRefreshing] = useState(false);
+
+  const incomingRequestCount = contactRequests?.incoming.length ?? 0;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchBalance(), refetchGroups(), refetchContacts()]);
+    await Promise.all([
+      refetchBalance(),
+      refetchGroups(),
+      refetchContacts(),
+      refetchContactRequests(),
+    ]);
     setRefreshing(false);
-  }, [refetchBalance, refetchGroups, refetchContacts]);
+  }, [refetchBalance, refetchGroups, refetchContacts, refetchContactRequests]);
 
   const net = balance?.net ?? 0;
 
@@ -153,15 +162,34 @@ export default function Dashboard() {
           <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
             Contacts
           </Text>
-          <Button
-            mode="contained"
-            icon="plus"
-            compact
-            contentStyle={{ paddingHorizontal: 12 }}
-            onPress={() => router.push("/contacts/add")}
-          >
-            New
-          </Button>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View>
+              <IconButton
+                icon="account-clock-outline"
+                mode="contained-tonal"
+                size={20}
+                onPress={() => router.push("/contacts/requests")}
+                accessibilityLabel="Contact requests"
+              />
+              {incomingRequestCount > 0 && (
+                <Badge
+                  style={{ position: "absolute", top: 2, right: 2 }}
+                  size={18}
+                >
+                  {incomingRequestCount}
+                </Badge>
+              )}
+            </View>
+            <Button
+              mode="contained"
+              icon="plus"
+              compact
+              contentStyle={{ paddingHorizontal: 12 }}
+              onPress={() => router.push("/contacts/add")}
+            >
+              New
+            </Button>
+          </View>
         </View>
         {!contacts || contacts.length === 0 ? (
           <Card mode="contained">

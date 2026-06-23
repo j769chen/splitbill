@@ -79,6 +79,57 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/where gm\.user_id = v_uid/i);
   });
 
+  it("guards the send-contact-request RPC", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "send_contact_request");
+
+    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    // Cannot request yourself, and cannot duplicate an existing contact.
+    expect(body).toMatch(/p_recipient_user_id = v_uid/i);
+    expect(body).toMatch(/owner_id = v_uid and contact_user_id = p_recipient_user_id/i);
+  });
+
+  it("restricts responding to requests addressed to the caller", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "respond_contact_request");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/v_request\.recipient_id <> v_uid/i);
+  });
+
+  it("restricts cancelling to requests sent by the caller", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "cancel_contact_request");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/v_request\.requester_id <> v_uid/i);
+  });
+
+  it("scopes the contact-requests listing to the caller", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contact_requests");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/cr\.requester_id = v_uid or cr\.recipient_id = v_uid/i);
+  });
+
+  it("gates one-on-one expense creation on an accepted contact", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "create_contact_expense_with_splits");
+
+    expect(body).toMatch(/You can only add expenses with accepted contacts/i);
+    expect(body).toMatch(/owner_id = v_uid and contact_user_id = p_contact_user_id/i);
+  });
+
+  it("restricts contact_requests reads to the two participants", () => {
+    const policies = readSchema("05_policies.sql");
+
+    expect(policies).toMatch(
+      /create policy "Participants can view contact requests"[\s\S]*?on public\.contact_requests for select[\s\S]*?using \(requester_id = auth\.uid\(\) or recipient_id = auth\.uid\(\)\)/i
+    );
+  });
+
   it("caps email lookup batches to limit account enumeration", () => {
     const fullSetup = readMigration("000_full_setup.sql");
 

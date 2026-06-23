@@ -16,10 +16,11 @@ export default function ContactsLayout() {
       <Stack.Screen
         name="add"
         options={{
-          title: "Add Contact",
+          title: "Send Contact Request",
           presentation: "modal",
         }}
       />
+      <Stack.Screen name="requests" options={{ title: "Contact Requests" }} />
       <Stack.Screen
         name="add-expense"
         options={{
