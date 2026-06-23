@@ -118,6 +118,9 @@ export function SnackbarProvider({ children }: { children: React.ReactNode }) {
               inversePrimary: current.fg,
             },
           }}
+          icon="close"
+          onIconPress={hide}
+          iconAccessibilityLabel="Dismiss"
           action={
             snackbar?.action
               ? {
