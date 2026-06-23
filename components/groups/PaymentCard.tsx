@@ -59,12 +59,6 @@ export function PaymentCard({
               >
                 {payerName} paid {payeeName}
               </Text>
-              <Text
-                variant="labelSmall"
-                style={{ color: theme.colors.onSecondaryContainer }}
-              >
-                Payment
-              </Text>
             </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center" }}>

@@ -3,6 +3,7 @@ import { Card, Divider, IconButton, Text } from "react-native-paper";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
 import type { ExpenseWithSplits } from "@/lib/types";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type ExpenseCardProps = {
   expense: ExpenseWithSplits;
@@ -18,6 +19,20 @@ export function ExpenseCard({
   const theme = useAppTheme();
   const isPayer = expense.paid_by === currentUserId;
 
+  const userShare =
+    expense.expense_splits?.find((split) => split.user_id === currentUserId)
+      ?.amount ?? 0;
+  const lentAmount = expense.amount - userShare;
+  const isInvolved = isPayer || userShare > 0;
+  const summaryLabel = isPayer ? "You lent" : "You owe";
+  const summaryAmount = isPayer ? lentAmount : userShare;
+  const summaryColor =
+    summaryAmount <= 0
+      ? theme.colors.onSurfaceVariant
+      : isPayer
+        ? theme.colors.success
+        : theme.colors.error;
+
   return (
     <Card mode="elevated" onLongPress={() => onDelete(expense.id)}>
       <Card.Content>
@@ -28,6 +43,12 @@ export function ExpenseCard({
             justifyContent: "space-between",
           }}
         >
+          <MaterialCommunityIcons
+            name="receipt"
+            size={22}
+            color={theme.colors.onSecondaryContainer}
+            style={{ marginRight: 10 }}
+          />
           <View style={{ flex: 1 }}>
             <Text variant="titleMedium" style={{ fontWeight: "600" }}>
               {expense.description}
@@ -37,7 +58,7 @@ export function ExpenseCard({
               style={{ color: theme.colors.onSurfaceVariant }}
             >
               Paid by{" "}
-              {expense.payer?.full_name ?? (isPayer ? "you" : "someone")}
+              {isPayer ? "you" : (expense.payer?.full_name ?? "someone")}
             </Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -53,34 +74,35 @@ export function ExpenseCard({
             />
           </View>
         </View>
-        {expense.expense_splits && expense.expense_splits.length > 0 && (
-          <View style={{ marginTop: 12, paddingTop: 12 }}>
-            <Divider style={{ marginBottom: 8 }} />
-            {expense.expense_splits.map((split) => (
-              <View
-                key={split.id}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  paddingVertical: 2,
-                }}
+        <View style={{ marginTop: 12, paddingTop: 12 }}>
+          <Divider style={{ marginBottom: 8 }} />
+          {isInvolved ? (
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                paddingVertical: 2,
+              }}
+            >
+              <Text variant="titleMedium" style={{ color: summaryColor }}>
+                {summaryLabel}
+              </Text>
+              <Text
+                variant="titleMedium"
+                style={{ color: summaryColor, fontWeight: "600" }}
               >
-                <Text
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant }}
-                >
-                  {split.profiles?.full_name ?? "Unknown"}
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant }}
-                >
-                  {formatCurrency(split.amount)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
+                {formatCurrency(summaryAmount)}
+              </Text>
+            </View>
+          ) : (
+            <Text
+              variant="titleMedium"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              You&apos;re not involved
+            </Text>
+          )}
+        </View>
         <Text
           variant="labelSmall"
           style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}

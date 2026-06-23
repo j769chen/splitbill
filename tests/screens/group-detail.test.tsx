@@ -71,8 +71,8 @@ const expensesFixture = [
     payer: { full_name: "Me" },
     date: "2024-01-01",
     expense_splits: [
-      { id: "s1", amount: 15, profiles: { full_name: "Me" } },
-      { id: "s2", amount: 15, profiles: { full_name: "Bob" } },
+      { id: "s1", user_id: "u1", amount: 15, profiles: { full_name: "Me" } },
+      { id: "s2", user_id: "u2", amount: 15, profiles: { full_name: "Bob" } },
     ],
   },
 ];
@@ -150,12 +150,32 @@ function pressLeave() {
 }
 
 describe("GroupDetail screen", () => {
-  it("renders the expenses tab with expense details and splits", async () => {
+  it("renders the expenses tab with the user's personal stake", async () => {
     await renderWithPaper(<GroupDetail />);
 
     expect(screen.getByText("Dinner")).toBeTruthy();
     expect(screen.getByText("$30.00")).toBeTruthy();
-    expect(screen.getByText("Bob")).toBeTruthy();
+    expect(screen.getByText("Paid by you")).toBeTruthy();
+    expect(screen.getByText("You lent")).toBeTruthy();
+    expect(screen.getByText("$15.00")).toBeTruthy();
+  });
+
+  it("shows what the user owes when someone else paid", async () => {
+    setup({
+      expenses: [
+        {
+          ...expensesFixture[0],
+          paid_by: "u2",
+          payer: { full_name: "Bob" },
+        },
+      ],
+      payments: [],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    expect(screen.getByText("Paid by Bob")).toBeTruthy();
+    expect(screen.getByText("You owe")).toBeTruthy();
+    expect(screen.getByText("$15.00")).toBeTruthy();
   });
 
   it("shows the empty state when there is no activity", async () => {
