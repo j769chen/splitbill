@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Pre-commit hook: run the Jest unit test suite before allowing a commit.
+# To bypass in an emergency, commit with --no-verify.
+#
+# This hook is version-controlled. Git is pointed at this directory via
+# `core.hooksPath = .githooks`, which is configured automatically by the
+# "prepare" script in package.json (runs on `npm install`).
+
+# Resolve the repo root so the hook works regardless of where git invokes it.
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root" || exit 1
+
+echo "Running unit tests before commit..."
+
+npm test --silent
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo
+  echo "✖ Unit tests failed. Commit aborted."
+  echo "  Fix the failing tests, or run 'git commit --no-verify' to bypass."
+  exit 1
+fi
+
+echo "✔ Unit tests passed."
+exit 0
