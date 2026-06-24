@@ -196,7 +196,7 @@ function ExpenseRow({
             </View>
           </View>
           <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-            {formatCurrency(item.amount)}
+            {formatCurrency(item.amount, item.currency)}
           </Text>
         </View>
         <Text
@@ -255,7 +255,7 @@ function ContactExpenseRow({
             </View>
           </View>
           <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-            {formatCurrency(item.amount)}
+            {formatCurrency(item.amount, item.currency)}
           </Text>
         </View>
         <Text
@@ -325,7 +325,7 @@ function PaymentRow({
             variant="titleMedium"
             style={{ fontWeight: "bold", color: theme.colors.onSecondaryContainer }}
           >
-            {formatCurrency(item.amount)}
+            {formatCurrency(item.amount, item.currency)}
           </Text>
         </View>
         {item.note ? (

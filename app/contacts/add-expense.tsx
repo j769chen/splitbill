@@ -9,19 +9,21 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import {
   useContacts,
+  useContactCurrency,
   useContactExpenses,
   useCreateContactExpense,
   useUpdateContactExpense,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
-import { computeSplits, getErrorMessage } from "@/lib/utils";
+import { computeSplits, formatCurrency, getErrorMessage } from "@/lib/utils";
+import { canConvert, getCurrencySymbol, getRate } from "@/lib/currency";
+import { useExchangeRates } from "@/lib/exchange-rates";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
 import { MemberSplitRow } from "@/components/groups/MemberSplitRow";
 import { PaidByPicker } from "@/components/groups/PaidByPicker";
-import type { GroupWithMembers, SplitType } from "@/lib/types";
-
-type Participant = GroupWithMembers["group_members"][number];
+import type { SplitType } from "@/lib/types";
 
 export default function AddContactExpense() {
   const theme = useAppTheme();
@@ -33,6 +35,8 @@ export default function AddContactExpense() {
   const { user } = useAuth();
   const { data: contacts } = useContacts();
   const { data: contactExpenses } = useContactExpenses(contactUserId!);
+  const { data: pairCurrency } = useContactCurrency(contactUserId!);
+  const { data: rates } = useExchangeRates();
   const createContactExpense = useCreateContactExpense();
   const updateContactExpense = useUpdateContactExpense();
   const { showError } = useSnackbar();
@@ -43,8 +47,11 @@ export default function AddContactExpense() {
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
+  const [currency, setCurrency] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  const baseCurrency = pairCurrency ?? "USD";
+  const entryCurrency = currency ?? baseCurrency;
   const contact = contacts?.find((c) => c.contact_user_id === contactUserId);
   const contactName = contact?.full_name ?? "Contact";
   const existingExpense = isEdit
@@ -58,6 +65,7 @@ export default function AddContactExpense() {
     setAmount(String(existingExpense.amount));
     setPaidBy(existingExpense.paid_by);
     setSplitType(existingExpense.split_type);
+    setCurrency(existingExpense.currency);
 
     const splits = existingExpense.expense_splits ?? [];
     const splitUserIds = splits.map((s) => s.user_id);
@@ -90,17 +98,23 @@ export default function AddContactExpense() {
       user_id: contactUserId ?? "",
       profiles: { full_name: contactName },
     },
-  ] as unknown as Participant[];
+  ];
 
   const selectedMembers = members
     .map((member) => member.user_id)
     .filter((userId) => !excludedMemberIds.includes(userId));
   const effectivePaidBy = paidBy || user?.id || "";
   const totalAmount = parseFloat(amount) || 0;
+  const isForeignCurrency = entryCurrency !== baseCurrency;
+  const hasExchangeRate = canConvert(entryCurrency, baseCurrency, rates);
+  const exchangeRate = isForeignCurrency
+    ? getRate(entryCurrency, baseCurrency, rates)
+    : 1;
+  const convertedBase = Math.round(totalAmount * exchangeRate * 100) / 100;
 
   const memberName = (member: {
     user_id: string;
-    profiles?: { full_name?: string } | null;
+    profiles?: { full_name?: string | null } | null;
   }) =>
     member.user_id === user?.id
       ? "You"
@@ -131,12 +145,19 @@ export default function AddContactExpense() {
       showError("Please select who paid");
       return;
     }
+    if (isForeignCurrency && !hasExchangeRate) {
+      showError(
+        "Exchange rates aren't available for this currency pair. Try again when rates are cached."
+      );
+      return;
+    }
 
     const result = computeSplits(
       splitType,
       totalAmount,
       selectedMembers,
-      customSplits
+      customSplits,
+      entryCurrency
     );
     if (!result.ok) {
       showError(result.error);
@@ -153,6 +174,8 @@ export default function AddContactExpense() {
           description: description.trim(),
           splitType,
           splits: result.splits,
+          currency: entryCurrency,
+          exchangeRate,
         });
       } else {
         await createContactExpense.mutateAsync({
@@ -162,6 +185,8 @@ export default function AddContactExpense() {
           description: description.trim(),
           splitType,
           splits: result.splits,
+          currency: entryCurrency,
+          exchangeRate,
         });
       }
       router.back();
@@ -199,16 +224,38 @@ export default function AddContactExpense() {
           autoFocus
         />
 
-        <View style={{ marginTop: 16 }}>
-          <TextInput
-            mode="outlined"
-            label="Amount ($)"
-            placeholder="0.00"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-          />
+        <View style={{ marginTop: 16, flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <TextInput
+              mode="outlined"
+              label={`Amount (${getCurrencySymbol(entryCurrency).trim()})`}
+              placeholder="0.00"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <View style={{ justifyContent: "center" }}>
+            <CurrencyPicker value={entryCurrency} onChange={setCurrency} />
+          </View>
         </View>
+
+        {isForeignCurrency && totalAmount > 0 && hasExchangeRate ? (
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
+          >
+            {`= ${formatCurrency(convertedBase, baseCurrency)} in ${baseCurrency}`}
+          </Text>
+        ) : null}
+        {isForeignCurrency && !hasExchangeRate ? (
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.error, marginTop: 8 }}
+          >
+            Exchange rates unavailable for {entryCurrency} to {baseCurrency}.
+          </Text>
+        ) : null}
 
         <PaidByPicker
           members={members}
@@ -260,6 +307,7 @@ export default function AddContactExpense() {
                   perPerson={perPerson}
                   totalAmount={totalAmount}
                   customValue={customSplits[member.user_id] || ""}
+                  currencyCode={entryCurrency}
                   onToggle={toggleMember}
                   onChangeCustom={(userId: string, val: string) =>
                     setCustomSplits((prev) => ({ ...prev, [userId]: val }))

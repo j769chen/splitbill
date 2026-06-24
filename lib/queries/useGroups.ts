@@ -82,9 +82,11 @@ export function useCreateGroup() {
     mutationFn: async ({
       name,
       memberEmails,
+      currency,
     }: {
       name: string;
       memberEmails: string[];
+      currency?: string;
     }) => {
       const uniqueEmails = Array.from(
         new Set(memberEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))
@@ -123,10 +125,11 @@ export function useCreateGroup() {
 
       const { data: group, error: groupError } = await supabase.rpc(
         "create_group_with_members",
-        { p_name: name, p_member_ids: inviteeIds }
+        { p_name: name, p_member_ids: inviteeIds, p_currency: currency ?? "USD" }
       );
 
       if (groupError) throw groupError;
+
       return group;
     },
     onSuccess: () => {

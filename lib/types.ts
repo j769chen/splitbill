@@ -1,5 +1,7 @@
 export type SplitType = "equal" | "exact" | "percentage";
 
+export type { CurrencyCode } from "./currency";
+
 export interface Database {
   public: {
     Tables: {
@@ -28,16 +30,19 @@ export interface Database {
           image_url: string | null;
           created_by: string;
           created_at: string;
+          currency: string;
         };
         Insert: {
           id?: string;
           name: string;
           image_url?: string | null;
           created_by: string;
+          currency?: string;
         };
         Update: {
           name?: string;
           image_url?: string | null;
+          currency?: string;
         };
         Relationships: [];
       };
@@ -67,6 +72,9 @@ export interface Database {
           split_type: SplitType;
           date: string;
           created_at: string;
+          currency: string;
+          exchange_rate: number;
+          base_amount: number;
         };
         Insert: {
           id?: string;
@@ -77,6 +85,9 @@ export interface Database {
           category?: string | null;
           split_type: SplitType;
           date?: string;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
         };
         Update: {
           amount?: number;
@@ -84,6 +95,9 @@ export interface Database {
           category?: string | null;
           split_type?: SplitType;
           date?: string;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
         };
         Relationships: [];
       };
@@ -93,15 +107,18 @@ export interface Database {
           expense_id: string;
           user_id: string;
           amount: number;
+          base_amount: number;
         };
         Insert: {
           id?: string;
           expense_id: string;
           user_id: string;
           amount: number;
+          base_amount?: number;
         };
         Update: {
           amount?: number;
+          base_amount?: number;
         };
         Relationships: [];
       };
@@ -114,6 +131,9 @@ export interface Database {
           amount: number;
           note: string | null;
           created_at: string;
+          currency: string;
+          exchange_rate: number;
+          base_amount: number;
         };
         Insert: {
           id?: string;
@@ -122,12 +142,18 @@ export interface Database {
           paid_to: string;
           amount: number;
           note?: string | null;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
         };
         Update: {
           paid_by?: string;
           paid_to?: string;
           amount?: number;
           note?: string | null;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
         };
         Relationships: [];
       };
@@ -158,6 +184,9 @@ export interface Database {
           split_type: SplitType;
           date: string;
           created_at: string;
+          currency: string;
+          exchange_rate: number;
+          base_amount: number;
         };
         Insert: {
           id?: string;
@@ -169,6 +198,9 @@ export interface Database {
           category?: string | null;
           split_type: SplitType;
           date?: string;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
         };
         Update: {
           amount?: number;
@@ -176,6 +208,9 @@ export interface Database {
           category?: string | null;
           split_type?: SplitType;
           date?: string;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
         };
         Relationships: [];
       };
@@ -185,15 +220,18 @@ export interface Database {
           expense_id: string;
           user_id: string;
           amount: number;
+          base_amount: number;
         };
         Insert: {
           id?: string;
           expense_id: string;
           user_id: string;
           amount: number;
+          base_amount?: number;
         };
         Update: {
           amount?: number;
+          base_amount?: number;
         };
         Relationships: [];
       };
@@ -207,6 +245,9 @@ export interface Database {
           amount: number;
           note: string | null;
           created_at: string;
+          currency: string;
+          exchange_rate: number;
+          base_amount: number;
         };
         Insert: {
           id?: string;
@@ -216,12 +257,35 @@ export interface Database {
           user_hi: string;
           amount: number;
           note?: string | null;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
         };
         Update: {
           paid_by?: string;
           paid_to?: string;
           amount?: number;
           note?: string | null;
+          currency?: string;
+          exchange_rate?: number;
+          base_amount?: number;
+        };
+        Relationships: [];
+      };
+      contact_pair_settings: {
+        Row: {
+          user_lo: string;
+          user_hi: string;
+          currency: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_lo: string;
+          user_hi: string;
+          currency?: string;
+        };
+        Update: {
+          currency?: string;
         };
         Relationships: [];
       };
@@ -262,8 +326,8 @@ export interface Database {
       get_user_total_balance: {
         Args: { p_user_id: string };
         Returns: {
-          total_owed: number;
-          total_owing: number;
+          balance: number;
+          currency: string;
         }[];
       };
       get_user_ids_by_email: {
@@ -274,7 +338,7 @@ export interface Database {
         }[];
       };
       create_group_with_members: {
-        Args: { p_name: string; p_member_ids: string[] };
+        Args: { p_name: string; p_member_ids: string[]; p_currency?: string };
         Returns: Database["public"]["Tables"]["groups"]["Row"];
       };
       add_group_members: {
@@ -301,8 +365,10 @@ export interface Database {
           p_description: string;
           p_category: string | null;
           p_split_type: SplitType;
-          p_splits: { userId: string; amount: number }[];
+          p_splits: { userId: string; amount: number; baseAmount: number }[];
           p_date?: string | null;
+          p_currency?: string;
+          p_exchange_rate?: number;
         };
         Returns: Database["public"]["Tables"]["expenses"]["Row"];
       };
@@ -314,8 +380,10 @@ export interface Database {
           p_description: string;
           p_category: string | null;
           p_split_type: SplitType;
-          p_splits: { userId: string; amount: number }[];
+          p_splits: { userId: string; amount: number; baseAmount: number }[];
           p_date?: string | null;
+          p_currency?: string;
+          p_exchange_rate?: number;
         };
         Returns: Database["public"]["Tables"]["expenses"]["Row"];
       };
@@ -355,8 +423,10 @@ export interface Database {
           p_description: string;
           p_category: string | null;
           p_split_type: SplitType;
-          p_splits: { userId: string; amount: number }[];
+          p_splits: { userId: string; amount: number; baseAmount: number }[];
           p_date?: string | null;
+          p_currency?: string;
+          p_exchange_rate?: number;
         };
         Returns: Database["public"]["Tables"]["contact_expenses"]["Row"];
       };
@@ -368,8 +438,10 @@ export interface Database {
           p_description: string;
           p_category: string | null;
           p_split_type: SplitType;
-          p_splits: { userId: string; amount: number }[];
+          p_splits: { userId: string; amount: number; baseAmount: number }[];
           p_date?: string | null;
+          p_currency?: string;
+          p_exchange_rate?: number;
         };
         Returns: Database["public"]["Tables"]["contact_expenses"]["Row"];
       };
@@ -386,9 +458,24 @@ export interface Database {
           balance: number;
         }[];
       };
-      get_contact_combined_balance: {
+      get_contact_balance_contexts: {
         Args: { p_contact_user_id: string };
-        Returns: number;
+        Returns: {
+          currency: string;
+          balance: number;
+        }[];
+      };
+      get_contact_currency: {
+        Args: { p_contact_user_id: string };
+        Returns: string;
+      };
+      set_contact_currency: {
+        Args: { p_contact_user_id: string; p_currency: string };
+        Returns: string;
+      };
+      set_group_currency: {
+        Args: { p_group_id: string; p_currency: string };
+        Returns: Database["public"]["Tables"]["groups"]["Row"];
       };
       get_contacts_with_combined_balances: {
         Args: Record<string, never>;
@@ -396,6 +483,7 @@ export interface Database {
           contact_user_id: string;
           full_name: string;
           avatar_url: string | null;
+          currency: string;
           balance: number;
         }[];
       };
@@ -405,6 +493,7 @@ export interface Database {
           group_id: string;
           group_name: string;
           balance: number;
+          currency: string;
         }[];
       };
     };
@@ -478,6 +567,7 @@ export interface ContactGroupBreakdown {
   group_id: string;
   group_name: string;
   balance: number;
+  currency: string;
 }
 
 export interface ContactRequest {

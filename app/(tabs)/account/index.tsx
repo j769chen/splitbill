@@ -1,16 +1,20 @@
 import { View, ScrollView } from "react-native";
-import { Card, Divider, List, SegmentedButtons } from "react-native-paper";
+import { Card, Divider, List, SegmentedButtons, Text } from "react-native-paper";
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
 import { useThemePreference } from "@/lib/theme-preference";
+import { useDisplayCurrency } from "@/lib/display-currency";
 import { ProfileHeader } from "@/components/account/ProfileHeader";
 import { SettingsLinkRow } from "@/components/account/SettingsLinkRow";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
 
 export default function Account() {
   const theme = useAppTheme();
   const { mode, setMode } = useThemePreference();
+  const { currency: displayCurrency, setCurrency: setDisplayCurrency } =
+    useDisplayCurrency();
   const { user, signOut } = useAuth();
   const confirm = useConfirm();
 
@@ -50,6 +54,22 @@ export default function Account() {
                 { value: "dark", label: "Dark", icon: "weather-night" },
               ]}
             />
+          </Card.Content>
+        </Card>
+
+        <List.Subheader>Display currency</List.Subheader>
+        <Card mode="contained" style={{ marginBottom: 16 }}>
+          <Card.Content style={{ paddingVertical: 16 }}>
+            <CurrencyPicker
+              value={displayCurrency}
+              onChange={setDisplayCurrency}
+            />
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
+            >
+              Totals across groups and contacts are shown in {displayCurrency}.
+            </Text>
           </Card.Content>
         </Card>
 

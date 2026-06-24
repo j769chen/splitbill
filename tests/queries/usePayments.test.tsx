@@ -96,6 +96,9 @@ describe("useCreatePayment", () => {
       paid_to: "u2",
       amount: 5,
       note: null,
+      currency: "USD",
+      exchange_rate: 1,
+      base_amount: 5,
     });
   });
 
@@ -147,6 +150,7 @@ describe("useUpdatePayment", () => {
       paid_to: "u1",
       amount: 7,
       note: "venmo",
+      base_amount: 7,
     });
     expect(builder.eq).toHaveBeenCalledWith("id", "p1");
   });

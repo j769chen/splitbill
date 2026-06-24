@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   useQuery,
   useMutation,
@@ -15,16 +16,33 @@ import type {
   SplitType,
 } from "../types";
 import { useAuth } from "../auth";
-import { validateSplitsTotal } from "../utils";
+import { convert } from "../currency";
+import { useDisplayCurrency } from "../display-currency";
+import { useExchangeRates } from "../exchange-rates";
+import { convertSplitsToBase, validateSplitsTotal } from "../utils";
 
 function sortPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
+}
+
+function buildSplitsPayload(
+  splits: { userId: string; amount: number }[],
+  amount: number,
+  rate: number
+) {
+  const baseTotal = Math.round(amount * rate * 100) / 100;
+  return convertSplitsToBase(splits, rate, baseTotal).map((s) => ({
+    userId: s.userId,
+    amount: s.amount,
+    baseAmount: s.baseAmount,
+  }));
 }
 
 export interface ActivityContactExpense {
   id: string;
   description: string;
   amount: number;
+  currency: string;
   date: string;
   paid_by: string;
   user_lo: string;
@@ -47,6 +65,7 @@ export function useRecentContactActivity() {
           id,
           description,
           amount,
+          currency,
           date,
           paid_by,
           user_lo,
@@ -66,37 +85,114 @@ export function useRecentContactActivity() {
   });
 }
 
+interface ContactBalanceContextRow {
+  contact_user_id: string;
+  full_name: string;
+  avatar_url: string | null;
+  currency: string;
+  balance: number;
+}
+
 export function useContacts() {
   const { user } = useAuth();
+  const { currency: displayCurrency } = useDisplayCurrency();
+  const { data: rates } = useExchangeRates();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["contacts", user?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<ContactBalanceContextRow[]> => {
       const { data, error } = await supabase.rpc(
         "get_contacts_with_combined_balances"
       );
       if (error) throw error;
       return (data ?? []).map((row) => ({
-        ...row,
+        contact_user_id: row.contact_user_id,
+        full_name: row.full_name,
+        avatar_url: row.avatar_url,
+        currency: row.currency,
         balance: Number(row.balance),
-      })) as ContactWithBalance[];
+      }));
     },
     enabled: !!user,
   });
+
+  // Each contact has one row per currency context (1-on-1 ledger + each shared
+  // group). Convert every piece to the display currency, then sum per contact.
+  const contacts = useMemo<ContactWithBalance[]>(() => {
+    const byContact = new Map<string, ContactWithBalance>();
+    for (const row of query.data ?? []) {
+      const existing = byContact.get(row.contact_user_id);
+      const converted = convert(
+        row.balance,
+        row.currency,
+        displayCurrency,
+        rates
+      );
+      if (existing) {
+        existing.balance += converted;
+      } else {
+        byContact.set(row.contact_user_id, {
+          contact_user_id: row.contact_user_id,
+          full_name: row.full_name,
+          avatar_url: row.avatar_url,
+          balance: converted,
+        });
+      }
+    }
+    return Array.from(byContact.values()).map((c) => ({
+      ...c,
+      balance: Math.round(c.balance * 100) / 100,
+    }));
+  }, [query.data, rates, displayCurrency]);
+
+  return { ...query, data: query.data ? contacts : undefined };
 }
 
 export function useContactBalance(contactUserId: string) {
   const { user } = useAuth();
+  const { currency: displayCurrency } = useDisplayCurrency();
+  const { data: rates } = useExchangeRates();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["contact-balance", user?.id, contactUserId],
-    queryFn: async () => {
+    queryFn: async (): Promise<{ currency: string; balance: number }[]> => {
       const { data, error } = await supabase.rpc(
-        "get_contact_combined_balance",
+        "get_contact_balance_contexts",
         {
           p_contact_user_id: contactUserId,
         }
       );
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        currency: row.currency,
+        balance: Number(row.balance),
+      }));
+    },
+    enabled: !!user && !!contactUserId,
+  });
+
+  // Combined balance: convert each per-currency context into the display
+  // currency and sum.
+  const balance = useMemo(() => {
+    let total = 0;
+    for (const ctx of query.data ?? []) {
+      total += convert(ctx.balance, ctx.currency, displayCurrency, rates);
+    }
+    return Math.round(total * 100) / 100;
+  }, [query.data, rates, displayCurrency]);
+
+  return { ...query, data: query.data ? balance : undefined };
+}
+
+export function useContactPairBalance(contactUserId: string) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["contact-pair-balance", user?.id, contactUserId],
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase.rpc("get_contact_balance", {
+        p_contact_user_id: contactUserId,
+      });
       if (error) throw error;
       return Number(data ?? 0);
     },
@@ -121,6 +217,7 @@ export function useContactGroupBreakdown(contactUserId: string) {
         group_id: row.group_id,
         group_name: row.group_name,
         balance: Number(row.balance),
+        currency: row.currency,
       }));
     },
     enabled: !!user && !!contactUserId,
@@ -273,6 +370,8 @@ interface CreateContactExpenseInput {
   splitType: SplitType;
   splits: { userId: string; amount: number }[];
   date?: string;
+  currency?: string;
+  exchangeRate?: number;
 }
 
 export function useCreateContactExpense() {
@@ -286,6 +385,7 @@ export function useCreateContactExpense() {
         throw new Error("Split amounts must add up to the expense total");
       }
 
+      const rate = input.exchangeRate ?? 1;
       const { data: expense, error } = await supabase.rpc(
         "create_contact_expense_with_splits",
         {
@@ -295,8 +395,10 @@ export function useCreateContactExpense() {
           p_description: input.description,
           p_category: input.category ?? null,
           p_split_type: input.splitType,
-          p_splits: input.splits,
+          p_splits: buildSplitsPayload(input.splits, input.amount, rate),
           p_date: input.date ?? null,
+          p_currency: input.currency ?? "USD",
+          p_exchange_rate: rate,
         }
       );
 
@@ -310,6 +412,9 @@ export function useCreateContactExpense() {
       });
       queryClient.invalidateQueries({
         queryKey: ["contact-balance", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
@@ -332,6 +437,7 @@ export function useUpdateContactExpense() {
         throw new Error("Split amounts must add up to the expense total");
       }
 
+      const rate = input.exchangeRate ?? 1;
       const { data: expense, error } = await supabase.rpc(
         "update_contact_expense_with_splits",
         {
@@ -341,8 +447,10 @@ export function useUpdateContactExpense() {
           p_description: input.description,
           p_category: input.category ?? null,
           p_split_type: input.splitType,
-          p_splits: input.splits,
+          p_splits: buildSplitsPayload(input.splits, input.amount, rate),
           p_date: input.date ?? null,
+          p_currency: input.currency ?? "USD",
+          p_exchange_rate: rate,
         }
       );
 
@@ -356,6 +464,9 @@ export function useUpdateContactExpense() {
       });
       queryClient.invalidateQueries({
         queryKey: ["contact-balance", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
@@ -388,6 +499,9 @@ export function useDeleteContactExpense() {
       });
       queryClient.invalidateQueries({
         queryKey: ["contact-balance", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
@@ -429,6 +543,7 @@ interface CreateContactPaymentInput {
   paidTo: string;
   amount: number;
   note?: string;
+  currency?: string;
 }
 
 function invalidateContactPaymentQueries(
@@ -442,6 +557,9 @@ function invalidateContactPaymentQueries(
   });
   queryClient.invalidateQueries({
     queryKey: ["contact-balance", userId, contactUserId],
+  });
+  queryClient.invalidateQueries({
+    queryKey: ["contact-pair-balance", userId, contactUserId],
   });
   queryClient.invalidateQueries({ queryKey: ["total-balance"] });
   queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
@@ -464,6 +582,9 @@ export function useCreateContactPayment() {
           user_hi: hi,
           amount: input.amount,
           note: input.note ?? null,
+          currency: input.currency ?? "USD",
+          exchange_rate: 1,
+          base_amount: input.amount,
         })
         .select()
         .single();
@@ -498,6 +619,13 @@ export function useUpdateContactPayment() {
           paid_to: input.paidTo,
           amount: input.amount,
           note: input.note ?? null,
+          ...(input.currency
+            ? {
+                currency: input.currency,
+                exchange_rate: 1,
+                base_amount: input.amount,
+              }
+            : { base_amount: input.amount }),
         })
         .eq("id", input.paymentId)
         .select()
@@ -540,6 +668,57 @@ export function useDeleteContactPayment() {
         user?.id,
         variables.contactUserId
       );
+    },
+  });
+}
+
+export function useContactCurrency(contactUserId: string) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["contact-currency", user?.id, contactUserId],
+    queryFn: async (): Promise<string> => {
+      const { data, error } = await supabase.rpc("get_contact_currency", {
+        p_contact_user_id: contactUserId,
+      });
+      if (error) throw error;
+      return (data as string) ?? "USD";
+    },
+    enabled: !!user && !!contactUserId,
+  });
+}
+
+export function useSetContactCurrency() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      contactUserId,
+      currency,
+    }: {
+      contactUserId: string;
+      currency: string;
+    }) => {
+      const { data, error } = await supabase.rpc("set_contact_currency", {
+        p_contact_user_id: contactUserId,
+        p_currency: currency,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["contact-currency", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-balance", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
     },
   });
 }

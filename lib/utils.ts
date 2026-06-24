@@ -1,9 +1,40 @@
+import {
+  DEFAULT_CURRENCY,
+  getCurrencyDecimals,
+  getCurrencySymbol,
+  type CurrencyCode,
+} from "./currency";
 import type { DebtEdge, GroupBalance, SplitType } from "./types";
 
-export function formatCurrency(amount: number): string {
-  const absAmount = Math.abs(amount);
-  const formatted = absAmount.toFixed(2);
-  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
+export function formatCurrency(
+  amount: number,
+  currencyCode: CurrencyCode = DEFAULT_CURRENCY
+): string {
+  const decimals = getCurrencyDecimals(currencyCode);
+  const symbol = getCurrencySymbol(currencyCode);
+  const formatted = Math.abs(amount).toFixed(decimals);
+  return amount < 0 ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
+}
+
+// Converts each split into a base-currency amount using `rate` and assigns any
+// rounding remainder to the first split so the base amounts sum exactly to
+// `baseTotal` (mirrors the remainder handling in splitEqual).
+export function convertSplitsToBase<T extends { amount: number }>(
+  splits: T[],
+  rate: number,
+  baseTotal: number
+): (T & { baseAmount: number })[] {
+  const result = splits.map((split) => ({
+    ...split,
+    baseAmount: Math.round(split.amount * rate * 100) / 100,
+  }));
+  const sum = result.reduce((acc, s) => acc + s.baseAmount, 0);
+  const remainder = Math.round((baseTotal - sum) * 100) / 100;
+  if (remainder !== 0 && result.length > 0) {
+    result[0].baseAmount =
+      Math.round((result[0].baseAmount + remainder) * 100) / 100;
+  }
+  return result;
 }
 
 export function simplifyDebts(balances: GroupBalance[]): DebtEdge[] {
@@ -74,7 +105,8 @@ export function computeSplits(
   splitType: SplitType,
   totalAmount: number,
   memberIds: string[],
-  rawInputs: Record<string, string>
+  rawInputs: Record<string, string>,
+  currencyCode: CurrencyCode = DEFAULT_CURRENCY
 ): ComputeSplitsResult {
   if (splitType === "equal") {
     const amounts = splitEqual(totalAmount, memberIds.length);
@@ -93,7 +125,7 @@ export function computeSplits(
     if (Math.abs(sum - totalAmount) > 0.01) {
       return {
         ok: false,
-        error: `Split amounts ($${sum.toFixed(2)}) don't add up to total ($${totalAmount.toFixed(2)})`,
+        error: `Split amounts (${formatCurrency(sum, currencyCode)}) don't add up to total (${formatCurrency(totalAmount, currencyCode)})`,
       };
     }
     return { ok: true, splits };

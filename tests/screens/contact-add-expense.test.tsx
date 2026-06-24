@@ -15,6 +15,7 @@ jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
   useContactExpenses: jest.fn(),
+  useContactCurrency: jest.fn(),
   useCreateContactExpense: jest.fn(),
   useUpdateContactExpense: jest.fn(),
 }));
@@ -25,6 +26,7 @@ import { useAuth } from "@/lib/auth";
 import {
   useContacts,
   useContactExpenses,
+  useContactCurrency,
   useCreateContactExpense,
   useUpdateContactExpense,
 } from "@/lib/queries/useContacts";
@@ -39,6 +41,7 @@ beforeEach(() => {
     data: [{ contact_user_id: "user-2", full_name: "Bob", balance: 0 }],
   });
   (useContactExpenses as jest.Mock).mockReturnValue({ data: [] });
+  (useContactCurrency as jest.Mock).mockReturnValue({ data: "USD" });
   (useCreateContactExpense as jest.Mock).mockReturnValue({
     mutateAsync: mockMutateAsync,
     isPending: false,
@@ -96,6 +99,8 @@ describe("AddContactExpense screen", () => {
         { userId: "user-1", amount: 15 },
         { userId: "user-2", amount: 15 },
       ],
+      currency: "USD",
+      exchangeRate: 1,
     });
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockShowError).not.toHaveBeenCalled();

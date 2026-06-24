@@ -210,3 +210,10 @@ create policy "Participants can delete contact payments"
 create policy "Participants can view contact requests"
   on public.contact_requests for select
   using (requester_id = auth.uid() or recipient_id = auth.uid());
+
+-- contact_pair_settings
+-- Either participant may read the pair's base currency; writes go through the
+-- set_contact_currency SECURITY DEFINER RPC, so only a select policy is needed.
+create policy "Participants can view contact pair settings"
+  on public.contact_pair_settings for select
+  using (auth.uid() = user_lo or auth.uid() = user_hi);

@@ -15,12 +15,14 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useBalances", () => ({ useGroupBalances: jest.fn() }));
+jest.mock("@/lib/queries/useGroups", () => ({ useGroup: jest.fn() }));
 jest.mock("@/lib/queries/usePayments", () => ({ useCreatePayment: jest.fn() }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useGroupBalances } from "@/lib/queries/useBalances";
+import { useGroup } from "@/lib/queries/useGroups";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useSnackbar } from "@/lib/snackbar";
 
@@ -44,6 +46,7 @@ beforeEach(() => {
   mockPayAsync.mockResolvedValue({ id: "pay-1" });
   (router as unknown as { back: jest.Mock }).back = mockBack;
   (useAuth as jest.Mock).mockReturnValue({ user: { id: "u1" } });
+  (useGroup as jest.Mock).mockReturnValue({ data: { currency: "USD" } });
   setBalances(owingBalances);
   (useCreatePayment as jest.Mock).mockReturnValue({
     mutateAsync: mockPayAsync,
@@ -81,6 +84,7 @@ describe("SettleUp screen", () => {
         paidTo: "u2",
         amount: 20,
         note: undefined,
+        currency: "USD",
       })
     );
     expect(mockShowSuccess).toHaveBeenCalledWith("Payment recorded!");
@@ -114,6 +118,7 @@ describe("SettleUp screen", () => {
         paidTo: "u2",
         amount: 20,
         note: undefined,
+        currency: "USD",
       })
     );
   });

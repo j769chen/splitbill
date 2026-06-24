@@ -2,11 +2,11 @@ import { View } from "react-native";
 import { Card, IconButton, Text } from "react-native-paper";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
-import type { ExpenseWithSplits } from "@/lib/types";
+import type { ContactExpenseWithSplits, ExpenseWithSplits } from "@/lib/types";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type ExpenseCardProps = {
-  expense: ExpenseWithSplits;
+  expense: ExpenseWithSplits | ContactExpenseWithSplits;
   currentUserId?: string;
   onDelete: (expenseId: string) => void;
   onEdit?: (expenseId: string) => void;
@@ -89,7 +89,7 @@ export function ExpenseCard({
                 variant="bodySmall"
                 style={{ color: theme.colors.onSurfaceVariant }}
               >
-                {payerName} paid {formatCurrency(expense.amount)}
+                {payerName} paid {formatCurrency(expense.amount, expense.currency)}
               </Text>
             </View>
           </View>
@@ -103,7 +103,7 @@ export function ExpenseCard({
                   variant="titleMedium"
                   style={{ fontWeight: "600", color: summaryColor }}
                 >
-                  {formatCurrency(summaryAmount)}
+                  {formatCurrency(summaryAmount, expense.currency)}
                 </Text>
               </View>
             ) : (

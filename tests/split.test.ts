@@ -69,6 +69,21 @@ describe("computeSplits - exact", () => {
       error: "Split amounts ($9.00) don't add up to total ($10.00)",
     });
   });
+
+  it("formats exact split validation with the selected currency", () => {
+    const result = computeSplits(
+      "exact",
+      10,
+      ["a", "b"],
+      { a: "6", b: "3" },
+      "EUR"
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Split amounts (€9.00) don't add up to total (€10.00)",
+    });
+  });
 });
 
 describe("computeSplits - percentage", () => {

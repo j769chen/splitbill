@@ -15,12 +15,14 @@ type MemberBalanceCardProps = {
   balance: GroupBalance;
   breakdown: MemberBreakdownItem[];
   accentColor: string;
+  currency?: string;
 };
 
 export function MemberBalanceCard({
   balance,
   breakdown,
   accentColor,
+  currency,
 }: MemberBalanceCardProps) {
   const theme = useAppTheme();
   const isOwed = balance.balance > 0.01;
@@ -79,7 +81,7 @@ export function MemberBalanceCard({
                 style={{ fontWeight: "700", color: accentColor }}
               >
                 {balance.balance > 0 ? "+" : ""}
-                {formatCurrency(balance.balance)}
+                {formatCurrency(balance.balance, currency)}
               </Text>
             </View>
             <List.Icon
@@ -144,7 +146,7 @@ export function MemberBalanceCard({
                     variant="bodyMedium"
                     style={{ fontWeight: "700", color: itemColor }}
                   >
-                    {formatCurrency(item.amount)}
+                    {formatCurrency(item.amount, currency)}
                   </Text>
                 </View>
               );

@@ -47,7 +47,7 @@ export default function EditPayment() {
 
   const memberName = (member: {
     user_id: string;
-    profiles?: { full_name?: string } | null;
+    profiles?: { full_name?: string | null } | null;
   }) =>
     member.profiles?.full_name ??
     (member.user_id === user?.id ? "You" : "Unknown");

@@ -24,9 +24,11 @@ jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
   useContactBalance: jest.fn(),
+  useContactCurrency: jest.fn(),
   useContactExpenses: jest.fn(),
   useContactPayments: jest.fn(),
   useContactGroupBreakdown: jest.fn(),
+  useSetContactCurrency: jest.fn(),
   useDeleteContactExpense: jest.fn(),
   useDeleteContactPayment: jest.fn(),
 }));
@@ -38,9 +40,11 @@ import { useAuth } from "@/lib/auth";
 import {
   useContacts,
   useContactBalance,
+  useContactCurrency,
   useContactExpenses,
   useContactPayments,
   useContactGroupBreakdown,
+  useSetContactCurrency,
   useDeleteContactExpense,
   useDeleteContactPayment,
 } from "@/lib/queries/useContacts";
@@ -96,6 +100,11 @@ function setup(overrides?: {
   (useContactGroupBreakdown as jest.Mock).mockReturnValue({
     data: overrides?.groupBreakdown ?? [],
     refetch: jest.fn().mockResolvedValue(undefined),
+  });
+  (useContactCurrency as jest.Mock).mockReturnValue({ data: "USD" });
+  (useSetContactCurrency as jest.Mock).mockReturnValue({
+    mutate: jest.fn(),
+    isPending: false,
   });
 }
 

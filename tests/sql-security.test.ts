@@ -218,10 +218,10 @@ describe("SQL security guards", () => {
 
     expect(body).toMatch(/from public\.contact_payments cp/i);
     expect(body).toMatch(
-      /cp\.paid_by = v_uid and cp\.paid_to = p_contact_user_id then cp\.amount/i
+      /cp\.paid_by = v_uid and cp\.paid_to = p_contact_user_id then cp\.base_amount/i
     );
     expect(body).toMatch(
-      /cp\.paid_by = p_contact_user_id and cp\.paid_to = v_uid then -cp\.amount/i
+      /cp\.paid_by = p_contact_user_id and cp\.paid_to = v_uid then -cp\.base_amount/i
     );
   });
 

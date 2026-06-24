@@ -9,9 +9,15 @@ type GroupMemberRowProps = {
   // Pairwise balance between the current user and this member (positive = this
   // member owes you). Undefined for the current user's own row.
   balance?: number;
+  currency?: string;
 };
 
-export function GroupMemberRow({ name, isSelf, balance }: GroupMemberRowProps) {
+export function GroupMemberRow({
+  name,
+  isSelf,
+  balance,
+  currency,
+}: GroupMemberRowProps) {
   const theme = useAppTheme();
 
   const owed = balance !== undefined && balance > 0.01;
@@ -23,9 +29,9 @@ export function GroupMemberRow({ name, isSelf, balance }: GroupMemberRowProps) {
       : theme.colors.onSurfaceVariant;
 
   const label = owed
-    ? `owes you ${formatCurrency(balance!)}`
+    ? `owes you ${formatCurrency(balance!, currency)}`
     : owing
-      ? `you owe ${formatCurrency(Math.abs(balance!))}`
+      ? `you owe ${formatCurrency(Math.abs(balance!), currency)}`
       : "settled up";
 
   return (

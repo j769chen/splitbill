@@ -2,16 +2,32 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type { ExpenseWithSplits, Profile, SplitType } from "../types";
 import { useAuth } from "../auth";
-import { validateSplitsTotal } from "../utils";
+import { convertSplitsToBase, validateSplitsTotal } from "../utils";
 
 export interface ActivityExpense {
   id: string;
   description: string;
   amount: number;
+  currency: string;
   date: string;
   paid_by: string;
   payer: Profile | null;
   groups: { name: string } | null;
+}
+
+// Builds the RPC split payload, converting each split into the group/pair base
+// currency at the given rate so the server can store base_amount per split.
+function buildSplitsPayload(
+  splits: { userId: string; amount: number }[],
+  amount: number,
+  rate: number
+) {
+  const baseTotal = Math.round(amount * rate * 100) / 100;
+  return convertSplitsToBase(splits, rate, baseTotal).map((s) => ({
+    userId: s.userId,
+    amount: s.amount,
+    baseAmount: s.baseAmount,
+  }));
 }
 
 export function useRecentActivity() {
@@ -27,6 +43,7 @@ export function useRecentActivity() {
           id,
           description,
           amount,
+          currency,
           date,
           paid_by,
           payer:profiles!expenses_paid_by_fkey (*),
@@ -78,6 +95,8 @@ interface CreateExpenseInput {
   splitType: SplitType;
   splits: { userId: string; amount: number }[];
   date?: string;
+  currency?: string;
+  exchangeRate?: number;
 }
 
 export function useCreateExpense() {
@@ -91,6 +110,7 @@ export function useCreateExpense() {
         throw new Error("Split amounts must add up to the expense total");
       }
 
+      const rate = input.exchangeRate ?? 1;
       const { data: expense, error: expenseError } = await supabase.rpc(
         "create_expense_with_splits",
         {
@@ -100,8 +120,10 @@ export function useCreateExpense() {
           p_description: input.description,
           p_category: input.category ?? null,
           p_split_type: input.splitType,
-          p_splits: input.splits,
+          p_splits: buildSplitsPayload(input.splits, input.amount, rate),
           p_date: input.date ?? null,
+          p_currency: input.currency ?? "USD",
+          p_exchange_rate: rate,
         }
       );
 
@@ -142,6 +164,7 @@ export function useUpdateExpense() {
         throw new Error("Split amounts must add up to the expense total");
       }
 
+      const rate = input.exchangeRate ?? 1;
       const { data: expense, error: expenseError } = await supabase.rpc(
         "update_expense_with_splits",
         {
@@ -151,8 +174,10 @@ export function useUpdateExpense() {
           p_description: input.description,
           p_category: input.category ?? null,
           p_split_type: input.splitType,
-          p_splits: input.splits,
+          p_splits: buildSplitsPayload(input.splits, input.amount, rate),
           p_date: input.date ?? null,
+          p_currency: input.currency ?? "USD",
+          p_exchange_rate: rate,
         }
       );
 

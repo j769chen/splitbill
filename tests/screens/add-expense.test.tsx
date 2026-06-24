@@ -111,6 +111,8 @@ describe("AddExpense screen", () => {
         { userId: "u2", amount: 10 },
         { userId: "u3", amount: 10 },
       ],
+      currency: "USD",
+      exchangeRate: 1,
     });
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockShowError).not.toHaveBeenCalled();

@@ -74,6 +74,8 @@ begin
     raise exception 'You are not a member of this group';
   end if;
 
+  -- Sum base_amount (each row converted to the group's base currency at entry
+  -- time) so cross-currency expenses net out correctly within the group.
   return query
   select
     gm.user_id,
@@ -86,21 +88,21 @@ begin
   from public.group_members gm
   join public.profiles p on p.id = gm.user_id
   left join (
-    select e.paid_by as uid, sum(e.amount) as total_paid
+    select e.paid_by as uid, sum(e.base_amount) as total_paid
     from public.expenses e where e.group_id = p_group_id group by e.paid_by
   ) paid on paid.uid = gm.user_id
   left join (
-    select es.user_id as uid, sum(es.amount) as total_owed
+    select es.user_id as uid, sum(es.base_amount) as total_owed
     from public.expense_splits es
     join public.expenses e on e.id = es.expense_id
     where e.group_id = p_group_id group by es.user_id
   ) owed on owed.uid = gm.user_id
   left join (
-    select py.paid_to as uid, sum(py.amount) as total_received
+    select py.paid_to as uid, sum(py.base_amount) as total_received
     from public.payments py where py.group_id = p_group_id group by py.paid_to
   ) received on received.uid = gm.user_id
   left join (
-    select py.paid_by as uid, sum(py.amount) as total_sent
+    select py.paid_by as uid, sum(py.base_amount) as total_sent
     from public.payments py where py.group_id = p_group_id group by py.paid_by
   ) sent on sent.uid = gm.user_id
   where gm.group_id = p_group_id;
@@ -183,7 +185,8 @@ $$;
 
 create or replace function public.create_group_with_members(
   p_name text,
-  p_member_ids uuid[] default '{}'
+  p_member_ids uuid[] default '{}',
+  p_currency text default 'USD'
 )
 returns public.groups
 language plpgsql
@@ -194,6 +197,7 @@ declare
   v_uid uuid := auth.uid();
   v_group public.groups;
   v_member_id uuid;
+  v_currency text := upper(btrim(coalesce(p_currency, 'USD')));
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -203,8 +207,8 @@ begin
     raise exception 'Group name is required';
   end if;
 
-  insert into public.groups (name, created_by)
-  values (btrim(p_name), v_uid)
+  insert into public.groups (name, created_by, currency)
+  values (btrim(p_name), v_uid, v_currency)
   returning * into v_group;
 
   insert into public.group_members (group_id, user_id)
@@ -333,7 +337,7 @@ begin
   expense_bal as (
     select
       (case when e.paid_by = v_uid then es.user_id else e.paid_by end) as uid,
-      sum(case when e.paid_by = v_uid then es.amount else -es.amount end) as bal
+      sum(case when e.paid_by = v_uid then es.base_amount else -es.base_amount end) as bal
     from public.expenses e
     join public.expense_splits es on es.expense_id = e.id
     where e.group_id = p_group_id
@@ -346,7 +350,7 @@ begin
   payment_bal as (
     select
       (case when pmt.paid_by = v_uid then pmt.paid_to else pmt.paid_by end) as uid,
-      sum(case when pmt.paid_by = v_uid then pmt.amount else -pmt.amount end) as bal
+      sum(case when pmt.paid_by = v_uid then pmt.base_amount else -pmt.base_amount end) as bal
     from public.payments pmt
     where pmt.group_id = p_group_id
       and (pmt.paid_by = v_uid or pmt.paid_to = v_uid)
@@ -377,7 +381,9 @@ create or replace function public.create_expense_with_splits(
   p_category text,
   p_split_type public.split_type,
   p_splits jsonb,
-  p_date timestamptz default null
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1
 )
 returns public.expenses
 language plpgsql
@@ -390,8 +396,13 @@ declare
   v_split jsonb;
   v_split_user uuid;
   v_split_amount numeric(12, 2);
+  v_split_base numeric(12, 2);
   v_split_total numeric(12, 2) := 0;
+  v_split_base_total numeric(12, 2) := 0;
   v_split_count int := 0;
+  v_currency text := upper(btrim(coalesce(p_currency, 'USD')));
+  v_rate numeric := coalesce(p_exchange_rate, 1);
+  v_base_amount numeric(12, 2);
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -409,14 +420,23 @@ begin
     raise exception 'Expense amount must be greater than zero';
   end if;
 
+  if v_rate <= 0 then
+    raise exception 'Exchange rate must be greater than zero';
+  end if;
+
   if btrim(coalesce(p_description, '')) = '' then
     raise exception 'Expense description is required';
   end if;
+
+  v_base_amount := round(p_amount * v_rate, 2);
 
   for v_split in select value from jsonb_array_elements(coalesce(p_splits, '[]'::jsonb))
   loop
     v_split_user := (v_split->>'userId')::uuid;
     v_split_amount := round((v_split->>'amount')::numeric, 2);
+    v_split_base := round(
+      coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+    );
 
     if v_split_amount < 0 then
       raise exception 'Split amount cannot be negative';
@@ -428,6 +448,7 @@ begin
 
     v_split_count := v_split_count + 1;
     v_split_total := v_split_total + v_split_amount;
+    v_split_base_total := v_split_base_total + v_split_base;
   end loop;
 
   if v_split_count = 0 then
@@ -438,6 +459,10 @@ begin
     raise exception 'Split amounts must add up to the expense total';
   end if;
 
+  if v_split_base_total <> v_base_amount then
+    raise exception 'Split base amounts must add up to the converted total';
+  end if;
+
   insert into public.expenses (
     group_id,
     paid_by,
@@ -445,7 +470,10 @@ begin
     description,
     category,
     split_type,
-    date
+    date,
+    currency,
+    exchange_rate,
+    base_amount
   )
   values (
     p_group_id,
@@ -454,17 +482,23 @@ begin
     btrim(p_description),
     p_category,
     p_split_type,
-    coalesce(p_date, now())
+    coalesce(p_date, now()),
+    v_currency,
+    v_rate,
+    v_base_amount
   )
   returning * into v_expense;
 
   for v_split in select value from jsonb_array_elements(p_splits)
   loop
-    insert into public.expense_splits (expense_id, user_id, amount)
+    insert into public.expense_splits (expense_id, user_id, amount, base_amount)
     values (
       v_expense.id,
       (v_split->>'userId')::uuid,
-      round((v_split->>'amount')::numeric, 2)
+      round((v_split->>'amount')::numeric, 2),
+      round(
+        coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+      )
     );
   end loop;
 
@@ -483,7 +517,9 @@ create or replace function public.update_expense_with_splits(
   p_category text,
   p_split_type public.split_type,
   p_splits jsonb,
-  p_date timestamptz default null
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1
 )
 returns public.expenses
 language plpgsql
@@ -497,8 +533,13 @@ declare
   v_split jsonb;
   v_split_user uuid;
   v_split_amount numeric(12, 2);
+  v_split_base numeric(12, 2);
   v_split_total numeric(12, 2) := 0;
+  v_split_base_total numeric(12, 2) := 0;
   v_split_count int := 0;
+  v_currency text := upper(btrim(coalesce(p_currency, 'USD')));
+  v_rate numeric := coalesce(p_exchange_rate, 1);
+  v_base_amount numeric(12, 2);
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -522,14 +563,23 @@ begin
     raise exception 'Expense amount must be greater than zero';
   end if;
 
+  if v_rate <= 0 then
+    raise exception 'Exchange rate must be greater than zero';
+  end if;
+
   if btrim(coalesce(p_description, '')) = '' then
     raise exception 'Expense description is required';
   end if;
+
+  v_base_amount := round(p_amount * v_rate, 2);
 
   for v_split in select value from jsonb_array_elements(coalesce(p_splits, '[]'::jsonb))
   loop
     v_split_user := (v_split->>'userId')::uuid;
     v_split_amount := round((v_split->>'amount')::numeric, 2);
+    v_split_base := round(
+      coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+    );
 
     if v_split_amount < 0 then
       raise exception 'Split amount cannot be negative';
@@ -541,6 +591,7 @@ begin
 
     v_split_count := v_split_count + 1;
     v_split_total := v_split_total + v_split_amount;
+    v_split_base_total := v_split_base_total + v_split_base;
   end loop;
 
   if v_split_count = 0 then
@@ -551,6 +602,10 @@ begin
     raise exception 'Split amounts must add up to the expense total';
   end if;
 
+  if v_split_base_total <> v_base_amount then
+    raise exception 'Split base amounts must add up to the converted total';
+  end if;
+
   update public.expenses
   set
     paid_by = p_paid_by,
@@ -558,7 +613,10 @@ begin
     description = btrim(p_description),
     category = p_category,
     split_type = p_split_type,
-    date = coalesce(p_date, date)
+    date = coalesce(p_date, date),
+    currency = v_currency,
+    exchange_rate = v_rate,
+    base_amount = v_base_amount
   where id = p_expense_id
   returning * into v_expense;
 
@@ -566,11 +624,14 @@ begin
 
   for v_split in select value from jsonb_array_elements(p_splits)
   loop
-    insert into public.expense_splits (expense_id, user_id, amount)
+    insert into public.expense_splits (expense_id, user_id, amount, base_amount)
     values (
       p_expense_id,
       (v_split->>'userId')::uuid,
-      round((v_split->>'amount')::numeric, 2)
+      round((v_split->>'amount')::numeric, 2),
+      round(
+        coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+      )
     );
   end loop;
 
@@ -779,7 +840,9 @@ create or replace function public.create_contact_expense_with_splits(
   p_category text,
   p_split_type public.split_type,
   p_splits jsonb,
-  p_date timestamptz default null
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1
 )
 returns public.contact_expenses
 language plpgsql
@@ -794,8 +857,13 @@ declare
   v_split jsonb;
   v_split_user uuid;
   v_split_amount numeric(12, 2);
+  v_split_base numeric(12, 2);
   v_split_total numeric(12, 2) := 0;
+  v_split_base_total numeric(12, 2) := 0;
   v_split_count int := 0;
+  v_currency text := upper(btrim(coalesce(p_currency, 'USD')));
+  v_rate numeric := coalesce(p_exchange_rate, 1);
+  v_base_amount numeric(12, 2);
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -820,6 +888,10 @@ begin
     raise exception 'Expense amount must be greater than zero';
   end if;
 
+  if v_rate <= 0 then
+    raise exception 'Exchange rate must be greater than zero';
+  end if;
+
   if btrim(coalesce(p_description, '')) = '' then
     raise exception 'Expense description is required';
   end if;
@@ -832,10 +904,15 @@ begin
     v_hi := v_uid;
   end if;
 
+  v_base_amount := round(p_amount * v_rate, 2);
+
   for v_split in select value from jsonb_array_elements(coalesce(p_splits, '[]'::jsonb))
   loop
     v_split_user := (v_split->>'userId')::uuid;
     v_split_amount := round((v_split->>'amount')::numeric, 2);
+    v_split_base := round(
+      coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+    );
 
     if v_split_amount < 0 then
       raise exception 'Split amount cannot be negative';
@@ -847,6 +924,7 @@ begin
 
     v_split_count := v_split_count + 1;
     v_split_total := v_split_total + v_split_amount;
+    v_split_base_total := v_split_base_total + v_split_base;
   end loop;
 
   if v_split_count = 0 then
@@ -857,6 +935,10 @@ begin
     raise exception 'Split amounts must add up to the expense total';
   end if;
 
+  if v_split_base_total <> v_base_amount then
+    raise exception 'Split base amounts must add up to the converted total';
+  end if;
+
   insert into public.contact_expenses (
     paid_by,
     user_lo,
@@ -865,7 +947,10 @@ begin
     description,
     category,
     split_type,
-    date
+    date,
+    currency,
+    exchange_rate,
+    base_amount
   )
   values (
     p_paid_by,
@@ -875,17 +960,23 @@ begin
     btrim(p_description),
     p_category,
     p_split_type,
-    coalesce(p_date, now())
+    coalesce(p_date, now()),
+    v_currency,
+    v_rate,
+    v_base_amount
   )
   returning * into v_expense;
 
   for v_split in select value from jsonb_array_elements(p_splits)
   loop
-    insert into public.contact_expense_splits (expense_id, user_id, amount)
+    insert into public.contact_expense_splits (expense_id, user_id, amount, base_amount)
     values (
       v_expense.id,
       (v_split->>'userId')::uuid,
-      round((v_split->>'amount')::numeric, 2)
+      round((v_split->>'amount')::numeric, 2),
+      round(
+        coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+      )
     );
   end loop;
 
@@ -905,7 +996,9 @@ create or replace function public.update_contact_expense_with_splits(
   p_category text,
   p_split_type public.split_type,
   p_splits jsonb,
-  p_date timestamptz default null
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1
 )
 returns public.contact_expenses
 language plpgsql
@@ -920,8 +1013,13 @@ declare
   v_split jsonb;
   v_split_user uuid;
   v_split_amount numeric(12, 2);
+  v_split_base numeric(12, 2);
   v_split_total numeric(12, 2) := 0;
+  v_split_base_total numeric(12, 2) := 0;
   v_split_count int := 0;
+  v_currency text := upper(btrim(coalesce(p_currency, 'USD')));
+  v_rate numeric := coalesce(p_exchange_rate, 1);
+  v_base_amount numeric(12, 2);
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -946,14 +1044,23 @@ begin
     raise exception 'Expense amount must be greater than zero';
   end if;
 
+  if v_rate <= 0 then
+    raise exception 'Exchange rate must be greater than zero';
+  end if;
+
   if btrim(coalesce(p_description, '')) = '' then
     raise exception 'Expense description is required';
   end if;
+
+  v_base_amount := round(p_amount * v_rate, 2);
 
   for v_split in select value from jsonb_array_elements(coalesce(p_splits, '[]'::jsonb))
   loop
     v_split_user := (v_split->>'userId')::uuid;
     v_split_amount := round((v_split->>'amount')::numeric, 2);
+    v_split_base := round(
+      coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+    );
 
     if v_split_amount < 0 then
       raise exception 'Split amount cannot be negative';
@@ -965,6 +1072,7 @@ begin
 
     v_split_count := v_split_count + 1;
     v_split_total := v_split_total + v_split_amount;
+    v_split_base_total := v_split_base_total + v_split_base;
   end loop;
 
   if v_split_count = 0 then
@@ -975,6 +1083,10 @@ begin
     raise exception 'Split amounts must add up to the expense total';
   end if;
 
+  if v_split_base_total <> v_base_amount then
+    raise exception 'Split base amounts must add up to the converted total';
+  end if;
+
   update public.contact_expenses
   set
     paid_by = p_paid_by,
@@ -982,7 +1094,10 @@ begin
     description = btrim(p_description),
     category = p_category,
     split_type = p_split_type,
-    date = coalesce(p_date, date)
+    date = coalesce(p_date, date),
+    currency = v_currency,
+    exchange_rate = v_rate,
+    base_amount = v_base_amount
   where id = p_expense_id
   returning * into v_expense;
 
@@ -990,11 +1105,14 @@ begin
 
   for v_split in select value from jsonb_array_elements(p_splits)
   loop
-    insert into public.contact_expense_splits (expense_id, user_id, amount)
+    insert into public.contact_expense_splits (expense_id, user_id, amount, base_amount)
     values (
       p_expense_id,
       (v_split->>'userId')::uuid,
-      round((v_split->>'amount')::numeric, 2)
+      round((v_split->>'amount')::numeric, 2),
+      round(
+        coalesce((v_split->>'baseAmount')::numeric, (v_split->>'amount')::numeric * v_rate), 2
+      )
     );
   end loop;
 
@@ -1033,8 +1151,8 @@ begin
 
   select coalesce(sum(
     case
-      when ce.paid_by = v_uid and ces.user_id = p_contact_user_id then ces.amount
-      when ce.paid_by = p_contact_user_id and ces.user_id = v_uid then -ces.amount
+      when ce.paid_by = v_uid and ces.user_id = p_contact_user_id then ces.base_amount
+      when ce.paid_by = p_contact_user_id and ces.user_id = v_uid then -ces.base_amount
       else 0
     end
   ), 0)
@@ -1048,8 +1166,8 @@ begin
   -- shared-group payment term in get_contact_group_balance.
   select coalesce(sum(
     case
-      when cp.paid_by = v_uid and cp.paid_to = p_contact_user_id then cp.amount
-      when cp.paid_by = p_contact_user_id and cp.paid_to = v_uid then -cp.amount
+      when cp.paid_by = v_uid and cp.paid_to = p_contact_user_id then cp.base_amount
+      when cp.paid_by = p_contact_user_id and cp.paid_to = v_uid then -cp.base_amount
       else 0
     end
   ), 0)
@@ -1133,8 +1251,8 @@ begin
 
   select coalesce(sum(
     case
-      when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.amount
-      when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.amount
+      when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.base_amount
+      when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.base_amount
       else 0
     end
   ), 0)
@@ -1153,8 +1271,8 @@ begin
 
   select coalesce(sum(
     case
-      when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.amount
-      when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.amount
+      when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.base_amount
+      when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.base_amount
       else 0
     end
   ), 0)
@@ -1174,28 +1292,197 @@ begin
 end;
 $$;
 
--- Combined display balance for a contact: 1-on-1 ledger + shared-group pairwise
--- net. Display only; get_user_total_balance must NOT use this (it would
--- double-count group activity already summed via get_group_balances).
-create or replace function public.get_contact_combined_balance(p_contact_user_id uuid)
-returns numeric
+-- The base currency for a one-on-one contact ledger (defaults to 'USD' when the
+-- pair has no explicit setting).
+create or replace function public.get_contact_currency(p_contact_user_id uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_lo uuid;
+  v_hi uuid;
+  v_currency text;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_contact_user_id is null or p_contact_user_id = v_uid then
+    return 'USD';
+  end if;
+
+  if v_uid < p_contact_user_id then
+    v_lo := v_uid;
+    v_hi := p_contact_user_id;
+  else
+    v_lo := p_contact_user_id;
+    v_hi := v_uid;
+  end if;
+
+  select currency into v_currency
+  from public.contact_pair_settings
+  where user_lo = v_lo and user_hi = v_hi;
+
+  return coalesce(v_currency, 'USD');
+end;
+$$;
+
+-- Per-context pieces of a contact's combined balance: the 1-on-1 ledger (in the
+-- pair's base currency) plus one row per shared group (in that group's base
+-- currency). Returned un-summed so the client can convert each piece into the
+-- viewer's display currency before adding them up (they may be different
+-- currencies). Display only; get_user_total_balance must NOT fold the group
+-- rows in (they are already summed via get_group_balances).
+create or replace function public.get_contact_balance_contexts(p_contact_user_id uuid)
+returns table (
+  currency text,
+  balance numeric(12, 2)
+)
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  return public.get_contact_balance(p_contact_user_id)
-       + public.get_contact_group_balance(p_contact_user_id);
+  -- 1-on-1 ledger piece, in the contact pair's base currency.
+  return query
+  select
+    public.get_contact_currency(p_contact_user_id) as currency,
+    public.get_contact_balance(p_contact_user_id)::numeric(12, 2) as balance;
+
+  -- Shared-group pieces, each in its own group's base currency.
+  return query
+  select b.currency, b.balance
+  from public.get_contact_group_breakdown(p_contact_user_id) b;
 end;
 $$;
 
--- Same contact set as get_contacts_with_balances, but each balance folds in the
--- shared-group pairwise net for display on contact cards.
+-- Sets (upserts) the base currency for a one-on-one contact ledger. Either
+-- participant may set it; routed through SECURITY DEFINER so the table needs no
+-- direct write policy.
+create or replace function public.set_contact_currency(
+  p_contact_user_id uuid,
+  p_currency text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_lo uuid;
+  v_hi uuid;
+  v_currency text := upper(btrim(coalesce(p_currency, 'USD')));
+  v_existing_currency text;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_contact_user_id is null or p_contact_user_id = v_uid then
+    raise exception 'Invalid contact';
+  end if;
+
+  if not exists (
+    select 1 from public.contacts
+    where owner_id = v_uid and contact_user_id = p_contact_user_id
+  ) then
+    raise exception 'You can only set the currency for accepted contacts';
+  end if;
+
+  if v_uid < p_contact_user_id then
+    v_lo := v_uid;
+    v_hi := p_contact_user_id;
+  else
+    v_lo := p_contact_user_id;
+    v_hi := v_uid;
+  end if;
+
+  select currency into v_existing_currency
+  from public.contact_pair_settings
+  where user_lo = v_lo and user_hi = v_hi;
+
+  if exists (
+    select 1 from public.contact_expenses ce
+    where ce.user_lo = v_lo and ce.user_hi = v_hi
+  ) or exists (
+    select 1 from public.contact_payments cp
+    where cp.user_lo = v_lo and cp.user_hi = v_hi
+  ) then
+    if coalesce(v_existing_currency, 'USD') <> v_currency then
+      raise exception 'Cannot change contact currency after activity exists';
+    end if;
+    return v_currency;
+  end if;
+
+  insert into public.contact_pair_settings (user_lo, user_hi, currency, updated_at)
+  values (v_lo, v_hi, v_currency, now())
+  on conflict (user_lo, user_hi)
+  do update set currency = excluded.currency, updated_at = now();
+
+  return v_currency;
+end;
+$$;
+
+-- Sets a group's base currency. Any member may change it (mirrors rename_group).
+create or replace function public.set_group_currency(
+  p_group_id uuid,
+  p_currency text
+)
+returns public.groups
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_group public.groups;
+  v_currency text := upper(btrim(coalesce(p_currency, 'USD')));
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if not public.is_group_member(p_group_id, v_uid) then
+    raise exception 'You are not a member of this group';
+  end if;
+
+  select * into v_group
+  from public.groups
+  where id = p_group_id;
+
+  if exists (select 1 from public.expenses e where e.group_id = p_group_id)
+    or exists (select 1 from public.payments p where p.group_id = p_group_id)
+  then
+    if v_group.currency <> v_currency then
+      raise exception 'Cannot change group currency after activity exists';
+    end if;
+    return v_group;
+  end if;
+
+  update public.groups
+  set currency = v_currency
+  where id = p_group_id
+  returning * into v_group;
+
+  return v_group;
+end;
+$$;
+
+-- Same contact set as get_contacts_with_balances, but returns the combined
+-- balance broken into per-currency context rows (1-on-1 ledger + each shared
+-- group), un-summed. The client converts each row into the display currency and
+-- sums per contact. Contacts with no activity still get a single ledger row so
+-- they appear in the list. full_name/avatar_url repeat across a contact's rows.
 create or replace function public.get_contacts_with_combined_balances()
 returns table (
   contact_user_id uuid,
   full_name text,
   avatar_url text,
+  currency text,
   balance numeric(12, 2)
 )
 language plpgsql
@@ -1222,16 +1509,22 @@ begin
     select case when cp.user_lo = v_uid then cp.user_hi else cp.user_lo end as uid
     from public.contact_payments cp
     where cp.user_lo = v_uid or cp.user_hi = v_uid
+  ),
+  contacts_resolved as (
+    select ci.uid, p.full_name, p.avatar_url
+    from contact_ids ci
+    join public.profiles p on p.id = ci.uid
+    where ci.uid <> v_uid
   )
   select
-    ci.uid,
-    p.full_name,
-    p.avatar_url,
-    public.get_contact_combined_balance(ci.uid) as balance
-  from contact_ids ci
-  join public.profiles p on p.id = ci.uid
-  where ci.uid <> v_uid
-  order by p.full_name;
+    cr.uid,
+    cr.full_name,
+    cr.avatar_url,
+    ctx.currency,
+    ctx.balance
+  from contacts_resolved cr
+  cross join lateral public.get_contact_balance_contexts(cr.uid) ctx
+  order by cr.full_name;
 end;
 $$;
 
@@ -1243,7 +1536,8 @@ create or replace function public.get_contact_group_breakdown(p_contact_user_id 
 returns table (
   group_id uuid,
   group_name text,
-  balance numeric(12, 2)
+  balance numeric(12, 2),
+  currency text
 )
 language plpgsql
 security definer
@@ -1269,8 +1563,8 @@ begin
   expense_bal as (
     select e.group_id as gid, sum(
       case
-        when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.amount
-        when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.amount
+        when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.base_amount
+        when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.base_amount
         else 0
       end
     ) as bal
@@ -1286,8 +1580,8 @@ begin
   payment_bal as (
     select pmt.group_id as gid, sum(
       case
-        when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.amount
-        when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.amount
+        when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.base_amount
+        when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.base_amount
         else 0
       end
     ) as bal
@@ -1309,18 +1603,23 @@ begin
     from combined c
     group by c.gid
   )
-  select pg.gid, g.name, pg.bal
+  select pg.gid, g.name, pg.bal, g.currency
   from per_group pg
   join public.groups g on g.id = pg.gid
   order by g.name;
 end;
 $$;
 
--- Folds both group balances and contact balances into the overall total.
+-- Returns the user's net balance in each context, un-summed: one row per group
+-- (their net in that group, in the group's base currency) plus one row per
+-- one-on-one contact ledger (in the pair's base currency). The client converts
+-- each row into the display currency before summing into owed/owing, since the
+-- contexts can be in different currencies. Group activity is counted only via
+-- the group rows; contact rows are the 1-on-1 ledger only (no double counting).
 create or replace function public.get_user_total_balance(p_user_id uuid)
 returns table (
-  total_owed numeric(12, 2),
-  total_owing numeric(12, 2)
+  balance numeric(12, 2),
+  currency text
 )
 language plpgsql
 security definer
@@ -1331,28 +1630,20 @@ begin
     raise exception 'You can only view your own total balance';
   end if;
 
+  -- Group contexts: my net per group, in that group's base currency.
   return query
   with user_groups as (
-    select group_id from public.group_members where user_id = p_user_id
-  ),
-  group_balances as (
-    select gb.balance
-    from user_groups ug
-    cross join lateral public.get_group_balances(ug.group_id) gb
-    where gb.user_id = p_user_id
-  ),
-  contact_balances as (
-    select cwb.balance
-    from public.get_contacts_with_balances() cwb
-  ),
-  all_balances as (
-    select balance from group_balances
-    union all
-    select balance from contact_balances
+    select gm.group_id as gid from public.group_members gm where gm.user_id = p_user_id
   )
-  select
-    coalesce(sum(case when balance > 0 then balance else 0 end), 0) as total_owed,
-    coalesce(sum(case when balance < 0 then abs(balance) else 0 end), 0) as total_owing
-  from all_balances;
+  select gb.balance, g.currency
+  from user_groups ug
+  join public.groups g on g.id = ug.gid
+  cross join lateral public.get_group_balances(ug.gid) gb
+  where gb.user_id = p_user_id;
+
+  -- One-on-one contact ledger contexts, in each pair's base currency.
+  return query
+  select cwb.balance, public.get_contact_currency(cwb.contact_user_id)
+  from public.get_contacts_with_balances() cwb;
 end;
 $$;

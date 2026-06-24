@@ -133,6 +133,7 @@ describe("CreateGroup screen", () => {
       expect(mockCreateAsync).toHaveBeenCalledWith({
         name: "Japan",
         memberEmails: ["bob@x.com"],
+        currency: "USD",
       })
     );
     expect(mockBack).toHaveBeenCalled();

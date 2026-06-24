@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { AuthProvider } from "@/lib/auth";
 import { SnackbarProvider } from "@/lib/snackbar";
 import { ConfirmProvider } from "@/lib/confirm";
+import { DisplayCurrencyProvider } from "@/lib/display-currency";
 import {
   ThemePreferenceProvider,
   useThemePreference,
@@ -68,21 +69,23 @@ function ThemedApp() {
     >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <SnackbarProvider>
-            <ConfirmProvider>
-              <StatusBar style={isDark ? "light" : "dark"} />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: theme.colors.background },
-                }}
-              >
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="contacts" />
-              </Stack>
-            </ConfirmProvider>
-          </SnackbarProvider>
+          <DisplayCurrencyProvider>
+            <SnackbarProvider>
+              <ConfirmProvider>
+                <StatusBar style={isDark ? "light" : "dark"} />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: theme.colors.background },
+                  }}
+                >
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="contacts" />
+                </Stack>
+              </ConfirmProvider>
+            </SnackbarProvider>
+          </DisplayCurrencyProvider>
         </AuthProvider>
       </QueryClientProvider>
     </PaperProvider>

@@ -134,11 +134,50 @@ describe("useCreateExpense", () => {
         p_category: "food",
         p_split_type: "equal",
         p_splits: [
-          { userId: "user-1", amount: 5 },
-          { userId: "user-2", amount: 5 },
+          { userId: "user-1", amount: 5, baseAmount: 5 },
+          { userId: "user-2", amount: 5, baseAmount: 5 },
         ],
         p_date: null,
+        p_currency: "USD",
+        p_exchange_rate: 1,
       }
+    );
+  });
+
+  it("converts splits to a base currency when a rate is supplied", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "exp-2" }, error: null });
+
+    const { result } = await renderHook(() => useCreateExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({
+        groupId: "g1",
+        paidBy: "user-1",
+        amount: 10,
+        description: "Lunch",
+        splitType: "equal",
+        splits: [
+          { userId: "user-1", amount: 6 },
+          { userId: "user-2", amount: 4 },
+        ],
+        currency: "EUR",
+        exchangeRate: 1.1,
+      })
+    );
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "create_expense_with_splits",
+      expect.objectContaining({
+        p_currency: "EUR",
+        p_exchange_rate: 1.1,
+        // 10 * 1.1 = 11 base; splits 6.6 + 4.4 = 11
+        p_splits: [
+          { userId: "user-1", amount: 6, baseAmount: 6.6 },
+          { userId: "user-2", amount: 4, baseAmount: 4.4 },
+        ],
+      })
     );
   });
 
@@ -201,10 +240,12 @@ describe("useUpdateExpense", () => {
         p_category: null,
         p_split_type: "equal",
         p_splits: [
-          { userId: "user-1", amount: 5 },
-          { userId: "user-2", amount: 5 },
+          { userId: "user-1", amount: 5, baseAmount: 5 },
+          { userId: "user-2", amount: 5, baseAmount: 5 },
         ],
         p_date: null,
+        p_currency: "USD",
+        p_exchange_rate: 1,
       }
     );
   });

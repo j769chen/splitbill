@@ -10,9 +10,12 @@ import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense, useExpenses, useUpdateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
-import { computeSplits, getErrorMessage } from "@/lib/utils";
+import { computeSplits, formatCurrency, getErrorMessage } from "@/lib/utils";
+import { canConvert, getCurrencySymbol, getRate } from "@/lib/currency";
+import { useExchangeRates } from "@/lib/exchange-rates";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
 import { MemberSplitRow } from "@/components/groups/MemberSplitRow";
 import { PaidByPicker } from "@/components/groups/PaidByPicker";
 import type { SplitType } from "@/lib/types";
@@ -27,6 +30,7 @@ export default function AddExpense() {
   const { user } = useAuth();
   const { data: group } = useGroup(groupId!);
   const { data: expenses } = useExpenses(groupId!);
+  const { data: rates } = useExchangeRates();
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
   const { showError } = useSnackbar();
@@ -37,8 +41,11 @@ export default function AddExpense() {
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
+  const [currency, setCurrency] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  const baseCurrency = group?.currency ?? "USD";
+  const entryCurrency = currency ?? baseCurrency;
   const members = group?.group_members ?? [];
   const existingExpense = isEdit
     ? expenses?.find((e) => e.id === expenseId)
@@ -51,6 +58,7 @@ export default function AddExpense() {
     setAmount(String(existingExpense.amount));
     setPaidBy(existingExpense.paid_by);
     setSplitType(existingExpense.split_type);
+    setCurrency(existingExpense.currency);
 
     const splits = existingExpense.expense_splits ?? [];
     const splitUserIds = splits.map((s) => s.user_id);
@@ -78,8 +86,14 @@ export default function AddExpense() {
     .filter((userId) => !excludedMemberIds.includes(userId));
   const effectivePaidBy = paidBy || user?.id || "";
   const totalAmount = parseFloat(amount) || 0;
+  const isForeignCurrency = entryCurrency !== baseCurrency;
+  const hasExchangeRate = canConvert(entryCurrency, baseCurrency, rates);
+  const exchangeRate = isForeignCurrency
+    ? getRate(entryCurrency, baseCurrency, rates)
+    : 1;
+  const convertedBase = Math.round(totalAmount * exchangeRate * 100) / 100;
 
-  const memberName = (member: { user_id: string; profiles?: { full_name?: string } | null }) =>
+  const memberName = (member: { user_id: string; profiles?: { full_name?: string | null } | null }) =>
     member.profiles?.full_name ??
     (member.user_id === user?.id ? "You" : "Unknown");
 
@@ -108,12 +122,19 @@ export default function AddExpense() {
       showError("Please select who paid");
       return;
     }
+    if (isForeignCurrency && !hasExchangeRate) {
+      showError(
+        "Exchange rates aren't available for this currency pair. Try again when rates are cached."
+      );
+      return;
+    }
 
     const result = computeSplits(
       splitType,
       totalAmount,
       selectedMembers,
-      customSplits
+      customSplits,
+      entryCurrency
     );
     if (!result.ok) {
       showError(result.error);
@@ -131,6 +152,8 @@ export default function AddExpense() {
           description: description.trim(),
           splitType,
           splits,
+          currency: entryCurrency,
+          exchangeRate,
         });
       } else {
         await createExpense.mutateAsync({
@@ -140,6 +163,8 @@ export default function AddExpense() {
           description: description.trim(),
           splitType,
           splits,
+          currency: entryCurrency,
+          exchangeRate,
         });
       }
       router.back();
@@ -175,16 +200,38 @@ export default function AddExpense() {
           autoFocus
         />
 
-        <View style={{ marginTop: 16 }}>
-          <TextInput
-            mode="outlined"
-            label="Amount ($)"
-            placeholder="0.00"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-          />
+        <View style={{ marginTop: 16, flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <TextInput
+              mode="outlined"
+              label={`Amount (${getCurrencySymbol(entryCurrency).trim()})`}
+              placeholder="0.00"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <View style={{ justifyContent: "center" }}>
+            <CurrencyPicker value={entryCurrency} onChange={setCurrency} />
+          </View>
         </View>
+
+        {isForeignCurrency && totalAmount > 0 && hasExchangeRate ? (
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
+          >
+            {`= ${formatCurrency(convertedBase, baseCurrency)} in ${baseCurrency} (group currency)`}
+          </Text>
+        ) : null}
+        {isForeignCurrency && !hasExchangeRate ? (
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.error, marginTop: 8 }}
+          >
+            Exchange rates unavailable for {entryCurrency} to {baseCurrency}.
+          </Text>
+        ) : null}
 
         <PaidByPicker
           members={members}
@@ -236,6 +283,7 @@ export default function AddExpense() {
                   perPerson={perPerson}
                   totalAmount={totalAmount}
                   customValue={customSplits[member.user_id] || ""}
+                  currencyCode={entryCurrency}
                   onToggle={toggleMember}
                   onChangeCustom={(userId: string, val: string) =>
                     setCustomSplits((prev) => ({ ...prev, [userId]: val }))

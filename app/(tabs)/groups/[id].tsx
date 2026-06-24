@@ -179,6 +179,7 @@ export default function GroupDetail() {
       .map((d) => ({ direction: "owed" as const, name: d.from_name, amount: d.amount })),
   ];
 
+  const groupCurrency = group?.currency ?? "USD";
   const pairwiseByUser = new Map(pairwise?.map((p) => [p.user_id, p.balance]));
   const members = [...(group?.group_members ?? [])].sort((a, b) => {
     if (a.user_id === user?.id) return -1;
@@ -275,6 +276,7 @@ export default function GroupDetail() {
                         ? undefined
                         : pairwiseByUser.get(member.user_id) ?? 0
                     }
+                    currency={groupCurrency}
                   />
                 ))}
               </Card.Content>
@@ -361,6 +363,7 @@ export default function GroupDetail() {
                       balance={b}
                       breakdown={memberBreakdown(b.user_id)}
                       accentColor={balanceColor(b.balance)}
+                      currency={groupCurrency}
                     />
                   ))}
                 </View>

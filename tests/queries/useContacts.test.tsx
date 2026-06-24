@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import {
   useContacts,
   useContactBalance,
+  useContactPairBalance,
   useContactExpenses,
   useContactGroupBreakdown,
   useSendContactRequest,
@@ -71,8 +72,15 @@ describe("useContacts", () => {
 });
 
 describe("useContactBalance", () => {
-  it("returns the numeric balance for a contact", async () => {
-    mockedSupabase.rpc.mockResolvedValue({ data: "-7.25", error: null });
+  it("sums the per-currency contexts into a display-currency balance", async () => {
+    // -5 EUR (rate 0.5) = -10 USD, plus a -2 USD shared-group piece = -12 USD.
+    mockedSupabase.rpc.mockResolvedValue({
+      data: [
+        { currency: "EUR", balance: -5 },
+        { currency: "USD", balance: -2 },
+      ],
+      error: null,
+    });
 
     const { result } = await renderHook(() => useContactBalance("user-2"), {
       wrapper: createWrapper(),
@@ -80,12 +88,31 @@ describe("useContactBalance", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockedSupabase.rpc).toHaveBeenCalledWith(
-      "get_contact_combined_balance",
+      "get_contact_balance_contexts",
       {
         p_contact_user_id: "user-2",
       }
     );
-    expect(result.current.data).toBe(-7.25);
+    expect(result.current.data).toBe(-12);
+  });
+});
+
+describe("useContactPairBalance", () => {
+  it("returns the one-on-one ledger balance without display-currency conversion", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: "15.25", error: null });
+
+    const { result } = await renderHook(
+      () => useContactPairBalance("user-2"),
+      {
+        wrapper: createWrapper(),
+      }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_contact_balance", {
+      p_contact_user_id: "user-2",
+    });
+    expect(result.current.data).toBe(15.25);
   });
 });
 
@@ -383,10 +410,12 @@ describe("useCreateContactExpense", () => {
         p_category: "food",
         p_split_type: "equal",
         p_splits: [
-          { userId: "user-1", amount: 5 },
-          { userId: "user-2", amount: 5 },
+          { userId: "user-1", amount: 5, baseAmount: 5 },
+          { userId: "user-2", amount: 5, baseAmount: 5 },
         ],
         p_date: null,
+        p_currency: "USD",
+        p_exchange_rate: 1,
       }
     );
   });
@@ -448,10 +477,12 @@ describe("useUpdateContactExpense", () => {
         p_category: null,
         p_split_type: "equal",
         p_splits: [
-          { userId: "user-1", amount: 5 },
-          { userId: "user-2", amount: 5 },
+          { userId: "user-1", amount: 5, baseAmount: 5 },
+          { userId: "user-2", amount: 5, baseAmount: 5 },
         ],
         p_date: null,
+        p_currency: "USD",
+        p_exchange_rate: 1,
       }
     );
   });
@@ -506,6 +537,9 @@ describe("useCreateContactPayment", () => {
       user_hi: "user-2",
       amount: 15,
       note: "venmo",
+      currency: "USD",
+      exchange_rate: 1,
+      base_amount: 15,
     });
   });
 
@@ -562,6 +596,7 @@ describe("useUpdateContactPayment", () => {
       paid_to: "user-1",
       amount: 8,
       note: "cash",
+      base_amount: 8,
     });
     expect(builder.eq).toHaveBeenCalledWith("id", "cp-1");
   });

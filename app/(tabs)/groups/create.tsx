@@ -1,20 +1,25 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { router } from "expo-router";
-import { Button, TextInput } from "react-native-paper";
+import { Button, Text, TextInput } from "react-native-paper";
 import { useCheckEmailExists, useCreateGroup } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 import { MemberEmailInput } from "@/components/groups/MemberEmailInput";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
+import { useDisplayCurrency } from "@/lib/display-currency";
 
 export default function CreateGroup() {
   const theme = useAppTheme();
   const { user } = useAuth();
+  const { currency: displayCurrency } = useDisplayCurrency();
   const [name, setName] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
+  const currency = selectedCurrency ?? displayCurrency;
   const createGroup = useCreateGroup();
   const checkEmail = useCheckEmailExists();
   const { showError } = useSnackbar();
@@ -79,6 +84,7 @@ export default function CreateGroup() {
       await createGroup.mutateAsync({
         name: name.trim(),
         memberEmails: finalEmails,
+        currency,
       });
       router.back();
     } catch (error) {
@@ -102,6 +108,20 @@ export default function CreateGroup() {
           onChangeText={setName}
           autoFocus
         />
+
+        <View style={{ marginTop: 16 }}>
+          <CurrencyPicker
+            label="Base currency"
+            value={currency}
+            onChange={setSelectedCurrency}
+          />
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant, marginTop: 6 }}
+          >
+            Balances in this group are tracked in {currency}.
+          </Text>
+        </View>
 
         <MemberEmailInput
           value={emailInput}

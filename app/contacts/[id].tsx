@@ -5,14 +5,18 @@ import { Avatar, Button, Card, Text } from "react-native-paper";
 import {
   useContacts,
   useContactBalance,
+  useContactCurrency,
   useContactExpenses,
   useContactGroupBreakdown,
   useContactPayments,
   useDeleteContactExpense,
   useDeleteContactPayment,
+  useSetContactCurrency,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
+import { useDisplayCurrency } from "@/lib/display-currency";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
@@ -22,8 +26,6 @@ import { PaymentCard } from "@/components/groups/PaymentCard";
 import type {
   ContactExpenseWithSplits,
   ContactPaymentWithProfiles,
-  ExpenseWithSplits,
-  PaymentWithProfiles,
 } from "@/lib/types";
 
 type ContactActivityItem =
@@ -34,15 +36,21 @@ export default function ContactDetail() {
   const theme = useAppTheme();
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const { user } = useAuth();
+  const { currency: displayCurrency } = useDisplayCurrency();
   const { data: contacts } = useContacts();
   const { data: balance = 0, refetch: refetchBalance } = useContactBalance(id!);
   const { data: expenses, refetch: refetchExpenses } = useContactExpenses(id!);
   const { data: payments, refetch: refetchPayments } = useContactPayments(id!);
   const { data: groupBreakdown, refetch: refetchGroupBreakdown } =
     useContactGroupBreakdown(id!);
+  const { data: pairCurrency = "USD" } = useContactCurrency(id!);
+  const setContactCurrency = useSetContactCurrency();
   const deleteContactExpense = useDeleteContactExpense();
   const deleteContactPayment = useDeleteContactPayment();
   const { showError } = useSnackbar();
+
+  const hasOneOnOneActivity =
+    (expenses?.length ?? 0) > 0 || (payments?.length ?? 0) > 0;
   const confirm = useConfirm();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -170,9 +178,41 @@ export default function ContactDetail() {
                     marginTop: 4,
                   }}
                 >
-                  {formatCurrency(Math.abs(balance))}
+                  {formatCurrency(Math.abs(balance), displayCurrency)}
                 </Text>
               )}
+              <View style={{ marginTop: 16, alignItems: "center" }}>
+                <CurrencyPicker
+                  value={pairCurrency}
+                  disabled={hasOneOnOneActivity || setContactCurrency.isPending}
+                  onChange={(code) =>
+                    setContactCurrency.mutate(
+                      { contactUserId: id!, currency: code },
+                      {
+                        onError: (error) =>
+                          showError(
+                            getErrorMessage(
+                              error,
+                              "Couldn't update the currency. Please try again."
+                            )
+                          ),
+                      }
+                    )
+                  }
+                />
+                <Text
+                  variant="bodySmall"
+                  style={{
+                    color: theme.colors.onSurfaceVariant,
+                    marginTop: 6,
+                    textAlign: "center",
+                  }}
+                >
+                  {hasOneOnOneActivity
+                    ? `One-on-one balances are tracked in ${pairCurrency}.`
+                    : `Set the base currency for one-on-one expenses.`}
+                </Text>
+              </View>
             </Card.Content>
           </Card>
 
@@ -194,9 +234,9 @@ export default function ContactDetail() {
                       ? theme.colors.error
                       : theme.colors.onSurfaceVariant;
                   const groupLabel = groupOwed
-                    ? `${contactName} owes you ${formatCurrency(group.balance)}`
+                    ? `${contactName} owes you ${formatCurrency(group.balance, group.currency)}`
                     : groupOwing
-                      ? `You owe ${formatCurrency(Math.abs(group.balance))}`
+                      ? `You owe ${formatCurrency(Math.abs(group.balance), group.currency)}`
                       : "Settled up";
 
                   return (
@@ -254,7 +294,7 @@ export default function ContactDetail() {
                   item.kind === "expense" ? (
                     <ExpenseCard
                       key={`expense-${item.expense.id}`}
-                      expense={item.expense as unknown as ExpenseWithSplits}
+                      expense={item.expense}
                       currentUserId={user?.id}
                       onDelete={handleDeleteExpense}
                       onEdit={(expenseId) =>
@@ -267,9 +307,7 @@ export default function ContactDetail() {
                   ) : (
                     <PaymentCard
                       key={`payment-${item.payment.id}`}
-                      payment={
-                        item.payment as unknown as PaymentWithProfiles
-                      }
+                      payment={item.payment}
                       currentUserId={user?.id}
                       onDelete={handleDeletePayment}
                       onEdit={(paymentId) =>

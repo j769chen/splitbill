@@ -9,6 +9,7 @@ type DebtCardProps = {
   index: number;
   isFrom: boolean;
   selected: boolean;
+  currency?: string;
   onSelect: () => void;
 };
 
@@ -17,6 +18,7 @@ export function DebtCard({
   index,
   isFrom,
   selected,
+  currency,
   onSelect,
 }: DebtCardProps) {
   const theme = useAppTheme();
@@ -63,7 +65,7 @@ export function DebtCard({
                 marginTop: 2,
               }}
             >
-              {formatCurrency(debt.amount)}
+              {formatCurrency(debt.amount, currency)}
             </Text>
           </View>
         </Card.Content>

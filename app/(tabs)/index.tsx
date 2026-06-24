@@ -5,6 +5,7 @@ import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
 import { useContacts, useContactRequests } from "@/lib/queries/useContacts";
 import { formatCurrency } from "@/lib/utils";
+import { useDisplayCurrency } from "@/lib/display-currency";
 import { useAppTheme } from "@/lib/theme";
 import { router } from "expo-router";
 import { useState, useCallback } from "react";
@@ -12,6 +13,7 @@ import { useState, useCallback } from "react";
 export default function Dashboard() {
   const theme = useAppTheme();
   const { user } = useAuth();
+  const { currency: displayCurrency } = useDisplayCurrency();
   const { data: balance, refetch: refetchBalance } = useUserTotalBalance();
   const { data: groups, refetch: refetchGroups } = useGroups();
   const { data: contacts, refetch: refetchContacts } = useContacts();
@@ -40,12 +42,12 @@ export default function Dashboard() {
   let amountColor = theme.colors.onBrand;
   if (net > 0.01) {
     balancePrefix = "You are owed ";
-    balanceAmount = formatCurrency(net);
+    balanceAmount = formatCurrency(net, displayCurrency);
     balanceSuffix = " overall";
     amountColor = theme.colors.success;
   } else if (net < -0.01) {
     balancePrefix = "You owe ";
-    balanceAmount = formatCurrency(Math.abs(net));
+    balanceAmount = formatCurrency(Math.abs(net), displayCurrency);
     balanceSuffix = " overall";
     amountColor = theme.colors.error;
   }
@@ -223,9 +225,9 @@ export default function Dashboard() {
                   ? theme.colors.error
                   : theme.colors.onSurfaceVariant;
               const balanceLabel = owed
-                ? `owes you ${formatCurrency(contact.balance)}`
+                ? `owes you ${formatCurrency(contact.balance, displayCurrency)}`
                 : owing
-                  ? `you owe ${formatCurrency(Math.abs(contact.balance))}`
+                  ? `you owe ${formatCurrency(Math.abs(contact.balance), displayCurrency)}`
                   : "settled up";
 
               return (

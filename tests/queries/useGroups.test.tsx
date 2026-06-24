@@ -146,7 +146,7 @@ describe("useCreateGroup", () => {
     expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(
       2,
       "create_group_with_members",
-      { p_name: "Trip", p_member_ids: ["u2"] }
+      { p_name: "Trip", p_member_ids: ["u2"], p_currency: "USD" }
     );
   });
 
@@ -164,7 +164,7 @@ describe("useCreateGroup", () => {
     expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
     expect(mockedSupabase.rpc).toHaveBeenCalledWith(
       "create_group_with_members",
-      { p_name: "Solo", p_member_ids: [] }
+      { p_name: "Solo", p_member_ids: [], p_currency: "USD" }
     );
   });
 

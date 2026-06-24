@@ -3,10 +3,10 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Card, IconButton, Text } from "react-native-paper";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
-import type { PaymentWithProfiles } from "@/lib/types";
+import type { ContactPaymentWithProfiles, PaymentWithProfiles } from "@/lib/types";
 
 type PaymentCardProps = {
-  payment: PaymentWithProfiles;
+  payment: PaymentWithProfiles | ContactPaymentWithProfiles;
   currentUserId?: string;
   onDelete?: (paymentId: string) => void;
   onEdit?: (paymentId: string) => void;
@@ -81,7 +81,8 @@ export function PaymentCard({
                   color: theme.colors.onSecondaryContainer,
                 }}
               >
-                {payerName} paid {payeeName} {formatCurrency(payment.amount)}
+                {payerName} paid {payeeName}{" "}
+                {formatCurrency(payment.amount, payment.currency)}
               </Text>
             </View>
           </View>

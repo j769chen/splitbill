@@ -15,7 +15,9 @@ create table public.groups (
   name text not null,
   image_url text,
   created_by uuid not null references public.profiles (id) on delete cascade,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Base currency the group's balances and settle-up are expressed in.
+  currency text not null default 'USD'
 );
 
 create table public.group_members (
@@ -35,7 +37,13 @@ create table public.expenses (
   category text,
   split_type public.split_type not null default 'equal',
   date timestamptz not null default now(),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Currency the expense was entered in. base_amount is `amount` converted to
+  -- the group's base currency at exchange_rate, captured at entry time so
+  -- balances never drift with the market.
+  currency text not null default 'USD',
+  exchange_rate numeric(18, 8) not null default 1 check (exchange_rate > 0),
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
 );
 
 create table public.expense_splits (
@@ -43,7 +51,10 @@ create table public.expense_splits (
   expense_id uuid not null references public.expenses (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   amount numeric(12, 2) not null check (amount >= 0),
-  unique (expense_id, user_id)
+  unique (expense_id, user_id),
+  -- The split's share converted to the group's base currency. Balance math
+  -- sums base_amount so cross-currency expenses net out correctly.
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
 );
 
 create table public.payments (
@@ -54,7 +65,12 @@ create table public.payments (
   amount numeric(12, 2) not null check (amount > 0),
   note text,
   created_at timestamptz not null default now(),
-  check (paid_by != paid_to)
+  check (paid_by != paid_to),
+  -- Settle-up payments are entered in the group's base currency (rate 1), but
+  -- the columns mirror expenses so a foreign-currency payment can be recorded.
+  currency text not null default 'USD',
+  exchange_rate numeric(18, 8) not null default 1 check (exchange_rate > 0),
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
 );
 
 create index idx_group_members_group on public.group_members (group_id);

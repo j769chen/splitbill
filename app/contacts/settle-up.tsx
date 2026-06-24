@@ -9,13 +9,15 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import {
   useContacts,
-  useContactBalance,
+  useContactCurrency,
+  useContactPairBalance,
   useContactPayments,
   useCreateContactPayment,
   useUpdateContactPayment,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
+import { getCurrencySymbol } from "@/lib/currency";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 
@@ -31,7 +33,8 @@ export default function ContactSettleUp() {
   const isEdit = !!paymentId;
   const { user } = useAuth();
   const { data: contacts } = useContacts();
-  const { data: balance = 0 } = useContactBalance(contactUserId!);
+  const { data: pairBalance = 0 } = useContactPairBalance(contactUserId!);
+  const { data: pairCurrency = "USD" } = useContactCurrency(contactUserId!);
   const { data: payments } = useContactPayments(contactUserId!);
   const createPayment = useCreateContactPayment();
   const updatePayment = useUpdateContactPayment();
@@ -65,10 +68,12 @@ export default function ContactSettleUp() {
 
     // Create mode: default direction + amount from the current balance.
     // balance > 0 => contact owes you => they pay you to settle.
-    setDirection(balance > 0.01 ? "they_paid" : "you_paid");
-    if (Math.abs(balance) > 0.01) setAmount(Math.abs(balance).toFixed(2));
+    setDirection(pairBalance > 0.01 ? "they_paid" : "you_paid");
+    if (Math.abs(pairBalance) > 0.01) {
+      setAmount(Math.abs(pairBalance).toFixed(2));
+    }
     setHydrated(true);
-  }, [hydrated, isEdit, existingPayment, balance, user?.id]);
+  }, [hydrated, isEdit, existingPayment, pairBalance, user?.id]);
 
   const handleSubmit = async () => {
     const totalAmount = parseFloat(amount) || 0;
@@ -93,6 +98,7 @@ export default function ContactSettleUp() {
           paidTo,
           amount: totalAmount,
           note: note.trim() || undefined,
+          currency: pairCurrency,
         });
         showSuccess("Payment updated!");
       } else {
@@ -102,6 +108,7 @@ export default function ContactSettleUp() {
           paidTo,
           amount: totalAmount,
           note: note.trim() || undefined,
+          currency: pairCurrency,
         });
         showSuccess("Payment recorded!");
       }
@@ -115,12 +122,12 @@ export default function ContactSettleUp() {
 
   const isPending = isEdit ? updatePayment.isPending : createPayment.isPending;
 
-  const owed = balance > 0.01;
-  const owing = balance < -0.01;
+  const owed = pairBalance > 0.01;
+  const owing = pairBalance < -0.01;
   const balanceLabel = owed
-    ? `${contactName} owes you ${formatCurrency(balance)}`
+    ? `${contactName} owes you ${formatCurrency(pairBalance, pairCurrency)}`
     : owing
-      ? `You owe ${contactName} ${formatCurrency(Math.abs(balance))}`
+      ? `You owe ${contactName} ${formatCurrency(Math.abs(pairBalance), pairCurrency)}`
       : `You're all settled up with ${contactName}`;
 
   return (
@@ -159,7 +166,7 @@ export default function ContactSettleUp() {
         <View style={{ marginTop: 24 }}>
           <TextInput
             mode="outlined"
-            label="Amount"
+            label={`Amount (${getCurrencySymbol(pairCurrency)})`}
             value={amount}
             onChangeText={setAmount}
             keyboardType="decimal-pad"

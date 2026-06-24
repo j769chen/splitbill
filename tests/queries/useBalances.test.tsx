@@ -79,9 +79,12 @@ describe("useMyGroupPairwiseBalances", () => {
 });
 
 describe("useUserTotalBalance", () => {
-  it("computes the net balance from owed and owing totals", async () => {
+  it("converts per-context balances and folds them into owed/owing", async () => {
     mockedSupabase.rpc.mockResolvedValue({
-      data: [{ total_owed: 10, total_owing: 4 }],
+      data: [
+        { balance: 10, currency: "USD" },
+        { balance: -4, currency: "USD" },
+      ],
       error: null,
     });
 
@@ -94,6 +97,27 @@ describe("useUserTotalBalance", () => {
       totalOwed: 10,
       totalOwing: 4,
       net: 6,
+      displayCurrency: "USD",
+    });
+  });
+
+  it("converts foreign-currency contexts into the display currency", async () => {
+    // EUR rate is 0.5 per USD in the test mock, so 5 EUR = 10 USD.
+    mockedSupabase.rpc.mockResolvedValue({
+      data: [{ balance: 5, currency: "EUR" }],
+      error: null,
+    });
+
+    const { result } = await renderHook(() => useUserTotalBalance(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual({
+      totalOwed: 10,
+      totalOwing: 0,
+      net: 10,
+      displayCurrency: "USD",
     });
   });
 
@@ -109,6 +133,7 @@ describe("useUserTotalBalance", () => {
       totalOwed: 0,
       totalOwing: 0,
       net: 0,
+      displayCurrency: "USD",
     });
   });
 

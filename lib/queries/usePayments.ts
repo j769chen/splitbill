@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 export interface ActivityPayment {
   id: string;
   amount: number;
+  currency: string;
   created_at: string;
   paid_by: string;
   paid_to: string;
@@ -27,6 +28,7 @@ export function useRecentPayments() {
           `
           id,
           amount,
+          currency,
           created_at,
           paid_by,
           paid_to,
@@ -75,6 +77,7 @@ interface CreatePaymentInput {
   paidTo: string;
   amount: number;
   note?: string;
+  currency?: string;
 }
 
 export function useCreatePayment() {
@@ -82,6 +85,8 @@ export function useCreatePayment() {
 
   return useMutation({
     mutationFn: async (input: CreatePaymentInput) => {
+      // Settle-up payments are recorded in the group's base currency, so the
+      // base amount equals the amount at a rate of 1.
       const { data, error } = await supabase
         .from("payments")
         .insert({
@@ -90,6 +95,9 @@ export function useCreatePayment() {
           paid_to: input.paidTo,
           amount: input.amount,
           note: input.note ?? null,
+          currency: input.currency ?? "USD",
+          exchange_rate: 1,
+          base_amount: input.amount,
         })
         .select()
         .single();
@@ -126,6 +134,7 @@ interface UpdatePaymentInput {
   paidTo: string;
   amount: number;
   note?: string;
+  currency?: string;
 }
 
 export function useUpdatePayment() {
@@ -140,6 +149,13 @@ export function useUpdatePayment() {
           paid_to: input.paidTo,
           amount: input.amount,
           note: input.note ?? null,
+          ...(input.currency
+            ? {
+                currency: input.currency,
+                exchange_rate: 1,
+                base_amount: input.amount,
+              }
+            : { base_amount: input.amount }),
         })
         .eq("id", input.paymentId)
         .select()

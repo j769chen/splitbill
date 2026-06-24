@@ -20,6 +20,8 @@ jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
   useContactBalance: jest.fn(),
+  useContactCurrency: jest.fn(),
+  useContactPairBalance: jest.fn(),
   useContactPayments: jest.fn(),
   useCreateContactPayment: jest.fn(),
   useUpdateContactPayment: jest.fn(),
@@ -31,6 +33,8 @@ import { useAuth } from "@/lib/auth";
 import {
   useContacts,
   useContactBalance,
+  useContactCurrency,
+  useContactPairBalance,
   useContactPayments,
   useCreateContactPayment,
   useUpdateContactPayment,
@@ -49,6 +53,8 @@ beforeEach(() => {
     data: [{ contact_user_id: "user-2", full_name: "Bob", balance: 15 }],
   });
   (useContactBalance as jest.Mock).mockReturnValue({ data: 15 });
+  (useContactCurrency as jest.Mock).mockReturnValue({ data: "USD" });
+  (useContactPairBalance as jest.Mock).mockReturnValue({ data: 15 });
   (useContactPayments as jest.Mock).mockReturnValue({ data: [] });
   (useCreateContactPayment as jest.Mock).mockReturnValue({
     mutateAsync: mockCreateAsync,
@@ -85,6 +91,7 @@ describe("ContactSettleUp screen (create)", () => {
       paidTo: "user-1",
       amount: 15,
       note: undefined,
+      currency: "USD",
     });
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
   });
@@ -132,6 +139,7 @@ describe("ContactSettleUp screen (edit)", () => {
       paidTo: "user-2",
       amount: 8,
       note: "cash",
+      currency: "USD",
     });
   });
 });

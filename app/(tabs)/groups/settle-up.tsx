@@ -8,9 +8,11 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { Button, Text, TextInput } from "react-native-paper";
 import { useGroupBalances } from "@/lib/queries/useBalances";
+import { useGroup } from "@/lib/queries/useGroups";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage, simplifyDebts } from "@/lib/utils";
+import { getCurrencySymbol } from "@/lib/currency";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { DebtCard } from "@/components/groups/DebtCard";
@@ -24,6 +26,8 @@ export default function SettleUp() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
   const { data: balances } = useGroupBalances(groupId!);
+  const { data: group } = useGroup(groupId!);
+  const groupCurrency = group?.currency ?? "USD";
   const createPayment = useCreatePayment();
   const { showError, showSuccess } = useSnackbar();
 
@@ -59,6 +63,7 @@ export default function SettleUp() {
         paidTo: selectedDebt.to,
         amount: settleAmount,
         note: note.trim() || undefined,
+        currency: groupCurrency,
       });
       showSuccess("Payment recorded!");
       router.back();
@@ -93,6 +98,7 @@ export default function SettleUp() {
                   index={idx}
                   isFrom={debt.from === user?.id}
                   selected={selectedDebtKey === debtKey(debt)}
+                  currency={groupCurrency}
                   onSelect={() => {
                     setSelectedDebtKey(debtKey(debt));
                     setAmount(debt.amount.toFixed(2));
@@ -106,7 +112,7 @@ export default function SettleUp() {
                 <View style={{ marginTop: 24 }}>
                   <TextInput
                     mode="outlined"
-                    label="Amount"
+                    label={`Amount (${getCurrencySymbol(groupCurrency)})`}
                     value={amount}
                     onChangeText={setAmount}
                     keyboardType="decimal-pad"

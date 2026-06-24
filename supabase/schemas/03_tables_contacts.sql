@@ -22,7 +22,12 @@ create table public.contact_expenses (
   split_type public.split_type not null default 'equal',
   date timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  check (user_lo < user_hi)
+  check (user_lo < user_hi),
+  -- Currency the expense was entered in; base_amount is `amount` converted to
+  -- the contact pair's base currency at exchange_rate (captured at entry).
+  currency text not null default 'USD',
+  exchange_rate numeric(18, 8) not null default 1 check (exchange_rate > 0),
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
 );
 
 create table public.contact_expense_splits (
@@ -30,7 +35,9 @@ create table public.contact_expense_splits (
   expense_id uuid not null references public.contact_expenses (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   amount numeric(12, 2) not null check (amount >= 0),
-  unique (expense_id, user_id)
+  unique (expense_id, user_id),
+  -- The split's share converted to the contact pair's base currency.
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
 );
 
 -- One-on-one settle-up payments between two contacts (outside any group).
@@ -47,6 +54,24 @@ create table public.contact_payments (
   note text,
   created_at timestamptz not null default now(),
   check (paid_by <> paid_to),
+  check (user_lo < user_hi),
+  -- Settle-up payments are entered in the pair's base currency (rate 1); the
+  -- columns mirror contact_expenses for consistency.
+  currency text not null default 'USD',
+  exchange_rate numeric(18, 8) not null default 1 check (exchange_rate > 0),
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
+);
+
+-- Base currency for a one-on-one contact ledger. The pair is stored in sorted
+-- (user_lo < user_hi) order so it is canonical regardless of who set it. A row
+-- is created lazily the first time either participant sets a non-default
+-- currency; absence implies the default ('USD').
+create table public.contact_pair_settings (
+  user_lo uuid not null references public.profiles (id) on delete cascade,
+  user_hi uuid not null references public.profiles (id) on delete cascade,
+  currency text not null default 'USD',
+  updated_at timestamptz not null default now(),
+  primary key (user_lo, user_hi),
   check (user_lo < user_hi)
 );
 
@@ -81,3 +106,4 @@ alter table public.contact_expenses enable row level security;
 alter table public.contact_expense_splits enable row level security;
 alter table public.contact_payments enable row level security;
 alter table public.contact_requests enable row level security;
+alter table public.contact_pair_settings enable row level security;
