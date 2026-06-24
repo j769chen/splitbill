@@ -79,6 +79,17 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/where gm\.user_id = v_uid/i);
   });
 
+  it("routes the contact group breakdown through simplified edges when enabled", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contact_group_breakdown");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/where gm\.user_id = v_uid/i);
+    expect(body).toMatch(/get_group_simplified_edges\(sg\.gid\)/i);
+    expect(body).toMatch(/where sg\.simplify_debts/i);
+    expect(body).toMatch(/where .*not simplify_debts/i);
+  });
+
   it("guards the simplified-edges RPC and uses a deterministic order", () => {
     const functions = readSchema("04_functions.sql");
     const body = functionBody(functions, "get_group_simplified_edges");

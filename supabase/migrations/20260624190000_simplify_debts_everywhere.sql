@@ -80,3 +80,101 @@ begin
   return;
 end;
 $$;
+
+create or replace function public.get_contact_group_breakdown(p_contact_user_id uuid)
+returns table (
+  group_id uuid,
+  group_name text,
+  balance numeric(12, 2),
+  currency text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_contact_user_id is null or p_contact_user_id = v_uid then
+    return;
+  end if;
+
+  return query
+  with shared_groups as (
+    select g.id as gid, g.name, g.currency, g.simplify_debts
+    from public.groups g
+    where g.id in (
+      select gm.group_id from public.group_members gm where gm.user_id = v_uid
+      intersect
+      select gm.group_id from public.group_members gm where gm.user_id = p_contact_user_id
+    )
+  ),
+  -- Direct pairwise (toggle OFF): only expenses/payments between the two of us.
+  direct_expense as (
+    select e.group_id as gid, sum(
+      case
+        when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.base_amount
+        when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.base_amount
+        else 0
+      end
+    ) as bal
+    from public.expenses e
+    join public.expense_splits es on es.expense_id = e.id
+    where e.group_id in (select sg.gid from shared_groups sg where not simplify_debts)
+      and (
+        (e.paid_by = v_uid and es.user_id = p_contact_user_id)
+        or (e.paid_by = p_contact_user_id and es.user_id = v_uid)
+      )
+    group by e.group_id
+  ),
+  direct_payment as (
+    select pmt.group_id as gid, sum(
+      case
+        when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.base_amount
+        when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.base_amount
+        else 0
+      end
+    ) as bal
+    from public.payments pmt
+    where pmt.group_id in (select sg.gid from shared_groups sg where not simplify_debts)
+      and (
+        (pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id)
+        or (pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid)
+      )
+    group by pmt.group_id
+  ),
+  -- Simplified edge (toggle ON): the you<->contact edge in the minimal plan.
+  simplified as (
+    select sg.gid, sum(
+      case
+        when e.from_user = p_contact_user_id and e.to_user = v_uid then e.amount
+        when e.from_user = v_uid and e.to_user = p_contact_user_id then -e.amount
+        else 0
+      end
+    ) as bal
+    from shared_groups sg
+    cross join lateral public.get_group_simplified_edges(sg.gid) e
+    where sg.simplify_debts
+    group by sg.gid
+  ),
+  per_group as (
+    select de.gid, de.bal from direct_expense de
+    union all
+    select dp.gid, dp.bal from direct_payment dp
+    union all
+    select s.gid, s.bal from simplified s
+  ),
+  totals as (
+    select pg.gid, sum(pg.bal) as bal from per_group pg group by pg.gid
+  )
+  select sg.gid, sg.name, round(coalesce(t.bal, 0), 2)::numeric(12, 2), sg.currency
+  from shared_groups sg
+  left join totals t on t.gid = sg.gid
+  where abs(coalesce(t.bal, 0)) > 0.005
+  order by sg.name;
+end;
+$$;
