@@ -68,6 +68,16 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/c\.owner_id = v_uid/i);
   });
 
+  it("includes group-mates in the combined-balance list but keeps it caller-scoped", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contacts_with_combined_balances");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/c\.owner_id = v_uid/i);
+    expect(body).toMatch(/join public\.group_members gm2/i);
+    expect(body).toMatch(/cr\.is_accepted or abs\(ctx\.balance\) > 0\.005/i);
+  });
+
   it("scopes the per-group contact breakdown to the authenticated caller", () => {
     const functions = readSchema("04_functions.sql");
     const body = functionBody(functions, "get_contact_group_breakdown");
