@@ -23,8 +23,8 @@ export function useGroupBalances(groupId: string) {
 }
 
 // All-pairs raw "who owes whom" for the whole group. Used when a group has
-// debt simplification turned OFF (the simplified view derives edges from
-// get_group_balances via simplifyDebts instead).
+// debt simplification turned OFF (when ON, useGroupSimplifiedEdges supplies the
+// minimal settlement plan from the server instead).
 export function useGroupPairwiseBalances(groupId: string, enabled = true) {
   return useQuery({
     queryKey: ["group-pairwise-all", groupId],
