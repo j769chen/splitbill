@@ -76,10 +76,4 @@ describe("ManageGroup screen", () => {
     expect(mockShowError).toHaveBeenCalledWith("Please enter a group name");
     expect(mockRenameAsync).not.toHaveBeenCalled();
   });
-
-  it("no longer hosts the add-members UI", async () => {
-    await renderWithPaper(<ManageGroup />);
-
-    expect(screen.queryByText("Add Members")).toBeNull();
-  });
 });

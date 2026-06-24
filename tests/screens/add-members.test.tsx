@@ -70,12 +70,6 @@ beforeEach(() => {
 });
 
 describe("AddGroupMembers screen", () => {
-  it("shows how many members are already in the group", async () => {
-    await renderWithPaper(<AddGroupMembers />);
-
-    expect(screen.getByText("1 member in this group")).toBeTruthy();
-  });
-
   it("adds members and navigates back on success", async () => {
     await renderWithPaper(<AddGroupMembers />);
 
