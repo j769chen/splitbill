@@ -1,7 +1,8 @@
 import { View, ScrollView } from "react-native";
-import { ActivityIndicator, Card, Divider, List, Text } from "react-native-paper";
+import { Card, Divider, List, Text } from "react-native-paper";
 import { useNotificationPrefs } from "@/lib/notifications";
 import { useAppTheme } from "@/lib/theme";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { NotificationToggleItem } from "@/components/account/NotificationToggleItem";
 
 export default function Notifications() {
@@ -9,13 +10,7 @@ export default function Notifications() {
   const { prefs, setPref, loading } = useNotificationPrefs();
 
   if (loading) {
-    return (
-      <View
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background }}
-      >
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   const pushOff = !prefs.pushEnabled;

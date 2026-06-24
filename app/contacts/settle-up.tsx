@@ -1,9 +1,4 @@
 import { useEffect, useState } from "react";
-import {
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import {
   useContacts,
@@ -14,16 +9,20 @@ import {
   useUpdateContactPayment,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
-import { formatCurrency, getErrorMessage } from "@/lib/utils";
+import {
+  formatContactSettleLabel,
+  getBalanceDirection,
+  hasSignificantBalance,
+} from "@/lib/balance-display";
+import { getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
-import { useAppTheme } from "@/lib/theme";
+import { FormScreen } from "@/components/FormScreen";
 import {
   ContactPaymentForm,
   type ContactPaymentDirection,
 } from "@/components/contacts/ContactPaymentForm";
 
 export default function ContactSettleUp() {
-  const theme = useAppTheme();
   const { contactUserId, paymentId, name } = useLocalSearchParams<{
     contactUserId: string;
     paymentId?: string;
@@ -68,8 +67,10 @@ export default function ContactSettleUp() {
 
     // Create mode: default direction + amount from the current balance.
     // balance > 0 => contact owes you => they pay you to settle.
-    setDirection(pairBalance > 0.01 ? "they_paid" : "you_paid");
-    if (Math.abs(pairBalance) > 0.01) {
+    setDirection(
+      getBalanceDirection(pairBalance) === "owed" ? "they_paid" : "you_paid"
+    );
+    if (hasSignificantBalance(pairBalance)) {
       setAmount(Math.abs(pairBalance).toFixed(2));
     }
     setHydrated(true);
@@ -122,24 +123,21 @@ export default function ContactSettleUp() {
 
   const isPending = isEdit ? updatePayment.isPending : createPayment.isPending;
 
-  const owed = pairBalance > 0.01;
-  const owing = pairBalance < -0.01;
-  const balanceLabel = owed
-    ? `${contactName} owes you ${formatCurrency(pairBalance, pairCurrency)}`
-    : owing
-      ? `You owe ${contactName} ${formatCurrency(Math.abs(pairBalance), pairCurrency)}`
-      : `You're all settled up with ${contactName}`;
+  const balanceLabel = formatContactSettleLabel(
+    pairBalance,
+    pairCurrency,
+    contactName
+  );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
+    <FormScreen
+      header={
+        <Stack.Screen
+          options={{ title: isEdit ? "Edit Payment" : "Settle Up" }}
+        />
+      }
     >
-      <Stack.Screen
-        options={{ title: isEdit ? "Edit Payment" : "Settle Up" }}
-      />
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        <ContactPaymentForm
+      <ContactPaymentForm
           isEdit={isEdit}
           contactName={contactName}
           balanceLabel={balanceLabel}
@@ -152,8 +150,7 @@ export default function ContactSettleUp() {
           pairCurrency={pairCurrency}
           isPending={isPending}
           onSubmit={handleSubmit}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      />
+    </FormScreen>
   );
 }

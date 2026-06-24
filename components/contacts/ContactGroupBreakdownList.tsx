@@ -1,6 +1,9 @@
 import { View } from "react-native";
 import { Avatar, Card, Text } from "react-native-paper";
-import { formatCurrency } from "@/lib/utils";
+import {
+  formatSharedGroupBalance,
+  getBalanceColor,
+} from "@/lib/balance-display";
 import { useAppTheme } from "@/lib/theme";
 import type { ContactGroupBreakdown } from "@/lib/types";
 
@@ -26,18 +29,12 @@ export function ContactGroupBreakdownList({
       </Text>
       <View style={{ gap: 12 }}>
         {groups.map((group) => {
-          const groupOwed = group.balance > 0.01;
-          const groupOwing = group.balance < -0.01;
-          const groupColor = groupOwed
-            ? theme.colors.success
-            : groupOwing
-              ? theme.colors.error
-              : theme.colors.onSurfaceVariant;
-          const groupLabel = groupOwed
-            ? `${contactName} owes you ${formatCurrency(group.balance, group.currency)}`
-            : groupOwing
-              ? `You owe ${formatCurrency(Math.abs(group.balance), group.currency)}`
-              : "Settled up";
+          const groupColor = getBalanceColor(group.balance, theme.colors);
+          const groupLabel = formatSharedGroupBalance(
+            group.balance,
+            group.currency,
+            contactName
+          );
 
           return (
             <Card

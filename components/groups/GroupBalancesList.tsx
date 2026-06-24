@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import type { GroupBalance } from "@/lib/types";
-import { EmptyState } from "./EmptyState";
+import { EmptyState } from "@/components/EmptyState";
 import { MemberBalanceCard } from "./MemberBalanceCard";
 
 type BalanceBreakdown = {

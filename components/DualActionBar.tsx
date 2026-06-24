@@ -2,15 +2,19 @@ import { View } from "react-native";
 import { Button } from "react-native-paper";
 import { useAppTheme } from "@/lib/theme";
 
-type ContactActionBarProps = {
-  onAddExpense: () => void;
-  onSettleUp: () => void;
+type DualActionBarProps = {
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  onPrimary: () => void;
+  onSecondary: () => void;
 };
 
-export function ContactActionBar({
-  onAddExpense,
-  onSettleUp,
-}: ContactActionBarProps) {
+export function DualActionBar({
+  primaryLabel = "Add Expense",
+  secondaryLabel = "Settle Up",
+  onPrimary,
+  onSecondary,
+}: DualActionBarProps) {
   const theme = useAppTheme();
 
   return (
@@ -27,9 +31,9 @@ export function ContactActionBar({
         mode="contained"
         style={{ flex: 1 }}
         contentStyle={{ paddingVertical: 4 }}
-        onPress={onAddExpense}
+        onPress={onPrimary}
       >
-        Add Expense
+        {primaryLabel}
       </Button>
       <Button
         mode="contained"
@@ -37,9 +41,9 @@ export function ContactActionBar({
         textColor={theme.colors.onSecondary}
         style={{ flex: 1 }}
         contentStyle={{ paddingVertical: 4 }}
-        onPress={onSettleUp}
+        onPress={onSecondary}
       >
-        Settle Up
+        {secondaryLabel}
       </Button>
     </View>
   );

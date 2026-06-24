@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Card, List, Text } from "react-native-paper";
+import { formatMemberOverallSummary } from "@/lib/balance-display";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
 import type { GroupBalance } from "@/lib/types";
@@ -25,13 +26,7 @@ export function MemberBalanceCard({
   currency,
 }: MemberBalanceCardProps) {
   const theme = useAppTheme();
-  const isOwed = balance.balance > 0.01;
-  const isOwing = balance.balance < -0.01;
-  const summary = isOwed
-    ? "is owed overall"
-    : isOwing
-      ? "owes overall"
-      : "settled up";
+  const summary = formatMemberOverallSummary(balance.balance);
 
   return (
     <Card

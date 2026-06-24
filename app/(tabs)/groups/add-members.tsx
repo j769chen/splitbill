@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button, Text } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
@@ -11,6 +10,7 @@ import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
+import { FormScreen } from "@/components/FormScreen";
 import { MemberEmailInput } from "@/components/groups/MemberEmailInput";
 
 export default function AddGroupMembers() {
@@ -101,23 +101,19 @@ export default function AddGroupMembers() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        <Text
-          variant="titleMedium"
-          style={{ fontWeight: "bold", marginBottom: 4 }}
-        >
-          Add members
-        </Text>
-        <Text
-          variant="bodySmall"
-          style={{ color: theme.colors.onSurfaceVariant }}
-        >
-          {memberCount} member{memberCount === 1 ? "" : "s"} in this group
-        </Text>
+    <FormScreen>
+      <Text
+        variant="titleMedium"
+        style={{ fontWeight: "bold", marginBottom: 4 }}
+      >
+        Add members
+      </Text>
+      <Text
+        variant="bodySmall"
+        style={{ color: theme.colors.onSurfaceVariant }}
+      >
+        {memberCount} member{memberCount === 1 ? "" : "s"} in this group
+      </Text>
 
         <MemberEmailInput
           value={emailInput}
@@ -128,17 +124,16 @@ export default function AddGroupMembers() {
           isPending={lookupUserByEmail.isPending}
         />
 
-        <Button
-          mode="contained"
-          onPress={handleAddMembers}
-          loading={addMembers.isPending}
-          disabled={addMembers.isPending}
-          contentStyle={{ paddingVertical: 6 }}
-          style={{ marginTop: 32 }}
-        >
-          Add Members
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Button
+        mode="contained"
+        onPress={handleAddMembers}
+        loading={addMembers.isPending}
+        disabled={addMembers.isPending}
+        contentStyle={{ paddingVertical: 6 }}
+        style={{ marginTop: 32 }}
+      >
+        Add Members
+      </Button>
+    </FormScreen>
   );
 }

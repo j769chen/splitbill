@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Button, Text, TextInput } from "react-native-paper";
 import { useGroup, useRenameGroup } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { getErrorMessage } from "@/lib/utils";
+import { FormScreen } from "@/components/FormScreen";
 
 export default function ManageGroup() {
   const theme = useAppTheme();
@@ -38,37 +39,32 @@ export default function ManageGroup() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        <Text
-          variant="titleMedium"
-          style={{ fontWeight: "bold", marginBottom: 12 }}
-        >
-          Group name
-        </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <TextInput
-            mode="outlined"
-            label="Group Name"
-            value={name}
-            onChangeText={setName}
-            style={{ flex: 1 }}
-          />
-        </View>
-        <Button
-          mode="contained"
-          onPress={handleRename}
-          loading={renameGroup.isPending}
-          disabled={renameGroup.isPending}
-          contentStyle={{ paddingVertical: 4 }}
-          style={{ marginTop: 16, alignSelf: "flex-start" }}
-        >
-          Save Name
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    <FormScreen>
+      <Text
+        variant="titleMedium"
+        style={{ fontWeight: "bold", marginBottom: 12 }}
+      >
+        Group name
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <TextInput
+          mode="outlined"
+          label="Group Name"
+          value={name}
+          onChangeText={setName}
+          style={{ flex: 1 }}
+        />
+      </View>
+      <Button
+        mode="contained"
+        onPress={handleRename}
+        loading={renameGroup.isPending}
+        disabled={renameGroup.isPending}
+        contentStyle={{ paddingVertical: 4 }}
+        style={{ marginTop: 16, alignSelf: "flex-start" }}
+      >
+        Save Name
+      </Button>
+    </FormScreen>
   );
 }

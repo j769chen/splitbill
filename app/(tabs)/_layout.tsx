@@ -1,10 +1,9 @@
 import { Tabs, Redirect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { ActivityIndicator } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useAppTheme } from "@/lib/theme";
 import { useContactRequestsSubscription } from "@/lib/realtime";
-import { View } from "react-native";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function TabsLayout() {
   const theme = useAppTheme();
@@ -13,13 +12,7 @@ export default function TabsLayout() {
   useContactRequestsSubscription(user?.id);
 
   if (loading) {
-    return (
-      <View
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background }}
-      >
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   if (!session) {

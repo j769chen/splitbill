@@ -9,7 +9,7 @@ import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { getErrorMessage } from "@/lib/utils";
 import { ContactRequestSection } from "@/components/contacts/ContactRequestSection";
-import { EmptyState } from "@/components/groups/EmptyState";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function ContactRequests() {
   const theme = useAppTheme();

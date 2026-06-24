@@ -1,9 +1,10 @@
 import { View, FlatList, RefreshControl } from "react-native";
 import { router } from "expo-router";
-import { ActivityIndicator, FAB } from "react-native-paper";
+import { FAB } from "react-native-paper";
 import { useGroups } from "@/lib/queries/useGroups";
 import { useAppTheme } from "@/lib/theme";
-import { EmptyState } from "@/components/groups/EmptyState";
+import { EmptyState } from "@/components/EmptyState";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { GroupListItem } from "@/components/groups/GroupListItem";
 import { useState, useCallback } from "react";
 
@@ -19,13 +20,7 @@ export default function GroupsList() {
   }, [refetch]);
 
   if (isLoading) {
-    return (
-      <View
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.background }}
-      >
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return (

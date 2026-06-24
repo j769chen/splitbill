@@ -13,19 +13,21 @@ import {
   useSetContactCurrency,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
+import {
+  formatContactSummaryLabel,
+  getBalanceColor,
+  hasSignificantBalance,
+} from "@/lib/balance-display";
 import { getErrorMessage } from "@/lib/utils";
 import { useDisplayCurrency } from "@/lib/display-currency";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
-import { ContactActionBar } from "@/components/contacts/ContactActionBar";
-import {
-  ContactActivityList,
-  type ContactActivityItem,
-} from "@/components/contacts/ContactActivityList";
+import { ActivityList, type ActivityListItem } from "@/components/ActivityList";
+import { DualActionBar } from "@/components/DualActionBar";
+import { EmptyState } from "@/components/EmptyState";
 import { ContactGroupBreakdownList } from "@/components/contacts/ContactGroupBreakdownList";
 import { ContactSummaryCard } from "@/components/contacts/ContactSummaryCard";
-import { EmptyState } from "@/components/groups/EmptyState";
 
 export default function ContactDetail() {
   const theme = useAppTheme();
@@ -66,16 +68,16 @@ export default function ContactDetail() {
   const groups = groupBreakdown ?? [];
   const hasGroups = groups.length > 0;
 
-  const activityItems: ContactActivityItem[] = [
+  const activityItems: ActivityListItem[] = [
     ...(expenses ?? []).map(
-      (expense): ContactActivityItem => ({
+      (expense): ActivityListItem => ({
         kind: "expense",
         ts: expense.date,
         expense,
       })
     ),
     ...(payments ?? []).map(
-      (payment): ContactActivityItem => ({
+      (payment): ActivityListItem => ({
         kind: "payment",
         ts: payment.created_at,
         payment,
@@ -132,18 +134,9 @@ export default function ContactDetail() {
     });
   };
 
-  const owed = balance > 0.01;
-  const owing = balance < -0.01;
-  const summaryColor = owed
-    ? theme.colors.success
-    : owing
-      ? theme.colors.error
-      : theme.colors.onSurfaceVariant;
-  const summaryLabel = owed
-    ? `${contactName} owes you`
-    : owing
-      ? `You owe ${contactName}`
-      : "You're all settled up";
+  const showSummaryAmount = hasSignificantBalance(balance);
+  const summaryColor = getBalanceColor(balance, theme.colors);
+  const summaryLabel = formatContactSummaryLabel(balance, contactName);
 
   return (
     <>
@@ -158,7 +151,7 @@ export default function ContactDetail() {
         >
           <ContactSummaryCard
             summaryLabel={summaryLabel}
-            showAmount={owed || owing}
+            showAmount={showSummaryAmount}
             balance={balance}
             displayCurrency={displayCurrency}
             summaryColor={summaryColor}
@@ -180,9 +173,9 @@ export default function ContactDetail() {
             onOpenGroup={(groupId) => router.push(`/(tabs)/groups/${groupId}`)}
           />
 
-          <ContactActivityList
+          <ActivityList
             items={activityItems}
-            showTitle={hasGroups}
+            title={hasGroups ? "One-on-one" : undefined}
             currentUserId={user?.id}
             onDeleteExpense={handleDeleteExpense}
             onEditExpense={(expenseId) =>
@@ -209,14 +202,14 @@ export default function ContactDetail() {
           )}
         </ScrollView>
 
-        <ContactActionBar
-          onAddExpense={() =>
+        <DualActionBar
+          onPrimary={() =>
             router.push({
               pathname: "/contacts/add-expense",
               params: { contactUserId: id },
             })
           }
-          onSettleUp={() =>
+          onSecondary={() =>
             router.push({
               pathname: "/contacts/settle-up",
               params: { contactUserId: id },

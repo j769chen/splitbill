@@ -1,9 +1,4 @@
 import { useEffect, useState } from "react";
-import {
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Button, TextInput } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
@@ -13,7 +8,7 @@ import { computeSplits, getErrorMessage } from "@/lib/utils";
 import { canConvert, getRate } from "@/lib/currency";
 import { useExchangeRates } from "@/lib/exchange-rates";
 import { useSnackbar } from "@/lib/snackbar";
-import { useAppTheme } from "@/lib/theme";
+import { FormScreen } from "@/components/FormScreen";
 import { ExpenseAmountCurrencyInput } from "@/components/groups/ExpenseAmountCurrencyInput";
 import { PaidByPicker } from "@/components/groups/PaidByPicker";
 import { SplitMembersSection } from "@/components/groups/SplitMembersSection";
@@ -21,7 +16,6 @@ import { SplitTypeSelector } from "@/components/groups/SplitTypeSelector";
 import type { SplitType } from "@/lib/types";
 
 export default function AddExpense() {
-  const theme = useAppTheme();
   const { groupId, expenseId } = useLocalSearchParams<{
     groupId: string;
     expenseId?: string;
@@ -183,70 +177,68 @@ export default function AddExpense() {
   const isPending = isEdit ? updateExpense.isPending : createExpense.isPending;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
+    <FormScreen
+      header={
+        <Stack.Screen
+          options={{ title: isEdit ? "Edit Expense" : "Add Expense" }}
+        />
+      }
     >
-      <Stack.Screen
-        options={{ title: isEdit ? "Edit Expense" : "Add Expense" }}
+      <TextInput
+        mode="outlined"
+        label="Description"
+        placeholder="What was this expense for?"
+        value={description}
+        onChangeText={setDescription}
+        autoFocus
       />
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        <TextInput
-          mode="outlined"
-          label="Description"
-          placeholder="What was this expense for?"
-          value={description}
-          onChangeText={setDescription}
-          autoFocus
-        />
 
-        <ExpenseAmountCurrencyInput
-          amount={amount}
-          onAmountChange={setAmount}
-          entryCurrency={entryCurrency}
-          onCurrencyChange={setCurrency}
-          baseCurrency={baseCurrency}
-          totalAmount={totalAmount}
-          convertedBase={convertedBase}
-          isForeignCurrency={isForeignCurrency}
-          hasExchangeRate={hasExchangeRate}
-          baseCurrencyLabel="group currency"
-        />
+      <ExpenseAmountCurrencyInput
+        amount={amount}
+        onAmountChange={setAmount}
+        entryCurrency={entryCurrency}
+        onCurrencyChange={setCurrency}
+        baseCurrency={baseCurrency}
+        totalAmount={totalAmount}
+        convertedBase={convertedBase}
+        isForeignCurrency={isForeignCurrency}
+        hasExchangeRate={hasExchangeRate}
+        baseCurrencyLabel="group currency"
+      />
 
-        <PaidByPicker
-          members={members}
-          paidBy={effectivePaidBy}
-          onSelect={setPaidBy}
-          getMemberName={memberName}
-        />
+      <PaidByPicker
+        members={members}
+        paidBy={effectivePaidBy}
+        onSelect={setPaidBy}
+        getMemberName={memberName}
+      />
 
-        <SplitTypeSelector value={splitType} onChange={setSplitType} />
+      <SplitTypeSelector value={splitType} onChange={setSplitType} />
 
-        <SplitMembersSection
-          members={members}
-          selectedMemberIds={selectedMembers}
-          splitType={splitType}
-          totalAmount={totalAmount}
-          customSplits={customSplits}
-          currencyCode={entryCurrency}
-          getMemberName={memberName}
-          onToggleMember={toggleMember}
-          onChangeCustom={(userId, val) =>
-            setCustomSplits((prev) => ({ ...prev, [userId]: val }))
-          }
-        />
+      <SplitMembersSection
+        members={members}
+        selectedMemberIds={selectedMembers}
+        splitType={splitType}
+        totalAmount={totalAmount}
+        customSplits={customSplits}
+        currencyCode={entryCurrency}
+        getMemberName={memberName}
+        onToggleMember={toggleMember}
+        onChangeCustom={(userId, val) =>
+          setCustomSplits((prev) => ({ ...prev, [userId]: val }))
+        }
+      />
 
-        <Button
-          mode="contained"
-          onPress={handleSubmit}
-          loading={isPending}
-          disabled={isPending}
-          contentStyle={{ paddingVertical: 6 }}
-          style={{ marginTop: 32, marginBottom: 32 }}
-        >
-          {isEdit ? "Save Changes" : "Add Expense"}
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Button
+        mode="contained"
+        onPress={handleSubmit}
+        loading={isPending}
+        disabled={isPending}
+        contentStyle={{ paddingVertical: 6 }}
+        style={{ marginTop: 32, marginBottom: 32 }}
+      >
+        {isEdit ? "Save Changes" : "Add Expense"}
+      </Button>
+    </FormScreen>
   );
 }

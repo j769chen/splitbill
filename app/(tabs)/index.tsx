@@ -1,12 +1,16 @@
 import { View, ScrollView, RefreshControl } from "react-native";
-import { Avatar, Badge, Button, Card, IconButton, Text } from "react-native-paper";
+import { Badge, Button, IconButton, Text } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
 import { useContacts, useContactRequests } from "@/lib/queries/useContacts";
-import { formatCurrency } from "@/lib/utils";
+import { getBalanceColor, getOverallBalanceParts } from "@/lib/balance-display";
 import { useDisplayCurrency } from "@/lib/display-currency";
 import { useAppTheme } from "@/lib/theme";
+import { CallToActionCard } from "@/components/CallToActionCard";
+import { SectionHeader } from "@/components/SectionHeader";
+import { ContactListItem } from "@/components/contacts/ContactListItem";
+import { GroupListItem } from "@/components/groups/GroupListItem";
 import { router } from "expo-router";
 import { useState, useCallback } from "react";
 
@@ -36,21 +40,14 @@ export default function Dashboard() {
 
   const net = balance?.net ?? 0;
 
-  let balancePrefix = "You are settled up!";
-  let balanceAmount = "";
-  let balanceSuffix = "";
-  let amountColor = theme.colors.onBrand;
-  if (net > 0.01) {
-    balancePrefix = "You are owed ";
-    balanceAmount = formatCurrency(net, displayCurrency);
-    balanceSuffix = " overall";
-    amountColor = theme.colors.success;
-  } else if (net < -0.01) {
-    balancePrefix = "You owe ";
-    balanceAmount = formatCurrency(Math.abs(net), displayCurrency);
-    balanceSuffix = " overall";
-    amountColor = theme.colors.error;
-  }
+  const {
+    prefix: balancePrefix,
+    amount: balanceAmount,
+    suffix: balanceSuffix,
+  } = getOverallBalanceParts(net, displayCurrency);
+  const amountColor = balanceAmount
+    ? getBalanceColor(net, theme.colors)
+    : theme.colors.onBrand;
 
   return (
     <ScrollView
@@ -88,183 +85,100 @@ export default function Dashboard() {
       </View>
 
       <View style={{ paddingHorizontal: 24, marginTop: 24 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-            Your Groups
-          </Text>
-          <Button
-            mode="contained"
-            icon="plus"
-            compact
-            contentStyle={{ paddingHorizontal: 12 }}
-            onPress={() => router.push("/(tabs)/groups/create")}
-          >
-            New
-          </Button>
-        </View>
+        <SectionHeader
+          title="Your Groups"
+          action={
+            <Button
+              mode="contained"
+              icon="plus"
+              compact
+              contentStyle={{ paddingHorizontal: 12 }}
+              onPress={() => router.push("/(tabs)/groups/create")}
+            >
+              New
+            </Button>
+          }
+        />
         {!groups || groups.length === 0 ? (
-          <Card mode="contained">
-            <Card.Content style={{ alignItems: "center", paddingVertical: 32 }}>
-              <Text
-                variant="bodyLarge"
-                style={{
-                  color: theme.colors.onSurfaceVariant,
-                  textAlign: "center",
-                }}
-              >
-                No groups yet. Create one to start splitting expenses!
-              </Text>
-              <Button
-                mode="contained"
-                style={{ marginTop: 16 }}
-                onPress={() => router.push("/(tabs)/groups/create")}
-              >
-                Create Group
-              </Button>
-            </Card.Content>
-          </Card>
+          <CallToActionCard
+            message="No groups yet. Create one to start splitting expenses!"
+            actionLabel="Create Group"
+            onAction={() => router.push("/(tabs)/groups/create")}
+          />
         ) : (
           <View style={{ gap: 12 }}>
             {groups.map((group) => (
-              <Card
+              <GroupListItem
                 key={group.id}
-                mode="elevated"
+                group={group}
+                avatarSize={48}
+                showChevron={false}
+                style={{ marginBottom: 0 }}
                 onPress={() => router.push(`/(tabs)/groups/${group.id}`)}
-              >
-                <Card.Content
-                  style={{ flexDirection: "row", alignItems: "center" }}
-                >
-                  <Avatar.Text
-                    size={48}
-                    label={group.name.charAt(0).toUpperCase()}
-                    style={{ backgroundColor: theme.colors.primaryContainer }}
-                    labelStyle={{ color: theme.colors.onPrimaryContainer }}
-                  />
-                  <View style={{ marginLeft: 16, flex: 1 }}>
-                    <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                      {group.name}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      {group.group_members.length} member
-                      {group.group_members.length !== 1 ? "s" : ""}
-                    </Text>
-                  </View>
-                </Card.Content>
-              </Card>
+              />
             ))}
           </View>
         )}
       </View>
 
       <View style={{ paddingHorizontal: 24, marginTop: 32 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-            Contacts
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <View>
-              <IconButton
-                icon="account-clock-outline"
-                mode="contained-tonal"
-                size={20}
-                onPress={() => router.push("/contacts/requests")}
-                accessibilityLabel="Contact requests"
-              />
-              {incomingRequestCount > 0 && (
-                <Badge
-                  style={{ position: "absolute", top: 2, right: 2 }}
-                  size={18}
-                >
-                  {incomingRequestCount}
-                </Badge>
-              )}
-            </View>
-            <Button
-              mode="contained"
-              icon="plus"
-              compact
-              contentStyle={{ paddingHorizontal: 12 }}
-              onPress={() => router.push("/contacts/add")}
-            >
-              New
-            </Button>
-          </View>
-        </View>
-        {!contacts || contacts.length === 0 ? (
-          <Card mode="contained">
-            <Card.Content style={{ alignItems: "center", paddingVertical: 32 }}>
-              <Text
-                variant="bodyLarge"
-                style={{
-                  color: theme.colors.onSurfaceVariant,
-                  textAlign: "center",
-                }}
-              >
-                No contacts yet. Add someone to split one-on-one expenses!
-              </Text>
+        <SectionHeader
+          title="Contacts"
+          action={
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <View>
+                <IconButton
+                  icon="account-clock-outline"
+                  mode="contained-tonal"
+                  size={20}
+                  onPress={() => router.push("/contacts/requests")}
+                  accessibilityLabel="Contact requests"
+                />
+                {incomingRequestCount > 0 && (
+                  <Badge
+                    style={{ position: "absolute", top: 2, right: 2 }}
+                    size={18}
+                  >
+                    {incomingRequestCount}
+                  </Badge>
+                )}
+              </View>
               <Button
                 mode="contained"
-                style={{ marginTop: 16 }}
+                icon="plus"
+                compact
+                contentStyle={{ paddingHorizontal: 12 }}
                 onPress={() => router.push("/contacts/add")}
               >
-                Add Contact
+                New
               </Button>
-            </Card.Content>
-          </Card>
+            </View>
+          }
+        />
+        {!contacts || contacts.length === 0 ? (
+          <CallToActionCard
+            message="No contacts yet. Add someone to split one-on-one expenses!"
+            actionLabel="Add Contact"
+            onAction={() => router.push("/contacts/add")}
+          />
         ) : (
           <View style={{ gap: 12 }}>
-            {contacts.map((contact) => {
-              const owed = contact.balance > 0.01;
-              const owing = contact.balance < -0.01;
-              const balanceColor = owed
-                ? theme.colors.success
-                : owing
-                  ? theme.colors.error
-                  : theme.colors.onSurfaceVariant;
-              const balanceLabel = owed
-                ? `owes you ${formatCurrency(contact.balance, displayCurrency)}`
-                : owing
-                  ? `you owe ${formatCurrency(Math.abs(contact.balance), displayCurrency)}`
-                  : "settled up";
-
-              return (
-                <Card
-                  key={contact.contact_user_id}
-                  mode="elevated"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/contacts/[id]",
-                      params: {
-                        id: contact.contact_user_id,
-                        name: contact.full_name,
-                      },
-                    })
-                  }
-                >
-                  <Card.Content
-                    style={{ flexDirection: "row", alignItems: "center" }}
-                  >
-                    <Avatar.Text
-                      size={48}
-                      label={contact.full_name.charAt(0).toUpperCase()}
-                      style={{ backgroundColor: theme.colors.secondaryContainer }}
-                      labelStyle={{ color: theme.colors.onSecondaryContainer }}
-                    />
-                    <View style={{ marginLeft: 16, flex: 1 }}>
-                      <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                        {contact.full_name}
-                      </Text>
-                      <Text variant="bodySmall" style={{ color: balanceColor }}>
-                        {balanceLabel}
-                      </Text>
-                    </View>
-                  </Card.Content>
-                </Card>
-              );
-            })}
+            {contacts.map((contact) => (
+              <ContactListItem
+                key={contact.contact_user_id}
+                contact={contact}
+                currency={displayCurrency}
+                onPress={() =>
+                  router.push({
+                    pathname: "/contacts/[id]",
+                    params: {
+                      id: contact.contact_user_id,
+                      name: contact.full_name,
+                    },
+                  })
+                }
+              />
+            ))}
           </View>
         )}
       </View>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { router } from "expo-router";
 import { Button, Text, TextInput } from "react-native-paper";
 import { useCheckEmailExists, useCreateGroup } from "@/lib/queries/useGroups";
@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 import { MemberEmailInput } from "@/components/groups/MemberEmailInput";
 import { CurrencyPicker } from "@/components/CurrencyPicker";
+import { FormScreen } from "@/components/FormScreen";
 import { useDisplayCurrency } from "@/lib/display-currency";
 
 export default function CreateGroup() {
@@ -95,54 +96,49 @@ export default function CreateGroup() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        <TextInput
-          mode="outlined"
-          label="Group Name"
-          placeholder="e.g., Trip to Japan"
-          value={name}
-          onChangeText={setName}
-          autoFocus
+    <FormScreen>
+      <TextInput
+        mode="outlined"
+        label="Group Name"
+        placeholder="e.g., Trip to Japan"
+        value={name}
+        onChangeText={setName}
+        autoFocus
+      />
+
+      <View style={{ marginTop: 16 }}>
+        <CurrencyPicker
+          label="Base currency"
+          value={currency}
+          onChange={setSelectedCurrency}
         />
-
-        <View style={{ marginTop: 16 }}>
-          <CurrencyPicker
-            label="Base currency"
-            value={currency}
-            onChange={setSelectedCurrency}
-          />
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant, marginTop: 6 }}
-          >
-            Balances in this group are tracked in {currency}.
-          </Text>
-        </View>
-
-        <MemberEmailInput
-          value={emailInput}
-          onChangeText={setEmailInput}
-          onAdd={addEmail}
-          onRemove={removeEmail}
-          emails={memberEmails}
-          isPending={checkEmail.isPending}
-        />
-
-        <Button
-          mode="contained"
-          onPress={handleCreate}
-          loading={createGroup.isPending}
-          disabled={createGroup.isPending}
-          contentStyle={{ paddingVertical: 6 }}
-          style={{ marginTop: 32 }}
+        <Text
+          variant="bodySmall"
+          style={{ color: theme.colors.onSurfaceVariant, marginTop: 6 }}
         >
-          Create Group
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          Balances in this group are tracked in {currency}.
+        </Text>
+      </View>
+
+      <MemberEmailInput
+        value={emailInput}
+        onChangeText={setEmailInput}
+        onAdd={addEmail}
+        onRemove={removeEmail}
+        emails={memberEmails}
+        isPending={checkEmail.isPending}
+      />
+
+      <Button
+        mode="contained"
+        onPress={handleCreate}
+        loading={createGroup.isPending}
+        disabled={createGroup.isPending}
+        contentStyle={{ paddingVertical: 6 }}
+        style={{ marginTop: 32 }}
+      >
+        Create Group
+      </Button>
+    </FormScreen>
   );
 }

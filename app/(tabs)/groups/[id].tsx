@@ -10,16 +10,14 @@ import {
   useMyGroupPairwiseBalances,
 } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
+import { getBalanceColor } from "@/lib/balance-display";
 import { getErrorMessage, simplifyDebts } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
-import { GroupActionBar } from "@/components/groups/GroupActionBar";
-import {
-  GroupActivityList,
-  type GroupActivityItem,
-} from "@/components/groups/GroupActivityList";
+import { ActivityList, type ActivityListItem } from "@/components/ActivityList";
+import { DualActionBar } from "@/components/DualActionBar";
 import { GroupBalancesList } from "@/components/groups/GroupBalancesList";
 import { GroupHeaderActions } from "@/components/groups/GroupHeaderActions";
 import { GroupMembersCard } from "@/components/groups/GroupMembersCard";
@@ -141,16 +139,16 @@ export default function GroupDetail() {
     });
   };
 
-  const activityItems: GroupActivityItem[] = [
+  const activityItems: ActivityListItem[] = [
     ...(expenses ?? []).map(
-      (expense): GroupActivityItem => ({
+      (expense): ActivityListItem => ({
         kind: "expense",
         ts: expense.date,
         expense,
       })
     ),
     ...(payments ?? []).map(
-      (payment): GroupActivityItem => ({
+      (payment): ActivityListItem => ({
         kind: "payment",
         ts: payment.created_at,
         payment,
@@ -160,12 +158,7 @@ export default function GroupDetail() {
 
   const debts = balances ? simplifyDebts(balances) : [];
 
-  const balanceColor = (value: number) =>
-    value > 0
-      ? theme.colors.success
-      : value < 0
-        ? theme.colors.error
-        : theme.colors.onSurfaceVariant;
+  const balanceColor = (value: number) => getBalanceColor(value, theme.colors);
 
   const memberBreakdown = (userId: string) => [
     ...debts
@@ -249,8 +242,12 @@ export default function GroupDetail() {
           contentContainerStyle={{ padding: 16 }}
         >
           {activeTab === "activity" ? (
-            <GroupActivityList
+            <ActivityList
               items={activityItems}
+              emptyState={{
+                icon: "timeline-text-outline",
+                title: "No activity yet",
+              }}
               currentUserId={user?.id}
               onDeleteExpense={handleDeleteExpense}
               onEditExpense={(expenseId) =>
@@ -277,14 +274,14 @@ export default function GroupDetail() {
           )}
         </ScrollView>
 
-        <GroupActionBar
-          onAddExpense={() =>
+        <DualActionBar
+          onPrimary={() =>
             router.push({
               pathname: "/(tabs)/groups/add-expense",
               params: { groupId: id },
             })
           }
-          onSettleUp={() =>
+          onSecondary={() =>
             router.push({
               pathname: "/(tabs)/groups/settle-up",
               params: { groupId: id },

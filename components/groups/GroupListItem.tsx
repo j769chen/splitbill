@@ -1,3 +1,4 @@
+import type { StyleProp, ViewStyle } from "react-native";
 import { View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Avatar, Card, Text } from "react-native-paper";
@@ -7,17 +8,26 @@ import type { GroupWithMembers } from "@/lib/types";
 type GroupListItemProps = {
   group: GroupWithMembers;
   onPress: () => void;
+  avatarSize?: number;
+  showChevron?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function GroupListItem({ group, onPress }: GroupListItemProps) {
+export function GroupListItem({
+  group,
+  onPress,
+  avatarSize = 52,
+  showChevron = true,
+  style,
+}: GroupListItemProps) {
   const theme = useAppTheme();
   const memberCount = group.group_members.length;
 
   return (
-    <Card mode="elevated" style={{ marginBottom: 12 }} onPress={onPress}>
+    <Card mode="elevated" style={[{ marginBottom: 12 }, style]} onPress={onPress}>
       <Card.Content style={{ flexDirection: "row", alignItems: "center" }}>
         <Avatar.Text
-          size={52}
+          size={avatarSize}
           label={group.name.charAt(0).toUpperCase()}
           style={{ backgroundColor: theme.colors.primaryContainer }}
           labelStyle={{ color: theme.colors.onPrimaryContainer }}
@@ -33,11 +43,13 @@ export function GroupListItem({ group, onPress }: GroupListItemProps) {
             {memberCount} member{memberCount !== 1 ? "s" : ""}
           </Text>
         </View>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={theme.colors.onSurfaceVariant}
-        />
+        {showChevron ? (
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color={theme.colors.onSurfaceVariant}
+          />
+        ) : null}
       </Card.Content>
     </Card>
   );

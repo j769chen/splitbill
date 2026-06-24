@@ -1,6 +1,5 @@
-import { View } from "react-native";
-import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
-import { getCurrencySymbol } from "@/lib/currency";
+import { Button, SegmentedButtons, Text } from "react-native-paper";
+import { PaymentAmountNoteFields } from "@/components/PaymentAmountNoteFields";
 import { useAppTheme } from "@/lib/theme";
 
 export type ContactPaymentDirection = "you_paid" | "they_paid";
@@ -64,26 +63,13 @@ export function ContactPaymentForm({
         ]}
       />
 
-      <View style={{ marginTop: 24 }}>
-        <TextInput
-          mode="outlined"
-          label={`Amount (${getCurrencySymbol(pairCurrency)})`}
-          value={amount}
-          onChangeText={onAmountChange}
-          keyboardType="decimal-pad"
-          placeholder="0.00"
-        />
-      </View>
-
-      <View style={{ marginTop: 16 }}>
-        <TextInput
-          mode="outlined"
-          label="Note (optional)"
-          value={note}
-          onChangeText={onNoteChange}
-          placeholder="e.g., Venmo payment"
-        />
-      </View>
+      <PaymentAmountNoteFields
+        amount={amount}
+        onAmountChange={onAmountChange}
+        note={note}
+        onNoteChange={onNoteChange}
+        currency={pairCurrency}
+      />
 
       <Button
         mode="contained"

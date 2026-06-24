@@ -1,22 +1,18 @@
 import { useState } from "react";
-import {
-  View,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Button, Text, TextInput } from "react-native-paper";
+import { Button, Text } from "react-native-paper";
 import { useGroupBalances } from "@/lib/queries/useBalances";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage, simplifyDebts } from "@/lib/utils";
-import { getCurrencySymbol } from "@/lib/currency";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { FormScreen } from "@/components/FormScreen";
+import { PaymentAmountNoteFields } from "@/components/PaymentAmountNoteFields";
 import { DebtCard } from "@/components/groups/DebtCard";
-import { EmptyState } from "@/components/groups/EmptyState";
+import { EmptyState } from "@/components/EmptyState";
 import type { DebtEdge } from "@/lib/types";
 
 const debtKey = (debt: DebtEdge) => `${debt.from}:${debt.to}`;
@@ -75,78 +71,60 @@ export default function SettleUp() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        {userDebts.length === 0 ? (
-          <EmptyState title="You're all settled up in this group!" />
-        ) : (
-          <>
-            <Text
-              variant="labelLarge"
-              style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}
-            >
-              Select a payment to settle
-            </Text>
-            <View style={{ gap: 8 }}>
-              {userDebts.map((debt, idx) => (
-                <DebtCard
-                  key={debtKey(debt)}
-                  debt={debt}
-                  index={idx}
-                  isFrom={debt.from === user?.id}
-                  selected={selectedDebtKey === debtKey(debt)}
-                  currency={groupCurrency}
-                  onSelect={() => {
-                    setSelectedDebtKey(debtKey(debt));
-                    setAmount(debt.amount.toFixed(2));
-                  }}
-                />
-              ))}
-            </View>
+    <FormScreen>
+      {userDebts.length === 0 ? (
+        <EmptyState title="You're all settled up in this group!" />
+      ) : (
+        <>
+          <Text
+            variant="labelLarge"
+            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}
+          >
+            Select a payment to settle
+          </Text>
+          <View style={{ gap: 8 }}>
+            {userDebts.map((debt, idx) => (
+              <DebtCard
+                key={debtKey(debt)}
+                debt={debt}
+                index={idx}
+                isFrom={debt.from === user?.id}
+                selected={selectedDebtKey === debtKey(debt)}
+                currency={groupCurrency}
+                onSelect={() => {
+                  setSelectedDebtKey(debtKey(debt));
+                  setAmount(debt.amount.toFixed(2));
+                }}
+              />
+            ))}
+          </View>
 
-            {selectedDebt && (
-              <>
-                <View style={{ marginTop: 24 }}>
-                  <TextInput
-                    mode="outlined"
-                    label={`Amount (${getCurrencySymbol(groupCurrency)})`}
-                    value={amount}
-                    onChangeText={setAmount}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                  />
-                </View>
+          {selectedDebt && (
+            <>
+              <PaymentAmountNoteFields
+                amount={amount}
+                onAmountChange={setAmount}
+                note={note}
+                onNoteChange={setNote}
+                currency={groupCurrency}
+              />
 
-                <View style={{ marginTop: 16 }}>
-                  <TextInput
-                    mode="outlined"
-                    label="Note (optional)"
-                    value={note}
-                    onChangeText={setNote}
-                    placeholder="e.g., Venmo payment"
-                  />
-                </View>
-
-                <Button
-                  mode="contained"
-                  buttonColor={theme.colors.secondary}
-                  textColor={theme.colors.onSecondary}
-                  onPress={handleSettle}
-                  loading={createPayment.isPending}
-                  disabled={createPayment.isPending}
-                  contentStyle={{ paddingVertical: 6 }}
-                  style={{ marginTop: 32 }}
-                >
-                  Record Payment
-                </Button>
-              </>
-            )}
-          </>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+              <Button
+                mode="contained"
+                buttonColor={theme.colors.secondary}
+                textColor={theme.colors.onSecondary}
+                onPress={handleSettle}
+                loading={createPayment.isPending}
+                disabled={createPayment.isPending}
+                contentStyle={{ paddingVertical: 6 }}
+                style={{ marginTop: 32 }}
+              >
+                Record Payment
+              </Button>
+            </>
+          )}
+        </>
+      )}
+    </FormScreen>
   );
 }

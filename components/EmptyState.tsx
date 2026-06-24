@@ -11,6 +11,7 @@ type EmptyStateProps = {
 
 export function EmptyState({ icon, title, subtitle }: EmptyStateProps) {
   const theme = useAppTheme();
+
   return (
     <View
       style={{

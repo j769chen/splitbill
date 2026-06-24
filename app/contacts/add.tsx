@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { Button, Text, TextInput } from "react-native-paper";
 import { useSendContactRequest } from "@/lib/queries/useContacts";
@@ -7,6 +6,7 @@ import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
+import { FormScreen } from "@/components/FormScreen";
 
 export default function AddContact() {
   const theme = useAppTheme();
@@ -42,18 +42,14 @@ export default function AddContact() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        <Text
-          variant="bodyMedium"
-          style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}
-        >
-          Send a contact request to an existing SplitBill user by their email.
-          They'll need to accept before you can split one-on-one expenses.
-        </Text>
+    <FormScreen>
+      <Text
+        variant="bodyMedium"
+        style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}
+      >
+        Send a contact request to an existing SplitBill user by their email.
+        They'll need to accept before you can split one-on-one expenses.
+      </Text>
 
         <TextInput
           mode="outlined"
@@ -68,17 +64,16 @@ export default function AddContact() {
           autoFocus
         />
 
-        <Button
-          mode="contained"
-          onPress={handleSend}
-          loading={sendRequest.isPending}
-          disabled={sendRequest.isPending}
-          contentStyle={{ paddingVertical: 6 }}
-          style={{ marginTop: 32 }}
-        >
-          Send Request
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Button
+        mode="contained"
+        onPress={handleSend}
+        loading={sendRequest.isPending}
+        disabled={sendRequest.isPending}
+        contentStyle={{ paddingVertical: 6 }}
+        style={{ marginTop: 32 }}
+      >
+        Send Request
+      </Button>
+    </FormScreen>
   );
 }

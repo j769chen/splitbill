@@ -1,6 +1,9 @@
 import { View } from "react-native";
 import { Text } from "react-native-paper";
-import { formatCurrency } from "@/lib/utils";
+import {
+  formatCompactPeerBalance,
+  getBalanceColor,
+} from "@/lib/balance-display";
 import { useAppTheme } from "@/lib/theme";
 
 type GroupMemberRowProps = {
@@ -19,20 +22,9 @@ export function GroupMemberRow({
   currency,
 }: GroupMemberRowProps) {
   const theme = useAppTheme();
-
-  const owed = balance !== undefined && balance > 0.01;
-  const owing = balance !== undefined && balance < -0.01;
-  const balanceColor = owed
-    ? theme.colors.success
-    : owing
-      ? theme.colors.error
-      : theme.colors.onSurfaceVariant;
-
-  const label = owed
-    ? `owes you ${formatCurrency(balance!, currency)}`
-    : owing
-      ? `you owe ${formatCurrency(Math.abs(balance!), currency)}`
-      : "settled up";
+  const displayBalance = balance ?? 0;
+  const balanceColor = getBalanceColor(displayBalance, theme.colors);
+  const label = formatCompactPeerBalance(displayBalance, currency);
 
   return (
     <View

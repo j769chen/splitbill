@@ -1,18 +1,14 @@
 import { useEffect, useState } from "react";
-import {
-  View,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Button, Text, TextInput } from "react-native-paper";
+import { Button } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useGroupPayments, useUpdatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import { FormScreen } from "@/components/FormScreen";
+import { PaymentAmountNoteFields } from "@/components/PaymentAmountNoteFields";
 import { PaidByPicker } from "@/components/groups/PaidByPicker";
 
 export default function EditPayment() {
@@ -86,67 +82,43 @@ export default function EditPayment() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
-      <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        <PaidByPicker
-          label="Paid by"
-          members={members}
-          paidBy={paidBy}
-          onSelect={setPaidBy}
-          getMemberName={memberName}
-        />
+    <FormScreen>
+      <PaidByPicker
+        label="Paid by"
+        members={members}
+        paidBy={paidBy}
+        onSelect={setPaidBy}
+        getMemberName={memberName}
+      />
 
-        <PaidByPicker
-          label="Paid to"
-          members={members}
-          paidBy={paidTo}
-          onSelect={setPaidTo}
-          getMemberName={memberName}
-        />
+      <PaidByPicker
+        label="Paid to"
+        members={members}
+        paidBy={paidTo}
+        onSelect={setPaidTo}
+        getMemberName={memberName}
+      />
 
-        <View style={{ marginTop: 24 }}>
-          <Text
-            variant="labelLarge"
-            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
-          >
-            Amount
-          </Text>
-          <TextInput
-            mode="outlined"
-            label="Amount"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-          />
-        </View>
+      <PaymentAmountNoteFields
+        amount={amount}
+        onAmountChange={setAmount}
+        note={note}
+        onNoteChange={setNote}
+        amountSectionLabel="Amount"
+      />
 
-        <View style={{ marginTop: 16 }}>
-          <TextInput
-            mode="outlined"
-            label="Note (optional)"
-            value={note}
-            onChangeText={setNote}
-            placeholder="e.g., Venmo payment"
-          />
-        </View>
-
-        <Button
-          mode="contained"
-          buttonColor={theme.colors.secondary}
-          textColor={theme.colors.onSecondary}
-          onPress={handleSave}
-          loading={updatePayment.isPending}
-          disabled={updatePayment.isPending}
-          contentStyle={{ paddingVertical: 6 }}
-          style={{ marginTop: 32, marginBottom: 32 }}
-        >
-          Save Changes
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Button
+        mode="contained"
+        buttonColor={theme.colors.secondary}
+        textColor={theme.colors.onSecondary}
+        onPress={handleSave}
+        loading={updatePayment.isPending}
+        disabled={updatePayment.isPending}
+        contentStyle={{ paddingVertical: 6 }}
+        style={{ marginTop: 32, marginBottom: 32 }}
+      >
+        Save Changes
+      </Button>
+    </FormScreen>
   );
 }
