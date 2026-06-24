@@ -1152,75 +1152,6 @@ begin
 end;
 $$;
 
--- Pairwise net between the caller and a contact across groups they both belong
--- to (positive = the contact owes you). Mirrors the sign rules in
--- get_contact_balance and get_group_balances:
---   group expense you paid, contact in split    => + contact's split
---   group expense contact paid, you in split    => - your split
---   payment you -> contact                       => + amount
---   payment contact -> you                       => - amount
-create or replace function public.get_contact_group_balance(p_contact_user_id uuid)
-returns numeric
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_uid uuid := auth.uid();
-  v_expense_balance numeric(12, 2);
-  v_payment_balance numeric(12, 2);
-begin
-  if v_uid is null then
-    raise exception 'Not authenticated';
-  end if;
-
-  if p_contact_user_id is null or p_contact_user_id = v_uid then
-    return 0;
-  end if;
-
-  select coalesce(sum(
-    case
-      when e.paid_by = v_uid and es.user_id = p_contact_user_id then es.base_amount
-      when e.paid_by = p_contact_user_id and es.user_id = v_uid then -es.base_amount
-      else 0
-    end
-  ), 0)
-  into v_expense_balance
-  from public.expenses e
-  join public.expense_splits es on es.expense_id = e.id
-  where e.group_id in (
-    select gm.group_id from public.group_members gm where gm.user_id = v_uid
-    intersect
-    select gm.group_id from public.group_members gm where gm.user_id = p_contact_user_id
-  )
-  and (
-    (e.paid_by = v_uid and es.user_id = p_contact_user_id)
-    or (e.paid_by = p_contact_user_id and es.user_id = v_uid)
-  );
-
-  select coalesce(sum(
-    case
-      when pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id then pmt.base_amount
-      when pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid then -pmt.base_amount
-      else 0
-    end
-  ), 0)
-  into v_payment_balance
-  from public.payments pmt
-  where pmt.group_id in (
-    select gm.group_id from public.group_members gm where gm.user_id = v_uid
-    intersect
-    select gm.group_id from public.group_members gm where gm.user_id = p_contact_user_id
-  )
-  and (
-    (pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id)
-    or (pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid)
-  );
-
-  return coalesce(v_expense_balance, 0) + coalesce(v_payment_balance, 0);
-end;
-$$;
-
 -- The base currency for a one-on-one contact ledger (defaults to 'USD' when the
 -- pair has no explicit setting).
 create or replace function public.get_contact_currency(p_contact_user_id uuid)
@@ -1588,7 +1519,8 @@ returns table (
   full_name text,
   avatar_url text,
   currency text,
-  balance numeric(12, 2)
+  balance numeric(12, 2),
+  is_accepted boolean
 )
 language plpgsql
 security definer
@@ -1640,7 +1572,8 @@ begin
     cr.full_name,
     cr.avatar_url,
     ctx.currency,
-    ctx.balance
+    ctx.balance,
+    cr.is_accepted
   from contacts_resolved cr
   cross join lateral public.get_contact_balance_contexts(cr.uid) ctx
   where cr.is_accepted or abs(ctx.balance) > 0.005

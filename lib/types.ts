@@ -504,6 +504,7 @@ export interface Database {
           avatar_url: string | null;
           currency: string;
           balance: number;
+          is_accepted: boolean;
         }[];
       };
       get_contact_group_breakdown: {
@@ -542,6 +543,7 @@ export interface ContactWithBalance {
   full_name: string;
   avatar_url: string | null;
   balance: number;
+  is_accepted: boolean;
 }
 
 export interface ContactExpenseWithSplits extends ContactExpense {

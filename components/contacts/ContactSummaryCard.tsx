@@ -13,6 +13,7 @@ type ContactSummaryCardProps = {
   pairCurrency: string;
   hasOneOnOneActivity: boolean;
   currencyPending: boolean;
+  canEditCurrency?: boolean;
   onChangeCurrency: (currency: string, onError: (error: unknown) => void) => void;
   onCurrencyError: (message: string) => void;
 };
@@ -26,6 +27,7 @@ export function ContactSummaryCard({
   pairCurrency,
   hasOneOnOneActivity,
   currencyPending,
+  canEditCurrency = true,
   onChangeCurrency,
   onCurrencyError,
 }: ContactSummaryCardProps) {
@@ -52,6 +54,7 @@ export function ContactSummaryCard({
             {formatCurrency(Math.abs(balance), displayCurrency)}
           </Text>
         )}
+        {canEditCurrency && (
         <View style={{ marginTop: 16, alignItems: "center" }}>
           <CurrencyPicker
             value={pairCurrency}
@@ -80,6 +83,7 @@ export function ContactSummaryCard({
               : "Set the base currency for one-on-one expenses."}
           </Text>
         </View>
+        )}
       </Card.Content>
     </Card>
   );

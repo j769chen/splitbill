@@ -53,6 +53,10 @@ export default function ContactDetail() {
 
   const contact = contacts?.find((c) => c.contact_user_id === id);
   const contactName = contact?.full_name ?? name ?? "Contact";
+  // Group-mates surfaced only via a shared (possibly simplified) balance aren't
+  // accepted contacts, so 1-on-1 actions and the pair-currency editor don't
+  // apply to them.
+  const isAccepted = contact?.is_accepted ?? true;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -158,6 +162,7 @@ export default function ContactDetail() {
             pairCurrency={pairCurrency}
             hasOneOnOneActivity={hasOneOnOneActivity}
             currencyPending={setContactCurrency.isPending}
+            canEditCurrency={isAccepted}
             onChangeCurrency={(currency, onError) =>
               setContactCurrency.mutate(
                 { contactUserId: id!, currency },
@@ -202,20 +207,22 @@ export default function ContactDetail() {
           )}
         </ScrollView>
 
-        <DualActionBar
-          onPrimary={() =>
-            router.push({
-              pathname: "/contacts/add-expense",
-              params: { contactUserId: id },
-            })
-          }
-          onSecondary={() =>
-            router.push({
-              pathname: "/contacts/settle-up",
-              params: { contactUserId: id },
-            })
-          }
-        />
+        {isAccepted && (
+          <DualActionBar
+            onPrimary={() =>
+              router.push({
+                pathname: "/contacts/add-expense",
+                params: { contactUserId: id },
+              })
+            }
+            onSecondary={() =>
+              router.push({
+                pathname: "/contacts/settle-up",
+                params: { contactUserId: id },
+              })
+            }
+          />
+        )}
       </View>
     </>
   );

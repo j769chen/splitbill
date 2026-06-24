@@ -283,4 +283,25 @@ describe("ContactDetail screen", () => {
       expect.objectContaining({ onError: expect.any(Function) })
     );
   });
+
+  it("hides 1-on-1 actions and currency editing for a non-contact group-mate", async () => {
+    (useContacts as jest.Mock).mockReturnValue({
+      data: [
+        {
+          contact_user_id: "user-2",
+          full_name: "Bob",
+          balance: 15,
+          is_accepted: false,
+        },
+      ],
+    });
+    setup({ expenses: [], groupBreakdown: [{ group_id: "g1", group_name: "Ski Trip", balance: 15 }] });
+    await renderWithPaper(<ContactDetail />);
+
+    expect(screen.queryByText("Add Expense")).toBeNull();
+    expect(screen.queryByText("Settle Up")).toBeNull();
+    expect(
+      screen.queryByText("Set the base currency for one-on-one expenses.")
+    ).toBeNull();
+  });
 });

@@ -91,6 +91,7 @@ interface ContactBalanceContextRow {
   avatar_url: string | null;
   currency: string;
   balance: number;
+  is_accepted: boolean;
 }
 
 export function useContacts() {
@@ -111,6 +112,7 @@ export function useContacts() {
         avatar_url: row.avatar_url,
         currency: row.currency,
         balance: Number(row.balance),
+        is_accepted: row.is_accepted,
       }));
     },
     enabled: !!user,
@@ -136,6 +138,7 @@ export function useContacts() {
           full_name: row.full_name,
           avatar_url: row.avatar_url,
           balance: converted,
+          is_accepted: row.is_accepted,
         });
       }
     }
