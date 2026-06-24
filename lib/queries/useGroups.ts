@@ -207,6 +207,15 @@ export function useAddGroupMembers() {
       queryClient.invalidateQueries({
         queryKey: ["group-pairwise-all", variables.groupId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["group-simplified", variables.groupId],
+      });
+      // New members change the simplified plan, so contact surfaces (combined
+      // balances, per-group breakdowns, phantom group-mates) can shift too.
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
     },
   });
 }
@@ -312,6 +321,11 @@ export function useLeaveGroup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      // Leaving a group can drop group-mates (and their phantom simplified
+      // debts) off the contact surfaces.
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
     },
   });
 }

@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
+import { QueryClient } from "@tanstack/react-query";
 import { actAsync, createWrapper, queryBuilder } from "../helpers/testUtils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -112,6 +113,29 @@ describe("useLeaveGroup", () => {
     await expect(
       actAsync(() => result.current.mutateAsync("g1"))
     ).rejects.toThrow("cannot leave");
+  });
+
+  it("invalidates contact surfaces so group-mates drop off after leaving", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
+    const invalidateSpy = jest.spyOn(
+      QueryClient.prototype,
+      "invalidateQueries"
+    );
+
+    const { result } = await renderHook(() => useLeaveGroup(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() => result.current.mutateAsync("g1"));
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["contacts"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["contact-balance"],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["contact-group-breakdown"],
+    });
+    invalidateSpy.mockRestore();
   });
 });
 
@@ -277,6 +301,36 @@ describe("useAddGroupMembers", () => {
     expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_user_ids_by_email", {
       emails: ["bob@x.com"],
     });
+  });
+
+  it("invalidates simplified-edge and contact surfaces after adding members", async () => {
+    mockedSupabase.rpc
+      .mockResolvedValueOnce({
+        data: [{ id: "u2", email: "a@x.com" }],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+    const invalidateSpy = jest.spyOn(
+      QueryClient.prototype,
+      "invalidateQueries"
+    );
+
+    const { result } = await renderHook(() => useAddGroupMembers(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({ groupId: "g1", memberEmails: ["a@x.com"] })
+    );
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["group-simplified", "g1"],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["contacts"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["contact-group-breakdown"],
+    });
+    invalidateSpy.mockRestore();
   });
 });
 

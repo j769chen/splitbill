@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import {
   useGroupBalances,
+  useGroupSimplifiedEdges,
   useUserTotalBalance,
 } from "@/lib/queries/useBalances";
 
@@ -47,6 +48,57 @@ describe("useGroupBalances", () => {
     expect(result.current.data).toEqual([]);
   });
 
+});
+
+describe("useGroupSimplifiedEdges", () => {
+  it("maps server edge rows into DebtEdge objects with numeric amounts", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: [
+        {
+          from_user: "u1",
+          from_name: "Alice",
+          to_user: "u2",
+          to_name: "Bob",
+          amount: "12.5",
+        },
+      ],
+      error: null,
+    });
+
+    const { result } = await renderHook(() => useGroupSimplifiedEdges("g1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "get_group_simplified_edges",
+      { p_group_id: "g1" }
+    );
+    expect(result.current.data).toEqual([
+      { from: "u1", from_name: "Alice", to: "u2", to_name: "Bob", amount: 12.5 },
+    ]);
+  });
+
+  it("defaults to an empty array when the RPC returns null", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
+
+    const { result } = await renderHook(() => useGroupSimplifiedEdges("g1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([]);
+  });
+
+  it("does not run while disabled", async () => {
+    const { result } = await renderHook(
+      () => useGroupSimplifiedEdges("g1", false),
+      { wrapper: createWrapper() }
+    );
+
+    expect(result.current.fetchStatus).toBe("idle");
+    expect(mockedSupabase.rpc).not.toHaveBeenCalled();
+  });
 });
 
 describe("useUserTotalBalance", () => {
