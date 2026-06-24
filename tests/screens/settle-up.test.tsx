@@ -15,8 +15,8 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useBalances", () => ({
-  useGroupBalances: jest.fn(),
   useGroupPairwiseBalances: jest.fn(),
+  useGroupSimplifiedEdges: jest.fn(),
 }));
 jest.mock("@/lib/queries/useGroups", () => ({ useGroup: jest.fn() }));
 jest.mock("@/lib/queries/usePayments", () => ({ useCreatePayment: jest.fn() }));
@@ -25,26 +25,37 @@ jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import {
-  useGroupBalances,
   useGroupPairwiseBalances,
+  useGroupSimplifiedEdges,
 } from "@/lib/queries/useBalances";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useSnackbar } from "@/lib/snackbar";
 
-const owingBalances = [
-  { user_id: "u1", full_name: "Me", balance: -20 },
-  { user_id: "u2", full_name: "Bob", balance: 20 },
+const meOwesBobEdge = {
+  from: "u1",
+  from_name: "Me",
+  to: "u2",
+  to_name: "Bob",
+  amount: 20,
+};
+
+const splitOwingEdges = [
+  meOwesBobEdge,
+  {
+    from: "u1",
+    from_name: "Me",
+    to: "u3",
+    to_name: "Cara",
+    amount: 10,
+  },
 ];
 
-const splitOwingBalances = [
-  { user_id: "u1", full_name: "Me", balance: -30 },
-  { user_id: "u2", full_name: "Bob", balance: 20 },
-  { user_id: "u3", full_name: "Cara", balance: 10 },
-];
-
-function setBalances(balances: unknown) {
-  (useGroupBalances as jest.Mock).mockReturnValue({ data: balances });
+function setSimplifiedEdges(edges: unknown) {
+  (useGroupSimplifiedEdges as jest.Mock).mockReturnValue({
+    data: edges,
+    refetch: jest.fn(),
+  });
 }
 
 beforeEach(() => {
@@ -56,7 +67,7 @@ beforeEach(() => {
     data: { currency: "USD", simplify_debts: true },
   });
   (useGroupPairwiseBalances as jest.Mock).mockReturnValue({ data: [] });
-  setBalances(owingBalances);
+  setSimplifiedEdges([meOwesBobEdge]);
   (useCreatePayment as jest.Mock).mockReturnValue({
     mutateAsync: mockPayAsync,
     isPending: false,
@@ -69,10 +80,7 @@ beforeEach(() => {
 
 describe("SettleUp screen", () => {
   it("shows the settled-up message when there are no debts", async () => {
-    setBalances([
-      { user_id: "u1", full_name: "Me", balance: 0 },
-      { user_id: "u2", full_name: "Bob", balance: 0 },
-    ]);
+    setSimplifiedEdges([]);
     await renderWithPaper(<SettleUp />);
 
     expect(
@@ -106,10 +114,7 @@ describe("SettleUp screen", () => {
     });
     // Net balances would simplify Me -> Cara, but the raw ledger has Me owing
     // Bob directly. With simplification off we must settle along the raw edge.
-    setBalances([
-      { user_id: "u1", full_name: "Me", balance: -25 },
-      { user_id: "u2", full_name: "Bob", balance: 25 },
-    ]);
+    setSimplifiedEdges([]);
     (useGroupPairwiseBalances as jest.Mock).mockReturnValue({
       data: [
         { from: "u1", from_name: "Me", to: "u2", to_name: "Bob", amount: 25 },
@@ -134,16 +139,12 @@ describe("SettleUp screen", () => {
   });
 
   it("keeps the selected debt when balances refetch in a different order", async () => {
-    setBalances(splitOwingBalances);
+    setSimplifiedEdges(splitOwingEdges);
     const view = await renderWithPaper(<SettleUp />);
 
     await fireEvent.press(screen.getByTestId("debt-card-u1-u2"));
     await waitFor(() => expect(screen.getByText("Record Payment")).toBeTruthy());
-    setBalances([
-      { user_id: "u1", full_name: "Me", balance: -20 },
-      { user_id: "u3", full_name: "Cara", balance: 10 },
-      { user_id: "u2", full_name: "Bob", balance: 10 },
-    ]);
+    setSimplifiedEdges([splitOwingEdges[1], splitOwingEdges[0]]);
     await act(async () => {
       view.rerender(
         <PaperProvider theme={lightTheme}>
