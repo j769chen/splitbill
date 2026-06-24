@@ -49,6 +49,33 @@ export function useGroupPairwiseBalances(groupId: string, enabled = true) {
   });
 }
 
+// Minimal settlement plan for the group (server-side, deterministic). Used when
+// a group has debt simplification ON, as the single source of truth shared with
+// the contact surfaces.
+export function useGroupSimplifiedEdges(groupId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["group-simplified", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "get_group_simplified_edges",
+        { p_group_id: groupId }
+      );
+
+      if (error) throw error;
+      return (data ?? []).map(
+        (row): DebtEdge => ({
+          from: row.from_user,
+          from_name: row.from_name,
+          to: row.to_user,
+          to_name: row.to_name,
+          amount: Number(row.amount),
+        })
+      );
+    },
+    enabled: !!groupId && enabled,
+  });
+}
+
 export function useUserTotalBalance() {
   const { user } = useAuth();
   const { currency: displayCurrency } = useDisplayCurrency();

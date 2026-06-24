@@ -8,10 +8,11 @@ import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import {
   useGroupBalances,
   useGroupPairwiseBalances,
+  useGroupSimplifiedEdges,
 } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { getBalanceColor } from "@/lib/balance-display";
-import { getErrorMessage, simplifyDebts } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
@@ -35,6 +36,8 @@ export default function GroupDetail() {
   const simplify = group?.simplify_debts ?? true;
   const { data: rawDebts, refetch: refetchRawDebts } =
     useGroupPairwiseBalances(id!, !simplify);
+  const { data: simplifiedDebts, refetch: refetchSimplifiedDebts } =
+    useGroupSimplifiedEdges(id!, simplify);
   const deleteExpense = useDeleteExpense();
   const deletePayment = useDeletePayment();
   const leaveGroup = useLeaveGroup();
@@ -84,6 +87,7 @@ export default function GroupDetail() {
       refetchPayments(),
       refetchBalances(),
       refetchRawDebts(),
+      refetchSimplifiedDebts(),
     ]);
     setRefreshing(false);
   }, [
@@ -92,6 +96,7 @@ export default function GroupDetail() {
     refetchPayments,
     refetchBalances,
     refetchRawDebts,
+    refetchSimplifiedDebts,
   ]);
 
   const handleDeleteExpense = (expenseId: string) => {
@@ -157,11 +162,7 @@ export default function GroupDetail() {
     ),
   ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
-  const debts = simplify
-    ? balances
-      ? simplifyDebts(balances)
-      : []
-    : (rawDebts ?? []);
+  const debts = simplify ? (simplifiedDebts ?? []) : (rawDebts ?? []);
 
   const balanceColor = (value: number) => getBalanceColor(value, theme.colors);
 
