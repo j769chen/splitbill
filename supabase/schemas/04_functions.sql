@@ -1488,12 +1488,14 @@ begin
   end if;
 
   while i <= array_length(v_debtors, 1) and j <= array_length(v_creditors, 1) loop
-    v_transfer := least(v_debt_amt[i], v_cred_amt[j]);
+    -- Round once up front so the emitted edge and the running remainders stay in
+    -- lockstep (no sub-cent residual can inflate a later edge by a penny).
+    v_transfer := round(least(v_debt_amt[i], v_cred_amt[j]), 2);
 
     if v_transfer > 0.005 then
       from_user := v_debtors[i];
       to_user := v_creditors[j];
-      amount := round(v_transfer, 2);
+      amount := v_transfer;
       select p.full_name into from_name from public.profiles p where p.id = v_debtors[i];
       select p.full_name into to_name from public.profiles p where p.id = v_creditors[j];
       return next;

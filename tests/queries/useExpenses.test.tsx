@@ -276,6 +276,9 @@ describe("useUpdateExpense", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ["group-pairwise-all", "g1"],
     });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["group-simplified", "g1"],
+    });
     invalidateSpy.mockRestore();
   });
 });

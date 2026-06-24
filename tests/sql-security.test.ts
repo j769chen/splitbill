@@ -100,6 +100,10 @@ describe("SQL security guards", () => {
     );
     expect(body).toMatch(/order by b\.balance asc, b\.user_id asc/i);
     expect(body).toMatch(/order by b\.balance desc, b\.user_id asc/i);
+    // The transfer is rounded once before being emitted AND subtracted, so the
+    // emitted edge and the running remainders can't drift by a sub-cent residual.
+    expect(body).toMatch(/v_transfer := round\(least\(/i);
+    expect(body).toMatch(/amount := v_transfer;/i);
   });
 
   it("guards the send-contact-request RPC", () => {
