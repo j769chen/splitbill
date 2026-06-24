@@ -362,6 +362,16 @@ export interface Database {
           amount: number;
         }[];
       };
+      get_group_simplified_edges: {
+        Args: { p_group_id: string };
+        Returns: {
+          from_user: string;
+          from_name: string;
+          to_user: string;
+          to_name: string;
+          amount: number;
+        }[];
+      };
       create_expense_with_splits: {
         Args: {
           p_group_id: string;
