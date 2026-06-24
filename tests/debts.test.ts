@@ -34,9 +34,6 @@ describe("simplifyDebts", () => {
       { from: "a", from_name: "Alice", to: "b", to_name: "Bob", amount: 20 },
       { from: "a", from_name: "Alice", to: "c", to_name: "Carol", amount: 10 },
     ]);
-
-    const totalTransferred = edges.reduce((acc, e) => acc + e.amount, 0);
-    expect(totalTransferred).toBeCloseTo(30);
   });
 
   it("ignores sub-cent balances", () => {

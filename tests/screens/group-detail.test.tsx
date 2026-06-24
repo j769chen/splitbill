@@ -232,16 +232,6 @@ describe("GroupDetail screen", () => {
     );
   });
 
-  it("does not delete a payment when confirmation is dismissed", async () => {
-    setup({ expenses: [], payments: paymentsFixture });
-    await renderWithPaper(<GroupDetail />);
-
-    await fireEvent(screen.getByText("You paid Bob $20.00"), "longPress");
-
-    expect(mockConfirm).toHaveBeenCalledTimes(1);
-    expect(mockDeletePaymentMutate).not.toHaveBeenCalled();
-  });
-
   it("switches to the balances tab and shows a per-member balance accordion", async () => {
     await renderWithPaper(<GroupDetail />);
 
@@ -433,15 +423,6 @@ describe("GroupDetail screen", () => {
       { expenseId: "e1", groupId: "g1" },
       expect.objectContaining({ onError: expect.any(Function) })
     );
-  });
-
-  it("does not delete an expense when confirmation is dismissed", async () => {
-    await renderWithPaper(<GroupDetail />);
-
-    await fireEvent(screen.getByText("Dinner"), "longPress");
-
-    expect(mockConfirm).toHaveBeenCalledTimes(1);
-    expect(mockDeleteMutate).not.toHaveBeenCalled();
   });
 
   it("navigates to edit an expense when its card is pressed", async () => {

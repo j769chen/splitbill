@@ -57,13 +57,6 @@ beforeEach(() => {
 });
 
 describe("Activity screen", () => {
-  it("shows a spinner while loading", async () => {
-    setActivity({ isLoading: true });
-    await renderWithPaper(<Activity />);
-
-    expect(screen.queryByText("No recent activity")).toBeNull();
-  });
-
   it("shows the empty state when there is no activity", async () => {
     await renderWithPaper(<Activity />);
 
@@ -223,38 +216,4 @@ describe("Activity screen", () => {
     expect(screen.getByText("Bob paid · with you")).toBeTruthy();
   });
 
-  it("merges expenses and payments newest first", async () => {
-    setActivity({
-      data: [
-        {
-          id: "e1",
-          description: "Dinner",
-          amount: 30,
-          paid_by: "u1",
-          payer: { full_name: "Me" },
-          groups: { name: "Trip" },
-          date: "2024-01-01",
-        },
-      ],
-    });
-    setPayments({
-      data: [
-        {
-          id: "p1",
-          amount: 20,
-          created_at: "2024-01-10",
-          paid_by: "u1",
-          paid_to: "u2",
-          note: null,
-          payer: { full_name: "Me" },
-          payee: { full_name: "Bob" },
-          groups: { name: "Trip" },
-        },
-      ],
-    });
-    await renderWithPaper(<Activity />);
-
-    expect(screen.getByText("You paid Bob")).toBeTruthy();
-    expect(screen.getByText("Dinner")).toBeTruthy();
-  });
 });

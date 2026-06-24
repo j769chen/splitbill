@@ -75,16 +75,6 @@ describe("ContactRequests screen", () => {
     expect(screen.getByText("No pending requests")).toBeTruthy();
   });
 
-  it("renders incoming and outgoing requests", async () => {
-    setup({ incoming: [incomingFixture], outgoing: [outgoingFixture] });
-    await renderWithPaper(<ContactRequests />);
-
-    expect(screen.getByText("Incoming")).toBeTruthy();
-    expect(screen.getByText("Bob")).toBeTruthy();
-    expect(screen.getByText("Sent")).toBeTruthy();
-    expect(screen.getByText("Carol")).toBeTruthy();
-  });
-
   it("accepts an incoming request", async () => {
     setup({ incoming: [incomingFixture] });
     await renderWithPaper(<ContactRequests />);

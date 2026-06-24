@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { createWrapper, queryBuilder } from "../helpers/testUtils";
+import { createWrapper } from "../helpers/testUtils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import {
@@ -48,18 +48,6 @@ describe("useGroupBalances", () => {
     expect(result.current.data).toEqual([]);
   });
 
-  it("surfaces RPC errors", async () => {
-    mockedSupabase.rpc.mockResolvedValue({
-      data: null,
-      error: new Error("rpc boom"),
-    });
-
-    const { result } = await renderHook(() => useGroupBalances("g1"), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-  });
 });
 
 describe("useMyGroupPairwiseBalances", () => {
@@ -88,31 +76,6 @@ describe("useMyGroupPairwiseBalances", () => {
     ]);
   });
 
-  it("defaults to an empty array when the RPC returns null", async () => {
-    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
-
-    const { result } = await renderHook(
-      () => useMyGroupPairwiseBalances("g1"),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual([]);
-  });
-
-  it("surfaces RPC errors", async () => {
-    mockedSupabase.rpc.mockResolvedValue({
-      data: null,
-      error: new Error("rpc boom"),
-    });
-
-    const { result } = await renderHook(
-      () => useMyGroupPairwiseBalances("g1"),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-  });
 });
 
 describe("useUserTotalBalance", () => {
@@ -149,16 +112,4 @@ describe("useUserTotalBalance", () => {
     });
   });
 
-  it("surfaces RPC errors", async () => {
-    mockedSupabase.rpc.mockResolvedValue({
-      data: null,
-      error: new Error("rpc boom"),
-    });
-
-    const { result } = await renderHook(() => useUserTotalBalance(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-  });
 });

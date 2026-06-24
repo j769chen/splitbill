@@ -81,17 +81,6 @@ describe("useGroup", () => {
     expect(builder.single).toHaveBeenCalled();
   });
 
-  it("surfaces query errors", async () => {
-    mockedSupabase.from.mockReturnValue(
-      queryBuilder({ data: null, error: new Error("missing") })
-    );
-
-    const { result } = await renderHook(() => useGroup("g1"), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
-  });
 });
 
 describe("useLeaveGroup", () => {

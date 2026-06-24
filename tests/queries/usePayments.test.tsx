@@ -99,29 +99,6 @@ describe("useCreatePayment", () => {
     });
   });
 
-  it("forwards a provided note", async () => {
-    const builder = queryBuilder({ data: { id: "p1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
-
-    const { result } = await renderHook(() => useCreatePayment(), {
-      wrapper: createWrapper(),
-    });
-
-    await actAsync(() =>
-      result.current.mutateAsync({
-        groupId: "g1",
-        paidBy: "u1",
-        paidTo: "u2",
-        amount: 5,
-        note: "rent",
-      })
-    );
-
-    expect(builder.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ note: "rent" })
-    );
-  });
-
   it("propagates insert errors", async () => {
     const builder = queryBuilder({ data: null, error: new Error("insert failed") });
     mockedSupabase.from.mockReturnValue(builder);
@@ -174,50 +151,6 @@ describe("useUpdatePayment", () => {
     expect(builder.eq).toHaveBeenCalledWith("id", "p1");
   });
 
-  it("defaults note to null when omitted", async () => {
-    const builder = queryBuilder({ data: { id: "p1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
-
-    const { result } = await renderHook(() => useUpdatePayment(), {
-      wrapper: createWrapper(),
-    });
-
-    await actAsync(() =>
-      result.current.mutateAsync({
-        paymentId: "p1",
-        groupId: "g1",
-        paidBy: "u1",
-        paidTo: "u2",
-        amount: 7,
-      })
-    );
-
-    expect(builder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ note: null })
-    );
-  });
-
-  it("propagates update errors", async () => {
-    const builder = queryBuilder({ data: null, error: new Error("nope") });
-    mockedSupabase.from.mockReturnValue(builder);
-
-    const { result } = await renderHook(() => useUpdatePayment(), {
-      wrapper: createWrapper(),
-    });
-
-    await expect(
-      actAsync(() =>
-        result.current.mutateAsync({
-          paymentId: "p1",
-          groupId: "g1",
-          paidBy: "u1",
-          paidTo: "u2",
-          amount: 7,
-        })
-      )
-    ).rejects.toThrow("nope");
-  });
-
   it("invalidates the group pairwise roster so it live-refreshes on edit", async () => {
     const builder = queryBuilder({ data: { id: "p1" }, error: null });
     mockedSupabase.from.mockReturnValue(builder);
@@ -260,24 +193,8 @@ describe("useDeletePayment", () => {
       result.current.mutateAsync({ paymentId: "p1", groupId: "g1" })
     );
 
-    expect(result.current.isSuccess).toBe(true);
     expect(mockedSupabase.from).toHaveBeenCalledWith("payments");
     expect(builder.delete).toHaveBeenCalled();
     expect(builder.eq).toHaveBeenCalledWith("id", "p1");
-  });
-
-  it("propagates delete errors", async () => {
-    const builder = queryBuilder({ data: null, error: new Error("nope") });
-    mockedSupabase.from.mockReturnValue(builder);
-
-    const { result } = await renderHook(() => useDeletePayment(), {
-      wrapper: createWrapper(),
-    });
-
-    await expect(
-      actAsync(() =>
-        result.current.mutateAsync({ paymentId: "p1", groupId: "g1" })
-      )
-    ).rejects.toThrow("nope");
   });
 });

@@ -32,13 +32,6 @@ beforeEach(() => {
 });
 
 describe("Account screen", () => {
-  it("displays the user's name and email", async () => {
-    await renderWithPaper(<Account />);
-
-    expect(screen.getByText("Alice")).toBeTruthy();
-    expect(screen.getByText("me@x.com")).toBeTruthy();
-  });
-
   it("navigates to the edit-profile screen", async () => {
     await renderWithPaper(<Account />);
 

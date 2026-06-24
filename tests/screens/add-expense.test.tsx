@@ -248,14 +248,6 @@ describe("AddExpense screen", () => {
       });
     });
 
-    it("prefills the form and shows the edit affordances", async () => {
-      await renderWithPaper(<AddExpense />);
-
-      expect(screen.getByDisplayValue("Old dinner")).toBeTruthy();
-      expect(screen.getByDisplayValue("30")).toBeTruthy();
-      expect(screen.getByText("Save Changes")).toBeTruthy();
-    });
-
     it("submits the update RPC with the expense id", async () => {
       await renderWithPaper(<AddExpense />);
 

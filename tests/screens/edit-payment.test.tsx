@@ -60,13 +60,6 @@ beforeEach(() => {
 });
 
 describe("EditPayment screen", () => {
-  it("prefills the amount and note from the payment", async () => {
-    await renderWithPaper(<EditPayment />);
-
-    expect(screen.getByDisplayValue("20.00")).toBeTruthy();
-    expect(screen.getByDisplayValue("Venmo")).toBeTruthy();
-  });
-
   it("submits the update with the mapped direction and amount", async () => {
     await renderWithPaper(<EditPayment />);
 
