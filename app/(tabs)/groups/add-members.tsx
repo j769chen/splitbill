@@ -5,7 +5,7 @@ import { Button, Text } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import {
   useAddGroupMembers,
-  useCheckEmailExists,
+  useLookupUserByEmail,
 } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
@@ -23,7 +23,7 @@ export default function AddGroupMembers() {
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
 
   const addMembers = useAddGroupMembers();
-  const checkEmail = useCheckEmailExists();
+  const lookupUserByEmail = useLookupUserByEmail();
   const { showError, showSuccess } = useSnackbar();
 
   const memberCount = group?.group_members?.length ?? 0;
@@ -45,9 +45,13 @@ export default function AddGroupMembers() {
       return null;
     }
     try {
-      const exists = await checkEmail.mutateAsync(email);
-      if (!exists) {
+      const profile = await lookupUserByEmail.mutateAsync(email);
+      if (!profile) {
         showError(`No SplitBill account found for ${email}`);
+        return null;
+      }
+      if (existingMemberIds.includes(profile.id)) {
+        showError("This person is already a member of the group");
         return null;
       }
     } catch {
@@ -121,7 +125,7 @@ export default function AddGroupMembers() {
           onAdd={addEmail}
           onRemove={removeEmail}
           emails={memberEmails}
-          isPending={checkEmail.isPending}
+          isPending={lookupUserByEmail.isPending}
         />
 
         <Button

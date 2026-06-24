@@ -245,6 +245,18 @@ export function useCheckEmailExists() {
   });
 }
 
+export function useLookupUserByEmail() {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const { data, error } = await supabase.rpc("get_user_ids_by_email", {
+        emails: [email],
+      });
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+  });
+}
+
 export function useLeaveGroup() {
   const queryClient = useQueryClient();
 

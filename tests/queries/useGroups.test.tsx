@@ -7,6 +7,7 @@ import {
   useGroup,
   useCreateGroup,
   useCheckEmailExists,
+  useLookupUserByEmail,
   useLeaveGroup,
   useAddGroupMembers,
   useRenameGroup,
@@ -344,5 +345,37 @@ describe("useCheckEmailExists", () => {
       result.current.mutateAsync("ghost@x.com")
     );
     expect(exists).toBe(false);
+  });
+});
+
+describe("useLookupUserByEmail", () => {
+  it("returns the matched account row for an email", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: [{ id: "u2", email: "a@x.com" }],
+      error: null,
+    });
+
+    const { result } = await renderHook(() => useLookupUserByEmail(), {
+      wrapper: createWrapper(),
+    });
+
+    const profile = await actAsync(() => result.current.mutateAsync("a@x.com"));
+    expect(profile).toEqual({ id: "u2", email: "a@x.com" });
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_user_ids_by_email", {
+      emails: ["a@x.com"],
+    });
+  });
+
+  it("returns null when the email has no account", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    const { result } = await renderHook(() => useLookupUserByEmail(), {
+      wrapper: createWrapper(),
+    });
+
+    const profile = await actAsync(() =>
+      result.current.mutateAsync("ghost@x.com")
+    );
+    expect(profile).toBeNull();
   });
 });

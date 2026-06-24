@@ -4,7 +4,7 @@ import AddGroupMembers from "@/app/(tabs)/groups/add-members";
 
 const mockBack = jest.fn();
 const mockAddAsync = jest.fn();
-const mockCheckAsync = jest.fn();
+const mockLookupAsync = jest.fn();
 const mockShowError = jest.fn();
 const mockShowSuccess = jest.fn();
 
@@ -16,7 +16,7 @@ jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useGroups", () => ({
   useGroup: jest.fn(),
   useAddGroupMembers: jest.fn(),
-  useCheckEmailExists: jest.fn(),
+  useLookupUserByEmail: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import {
   useGroup,
   useAddGroupMembers,
-  useCheckEmailExists,
+  useLookupUserByEmail,
 } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 
@@ -45,7 +45,7 @@ async function addEmail(email: string) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockAddAsync.mockResolvedValue(undefined);
-  mockCheckAsync.mockResolvedValue(true);
+  mockLookupAsync.mockResolvedValue({ id: "u2", email: "bob@x.com" });
   (router as unknown as { back: jest.Mock }).back = mockBack;
   (useAuth as jest.Mock).mockReturnValue({ user: { email: "me@x.com" } });
   (useGroup as jest.Mock).mockReturnValue({
@@ -59,8 +59,8 @@ beforeEach(() => {
     mutateAsync: mockAddAsync,
     isPending: false,
   });
-  (useCheckEmailExists as jest.Mock).mockReturnValue({
-    mutateAsync: mockCheckAsync,
+  (useLookupUserByEmail as jest.Mock).mockReturnValue({
+    mutateAsync: mockLookupAsync,
     isPending: false,
   });
   (useSnackbar as jest.Mock).mockReturnValue({
@@ -98,22 +98,19 @@ describe("AddGroupMembers screen", () => {
     expect(mockAddAsync).not.toHaveBeenCalled();
   });
 
-  it("surfaces the block when adding someone already in the group", async () => {
-    mockAddAsync.mockRejectedValue(
-      new Error("Already in this group: bob@x.com")
-    );
+  it("blocks adding someone already in the group from the plus button", async () => {
+    mockLookupAsync.mockResolvedValue({ id: "u1", email: "bob@x.com" });
     await renderWithPaper(<AddGroupMembers />);
 
     await addEmail("bob@x.com");
-    await waitFor(() => expect(screen.getByText("bob@x.com")).toBeTruthy());
-    await fireEvent.press(screen.getByText("Add Members"));
 
     await waitFor(() =>
       expect(mockShowError).toHaveBeenCalledWith(
-        "Already in this group: bob@x.com"
+        "This person is already a member of the group"
       )
     );
-    expect(mockBack).not.toHaveBeenCalled();
+    expect(screen.queryByText("bob@x.com")).toBeNull();
+    expect(mockAddAsync).not.toHaveBeenCalled();
   });
 
   it("surfaces an error when adding members fails", async () => {
