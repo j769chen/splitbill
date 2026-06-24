@@ -79,6 +79,19 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/where gm\.user_id = v_uid/i);
   });
 
+  it("guards the simplified-edges RPC and uses a deterministic order", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_group_simplified_edges");
+
+    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+    expect(body).toMatch(/order by b\.balance asc, b\.user_id asc/i);
+    expect(body).toMatch(/order by b\.balance desc, b\.user_id asc/i);
+  });
+
   it("guards the send-contact-request RPC", () => {
     const functions = readSchema("04_functions.sql");
     const body = functionBody(functions, "send_contact_request");
