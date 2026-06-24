@@ -352,14 +352,6 @@ export interface Database {
         Args: { p_group_id: string; p_name: string };
         Returns: Database["public"]["Tables"]["groups"]["Row"];
       };
-      get_group_pairwise_balances_for_me: {
-        Args: { p_group_id: string };
-        Returns: {
-          user_id: string;
-          full_name: string;
-          balance: number;
-        }[];
-      };
       get_group_pairwise_balances: {
         Args: { p_group_id: string };
         Returns: {

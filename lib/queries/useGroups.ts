@@ -205,7 +205,7 @@ export function useAddGroupMembers() {
         queryKey: ["balances", variables.groupId],
       });
       queryClient.invalidateQueries({
-        queryKey: ["group-pairwise", variables.groupId],
+        queryKey: ["group-pairwise-all", variables.groupId],
       });
     },
   });

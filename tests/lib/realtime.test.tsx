@@ -79,7 +79,7 @@ describe("useRealtimeSubscription", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["expenses", "g1"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["balances", "g1"] });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["group-pairwise", "g1"],
+      queryKey: ["group-pairwise-all", "g1"],
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["total-balance"] });
     // Group activity feeds combined contact balances, so contact queries refresh.
@@ -95,7 +95,7 @@ describe("useRealtimeSubscription", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["group", "g1"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["groups"] });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["group-pairwise", "g1"],
+      queryKey: ["group-pairwise-all", "g1"],
     });
   });
 

@@ -8,7 +8,6 @@ import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import {
   useGroupBalances,
   useGroupPairwiseBalances,
-  useMyGroupPairwiseBalances,
 } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { getBalanceColor } from "@/lib/balance-display";
@@ -33,8 +32,6 @@ export default function GroupDetail() {
   const { data: expenses, refetch: refetchExpenses } = useExpenses(id!);
   const { data: payments, refetch: refetchPayments } = useGroupPayments(id!);
   const { data: balances, refetch: refetchBalances } = useGroupBalances(id!);
-  const { data: pairwise, refetch: refetchPairwise } =
-    useMyGroupPairwiseBalances(id!);
   const simplify = group?.simplify_debts ?? true;
   const { data: rawDebts, refetch: refetchRawDebts } =
     useGroupPairwiseBalances(id!, !simplify);
@@ -86,7 +83,6 @@ export default function GroupDetail() {
       refetchExpenses(),
       refetchPayments(),
       refetchBalances(),
-      refetchPairwise(),
       refetchRawDebts(),
     ]);
     setRefreshing(false);
@@ -95,7 +91,6 @@ export default function GroupDetail() {
     refetchExpenses,
     refetchPayments,
     refetchBalances,
-    refetchPairwise,
     refetchRawDebts,
   ]);
 
@@ -180,7 +175,17 @@ export default function GroupDetail() {
   ];
 
   const groupCurrency = group?.currency ?? "USD";
-  const pairwiseByUser = new Map(pairwise?.map((p) => [p.user_id, p.balance]));
+  // Derive the members-card balances from the same debt edges shown elsewhere so
+  // the roster, the per-member breakdown, and the simplify toggle stay in sync.
+  // A positive value means that member owes you; negative means you owe them.
+  const pairwiseByUser = new Map<string, number>();
+  for (const debt of debts) {
+    if (debt.to === user?.id) {
+      pairwiseByUser.set(debt.from, (pairwiseByUser.get(debt.from) ?? 0) + debt.amount);
+    } else if (debt.from === user?.id) {
+      pairwiseByUser.set(debt.to, (pairwiseByUser.get(debt.to) ?? 0) - debt.amount);
+    }
+  }
   const members = [...(group?.group_members ?? [])].sort((a, b) => {
     if (a.user_id === user?.id) return -1;
     if (b.user_id === user?.id) return 1;

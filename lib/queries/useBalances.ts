@@ -22,27 +22,6 @@ export function useGroupBalances(groupId: string) {
   });
 }
 
-export function useMyGroupPairwiseBalances(groupId: string) {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ["group-pairwise", groupId, user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc(
-        "get_group_pairwise_balances_for_me",
-        { p_group_id: groupId }
-      );
-
-      if (error) throw error;
-      return (data ?? []).map((row) => ({
-        ...row,
-        balance: Number(row.balance),
-      })) as GroupBalance[];
-    },
-    enabled: !!user && !!groupId,
-  });
-}
-
 // All-pairs raw "who owes whom" for the whole group. Used when a group has
 // debt simplification turned OFF (the simplified view derives edges from
 // get_group_balances via simplifyDebts instead).

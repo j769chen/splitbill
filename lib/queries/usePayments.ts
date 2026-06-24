@@ -110,9 +110,6 @@ export function useCreatePayment() {
         queryKey: ["balances", variables.groupId],
       });
       queryClient.invalidateQueries({
-        queryKey: ["group-pairwise", variables.groupId],
-      });
-      queryClient.invalidateQueries({
         queryKey: ["group-pairwise-all", variables.groupId],
       });
       queryClient.invalidateQueries({
@@ -172,9 +169,6 @@ export function useUpdatePayment() {
         queryKey: ["balances", variables.groupId],
       });
       queryClient.invalidateQueries({
-        queryKey: ["group-pairwise", variables.groupId],
-      });
-      queryClient.invalidateQueries({
         queryKey: ["group-pairwise-all", variables.groupId],
       });
       queryClient.invalidateQueries({
@@ -215,9 +209,6 @@ export function useDeletePayment() {
       });
       queryClient.invalidateQueries({
         queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise", variables.groupId],
       });
       queryClient.invalidateQueries({
         queryKey: ["group-pairwise-all", variables.groupId],

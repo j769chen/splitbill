@@ -4,7 +4,6 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import {
   useGroupBalances,
-  useMyGroupPairwiseBalances,
   useUserTotalBalance,
 } from "@/lib/queries/useBalances";
 
@@ -46,34 +45,6 @@ describe("useGroupBalances", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual([]);
-  });
-
-});
-
-describe("useMyGroupPairwiseBalances", () => {
-  it("calls the pairwise RPC and coerces balances to numbers", async () => {
-    mockedSupabase.rpc.mockResolvedValue({
-      data: [
-        { user_id: "u2", full_name: "Bob", balance: "15.00" },
-        { user_id: "u3", full_name: "Carol", balance: "0" },
-      ],
-      error: null,
-    });
-
-    const { result } = await renderHook(
-      () => useMyGroupPairwiseBalances("g1"),
-      { wrapper: createWrapper() }
-    );
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
-      "get_group_pairwise_balances_for_me",
-      { p_group_id: "g1" }
-    );
-    expect(result.current.data).toEqual([
-      { user_id: "u2", full_name: "Bob", balance: 15 },
-      { user_id: "u3", full_name: "Carol", balance: 0 },
-    ]);
   });
 
 });

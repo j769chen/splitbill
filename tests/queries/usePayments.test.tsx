@@ -178,7 +178,7 @@ describe("useUpdatePayment", () => {
     );
 
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["group-pairwise", "g1"],
+      queryKey: ["group-pairwise-all", "g1"],
     });
     invalidateSpy.mockRestore();
   });

@@ -18,7 +18,6 @@ const mockRefetchGroup = jest.fn();
 const mockRefetchExpenses = jest.fn();
 const mockRefetchPayments = jest.fn();
 const mockRefetchBalances = jest.fn();
-const mockRefetchPairwise = jest.fn();
 
 jest.mock("expo-router", () => ({
   router: {
@@ -50,7 +49,6 @@ jest.mock("@/lib/queries/usePayments", () => ({
 }));
 jest.mock("@/lib/queries/useBalances", () => ({
   useGroupBalances: jest.fn(),
-  useMyGroupPairwiseBalances: jest.fn(),
   useGroupPairwiseBalances: jest.fn(),
 }));
 jest.mock("@/lib/realtime", () => ({ useRealtimeSubscription: jest.fn() }));
@@ -64,7 +62,6 @@ import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import {
   useGroupBalances,
-  useMyGroupPairwiseBalances,
   useGroupPairwiseBalances,
 } from "@/lib/queries/useBalances";
 import { useSnackbar } from "@/lib/snackbar";
@@ -107,15 +104,10 @@ function setup(overrides?: {
   payments?: unknown;
   balances?: unknown;
   group?: unknown;
-  pairwise?: unknown;
 }) {
   (useGroup as jest.Mock).mockReturnValue({
     data: overrides?.group ?? group,
     refetch: mockRefetchGroup,
-  });
-  (useMyGroupPairwiseBalances as jest.Mock).mockReturnValue({
-    data: overrides && "pairwise" in overrides ? overrides.pairwise : [],
-    refetch: mockRefetchPairwise,
   });
   (useExpenses as jest.Mock).mockReturnValue({
     data: overrides && "expenses" in overrides ? overrides.expenses : expensesFixture,
@@ -144,7 +136,6 @@ beforeEach(() => {
   mockRefetchExpenses.mockResolvedValue(undefined);
   mockRefetchPayments.mockResolvedValue(undefined);
   mockRefetchBalances.mockResolvedValue(undefined);
-  mockRefetchPairwise.mockResolvedValue(undefined);
   (router as unknown as Record<string, jest.Mock>).push = mockPush;
   (router as unknown as Record<string, jest.Mock>).back = mockBack;
   (router as unknown as Record<string, jest.Mock>).replace = mockReplace;
@@ -252,7 +243,9 @@ describe("GroupDetail screen", () => {
     expect(screen.getByText("$15.00")).toBeTruthy();
   });
 
-  it("renders the member roster with pairwise balances above the tabs", async () => {
+  it("renders the member roster with simplified pairwise balances above the tabs", async () => {
+    // Net balances (Bob owes, Me is owed, Carol settled) drive the simplified
+    // edge Bob -> Me, which the members card derives its per-person amounts from.
     setup({
       group: {
         id: "g1",
@@ -263,18 +256,48 @@ describe("GroupDetail screen", () => {
           { user_id: "u3", profiles: { full_name: "Carol" } },
         ],
       },
-      pairwise: [
-        { user_id: "u2", full_name: "Bob", balance: 15 },
-        { user_id: "u3", full_name: "Carol", balance: 0 },
-      ],
       expenses: [],
       payments: [],
-      balances: [],
+      balances: [
+        { user_id: "u1", full_name: "Me", balance: 15 },
+        { user_id: "u2", full_name: "Bob", balance: -15 },
+        { user_id: "u3", full_name: "Carol", balance: 0 },
+      ],
     });
     await renderWithPaper(<GroupDetail />);
 
     expect(screen.getByText("Members (3)")).toBeTruthy();
     expect(screen.getByText("Me (You)")).toBeTruthy();
+    expect(screen.getByText("owes you $15.00")).toBeTruthy();
+    expect(screen.getByText("settled up")).toBeTruthy();
+  });
+
+  it("re-routes the members card through a middleman when debts are simplified", async () => {
+    // Vivian owes Bob, Bob owes Me. Net: Vivian -15, Bob 0, Me +15.
+    // Simplified, Bob (the middleman) drops out and Vivian owes Me directly,
+    // so the members card should show "owes you" for Vivian and "settled up"
+    // for the middleman Bob.
+    setup({
+      group: {
+        id: "g1",
+        name: "Trip",
+        group_members: [
+          { user_id: "u1", profiles: { full_name: "Me" } },
+          { user_id: "u2", profiles: { full_name: "Bob" } },
+          { user_id: "u3", profiles: { full_name: "Vivian" } },
+        ],
+      },
+      expenses: [],
+      payments: [],
+      balances: [
+        { user_id: "u1", full_name: "Me", balance: 15 },
+        { user_id: "u2", full_name: "Bob", balance: 0 },
+        { user_id: "u3", full_name: "Vivian", balance: -15 },
+      ],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    expect(screen.getByText("Vivian")).toBeTruthy();
     expect(screen.getByText("owes you $15.00")).toBeTruthy();
     expect(screen.getByText("settled up")).toBeTruthy();
   });
