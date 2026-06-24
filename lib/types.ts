@@ -362,6 +362,16 @@ export interface Database {
           amount: number;
         }[];
       };
+      get_group_simplified_edges: {
+        Args: { p_group_id: string };
+        Returns: {
+          from_user: string;
+          from_name: string;
+          to_user: string;
+          to_name: string;
+          amount: number;
+        }[];
+      };
       create_expense_with_splits: {
         Args: {
           p_group_id: string;
@@ -494,6 +504,7 @@ export interface Database {
           avatar_url: string | null;
           currency: string;
           balance: number;
+          is_accepted: boolean;
         }[];
       };
       get_contact_group_breakdown: {
@@ -532,6 +543,7 @@ export interface ContactWithBalance {
   full_name: string;
   avatar_url: string | null;
   balance: number;
+  is_accepted: boolean;
 }
 
 export interface ContactExpenseWithSplits extends ContactExpense {

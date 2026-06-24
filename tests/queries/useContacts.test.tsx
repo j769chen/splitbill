@@ -46,6 +46,7 @@ describe("useContacts", () => {
           full_name: "Bob",
           avatar_url: null,
           balance: "12.5",
+          is_accepted: true,
         },
       ],
       error: null,
@@ -65,6 +66,7 @@ describe("useContacts", () => {
         full_name: "Bob",
         avatar_url: null,
         balance: 12.5,
+        is_accepted: true,
       },
     ]);
   });

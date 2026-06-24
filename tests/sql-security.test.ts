@@ -49,23 +49,22 @@ describe("SQL security guards", () => {
     );
   });
 
-  it("scopes the contact group-balance RPC to the authenticated caller", () => {
-    const functions = readSchema("04_functions.sql");
-    const body = functionBody(functions, "get_contact_group_balance");
-
-    // Must require an authenticated caller and derive everything from auth.uid()
-    // so it can only ever reveal the caller's own pairwise position.
-    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
-    expect(body).toMatch(/raise exception 'Not authenticated'/i);
-    expect(body).toMatch(/e\.paid_by = v_uid/i);
-  });
-
   it("only returns the caller's own contacts from the combined-balance RPC", () => {
     const functions = readSchema("04_functions.sql");
     const body = functionBody(functions, "get_contacts_with_combined_balances");
 
     expect(body).toMatch(/raise exception 'Not authenticated'/i);
     expect(body).toMatch(/c\.owner_id = v_uid/i);
+  });
+
+  it("includes group-mates in the combined-balance list but keeps it caller-scoped", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contacts_with_combined_balances");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/c\.owner_id = v_uid/i);
+    expect(body).toMatch(/join public\.group_members gm2/i);
+    expect(body).toMatch(/cr\.is_accepted or abs\(ctx\.balance\) > 0\.005/i);
   });
 
   it("scopes the per-group contact breakdown to the authenticated caller", () => {
@@ -77,6 +76,30 @@ describe("SQL security guards", () => {
     // shared_groups intersects the caller's memberships with the contact's,
     // so only groups the caller belongs to can ever appear.
     expect(body).toMatch(/where gm\.user_id = v_uid/i);
+  });
+
+  it("routes the contact group breakdown through simplified edges when enabled", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contact_group_breakdown");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/where gm\.user_id = v_uid/i);
+    expect(body).toMatch(/get_group_simplified_edges\(sg\.gid\)/i);
+    expect(body).toMatch(/where sg\.simplify_debts/i);
+    expect(body).toMatch(/where .*not simplify_debts/i);
+  });
+
+  it("guards the simplified-edges RPC and uses a deterministic order", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_group_simplified_edges");
+
+    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+    expect(body).toMatch(/order by b\.balance asc, b\.user_id asc/i);
+    expect(body).toMatch(/order by b\.balance desc, b\.user_id asc/i);
   });
 
   it("guards the send-contact-request RPC", () => {

@@ -50,6 +50,7 @@ jest.mock("@/lib/queries/usePayments", () => ({
 jest.mock("@/lib/queries/useBalances", () => ({
   useGroupBalances: jest.fn(),
   useGroupPairwiseBalances: jest.fn(),
+  useGroupSimplifiedEdges: jest.fn(),
 }));
 jest.mock("@/lib/realtime", () => ({ useRealtimeSubscription: jest.fn() }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
@@ -63,6 +64,7 @@ import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import {
   useGroupBalances,
   useGroupPairwiseBalances,
+  useGroupSimplifiedEdges,
 } from "@/lib/queries/useBalances";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
@@ -104,6 +106,7 @@ function setup(overrides?: {
   payments?: unknown;
   balances?: unknown;
   group?: unknown;
+  simplifiedEdges?: unknown;
 }) {
   (useGroup as jest.Mock).mockReturnValue({
     data: overrides?.group ?? group,
@@ -123,6 +126,13 @@ function setup(overrides?: {
   });
   (useGroupPairwiseBalances as jest.Mock).mockReturnValue({
     data: [],
+    refetch: jest.fn(),
+  });
+  (useGroupSimplifiedEdges as jest.Mock).mockReturnValue({
+    data:
+      overrides && "simplifiedEdges" in overrides
+        ? overrides.simplifiedEdges
+        : [],
     refetch: jest.fn(),
   });
 }
@@ -229,6 +239,17 @@ describe("GroupDetail screen", () => {
   });
 
   it("switches to the balances tab and shows a per-member balance accordion", async () => {
+    setup({
+      simplifiedEdges: [
+        {
+          from: "u1",
+          from_name: "Me",
+          to: "u2",
+          to_name: "Bob",
+          amount: 15,
+        },
+      ],
+    });
     await renderWithPaper(<GroupDetail />);
 
     await fireEvent.press(screen.getByText("Balances"));
@@ -263,6 +284,15 @@ describe("GroupDetail screen", () => {
         { user_id: "u2", full_name: "Bob", balance: -15 },
         { user_id: "u3", full_name: "Carol", balance: 0 },
       ],
+      simplifiedEdges: [
+        {
+          from: "u2",
+          from_name: "Bob",
+          to: "u1",
+          to_name: "Me",
+          amount: 15,
+        },
+      ],
     });
     await renderWithPaper(<GroupDetail />);
 
@@ -293,6 +323,15 @@ describe("GroupDetail screen", () => {
         { user_id: "u1", full_name: "Me", balance: 15 },
         { user_id: "u2", full_name: "Bob", balance: 0 },
         { user_id: "u3", full_name: "Vivian", balance: -15 },
+      ],
+      simplifiedEdges: [
+        {
+          from: "u3",
+          from_name: "Vivian",
+          to: "u1",
+          to_name: "Me",
+          amount: 15,
+        },
       ],
     });
     await renderWithPaper(<GroupDetail />);
@@ -337,7 +376,7 @@ describe("GroupDetail screen", () => {
   });
 
   it("shows the all-settled state when there are no balances", async () => {
-    setup({ balances: [] });
+    setup({ balances: [], simplifiedEdges: [] });
     await renderWithPaper(<GroupDetail />);
 
     await fireEvent.press(screen.getByText("Balances"));

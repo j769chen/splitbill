@@ -260,6 +260,14 @@ export function useSetGroupSimplifyDebts() {
       queryClient.invalidateQueries({
         queryKey: ["group-pairwise-all", variables.groupId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["group-simplified", variables.groupId],
+      });
+      // Simplification now drives the contact surfaces too.
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
     },
   });
 }
