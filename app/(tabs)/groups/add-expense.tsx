@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react";
 import {
-  View,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
+import { Button, TextInput } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense, useExpenses, useUpdateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
-import { computeSplits, formatCurrency, getErrorMessage } from "@/lib/utils";
-import { canConvert, getCurrencySymbol, getRate } from "@/lib/currency";
+import { computeSplits, getErrorMessage } from "@/lib/utils";
+import { canConvert, getRate } from "@/lib/currency";
 import { useExchangeRates } from "@/lib/exchange-rates";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
-import { CurrencyPicker } from "@/components/CurrencyPicker";
-import { MemberSplitRow } from "@/components/groups/MemberSplitRow";
+import { ExpenseAmountCurrencyInput } from "@/components/groups/ExpenseAmountCurrencyInput";
 import { PaidByPicker } from "@/components/groups/PaidByPicker";
+import { SplitMembersSection } from "@/components/groups/SplitMembersSection";
+import { SplitTypeSelector } from "@/components/groups/SplitTypeSelector";
 import type { SplitType } from "@/lib/types";
 
 export default function AddExpense() {
@@ -200,38 +200,17 @@ export default function AddExpense() {
           autoFocus
         />
 
-        <View style={{ marginTop: 16, flexDirection: "row", gap: 12 }}>
-          <View style={{ flex: 1 }}>
-            <TextInput
-              mode="outlined"
-              label={`Amount (${getCurrencySymbol(entryCurrency).trim()})`}
-              placeholder="0.00"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-            />
-          </View>
-          <View style={{ justifyContent: "center" }}>
-            <CurrencyPicker value={entryCurrency} onChange={setCurrency} />
-          </View>
-        </View>
-
-        {isForeignCurrency && totalAmount > 0 && hasExchangeRate ? (
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-          >
-            {`= ${formatCurrency(convertedBase, baseCurrency)} in ${baseCurrency} (group currency)`}
-          </Text>
-        ) : null}
-        {isForeignCurrency && !hasExchangeRate ? (
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.error, marginTop: 8 }}
-          >
-            Exchange rates unavailable for {entryCurrency} to {baseCurrency}.
-          </Text>
-        ) : null}
+        <ExpenseAmountCurrencyInput
+          amount={amount}
+          onAmountChange={setAmount}
+          entryCurrency={entryCurrency}
+          onCurrencyChange={setCurrency}
+          baseCurrency={baseCurrency}
+          totalAmount={totalAmount}
+          convertedBase={convertedBase}
+          isForeignCurrency={isForeignCurrency}
+          hasExchangeRate={hasExchangeRate}
+        />
 
         <PaidByPicker
           members={members}
@@ -240,59 +219,21 @@ export default function AddExpense() {
           getMemberName={memberName}
         />
 
-        <View style={{ marginTop: 24 }}>
-          <Text
-            variant="labelLarge"
-            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
-          >
-            Split Type
-          </Text>
-          <SegmentedButtons
-            value={splitType}
-            onValueChange={(v) => setSplitType(v as SplitType)}
-            buttons={[
-              { value: "equal", label: "Equal" },
-              { value: "exact", label: "Exact" },
-              { value: "percentage", label: "%" },
-            ]}
-          />
-        </View>
+        <SplitTypeSelector value={splitType} onChange={setSplitType} />
 
-        <View style={{ marginTop: 24 }}>
-          <Text
-            variant="labelLarge"
-            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
-          >
-            Split between
-          </Text>
-          <View style={{ gap: 8 }}>
-            {members.map((member) => {
-              const isSelected = selectedMembers.includes(member.user_id);
-              const perPerson =
-                splitType === "equal" && isSelected && selectedMembers.length > 0
-                  ? totalAmount / selectedMembers.length
-                  : 0;
-
-              return (
-                <MemberSplitRow
-                  key={member.user_id}
-                  userId={member.user_id}
-                  name={memberName(member)}
-                  isSelected={isSelected}
-                  splitType={splitType}
-                  perPerson={perPerson}
-                  totalAmount={totalAmount}
-                  customValue={customSplits[member.user_id] || ""}
-                  currencyCode={entryCurrency}
-                  onToggle={toggleMember}
-                  onChangeCustom={(userId: string, val: string) =>
-                    setCustomSplits((prev) => ({ ...prev, [userId]: val }))
-                  }
-                />
-              );
-            })}
-          </View>
-        </View>
+        <SplitMembersSection
+          members={members}
+          selectedMemberIds={selectedMembers}
+          splitType={splitType}
+          totalAmount={totalAmount}
+          customSplits={customSplits}
+          currencyCode={entryCurrency}
+          getMemberName={memberName}
+          onToggleMember={toggleMember}
+          onChangeCustom={(userId, val) =>
+            setCustomSplits((prev) => ({ ...prev, [userId]: val }))
+          }
+        />
 
         <Button
           mode="contained"

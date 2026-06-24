@@ -159,13 +159,12 @@ beforeEach(() => {
 
 function pressLeave() {
   const el = mockScreenHolder.options.headerRight();
-  // headerRight renders <View>{settingsPressable}{leavePressable}</View>
-  el.props.children[1].props.onPress();
+  el.props.onLeave();
 }
 
 function pressSettings() {
   const el = mockScreenHolder.options.headerRight();
-  el.props.children[0].props.onPress();
+  el.props.onSettings();
 }
 
 describe("GroupDetail screen", () => {

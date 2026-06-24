@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react";
-import { View, ScrollView, RefreshControl, Pressable } from "react-native";
+import { View, ScrollView, RefreshControl } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Button, Card, SegmentedButtons, Text } from "react-native-paper";
+import { SegmentedButtons } from "react-native-paper";
 import { useGroup, useLeaveGroup } from "@/lib/queries/useGroups";
 import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
@@ -16,18 +15,16 @@ import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
-import { EmptyState } from "@/components/groups/EmptyState";
-import { ExpenseCard } from "@/components/groups/ExpenseCard";
-import { PaymentCard } from "@/components/groups/PaymentCard";
-import { MemberBalanceCard } from "@/components/groups/MemberBalanceCard";
-import { GroupMemberRow } from "@/components/groups/GroupMemberRow";
-import type { ExpenseWithSplits, PaymentWithProfiles } from "@/lib/types";
+import { GroupActionBar } from "@/components/groups/GroupActionBar";
+import {
+  GroupActivityList,
+  type GroupActivityItem,
+} from "@/components/groups/GroupActivityList";
+import { GroupBalancesList } from "@/components/groups/GroupBalancesList";
+import { GroupHeaderActions } from "@/components/groups/GroupHeaderActions";
+import { GroupMembersCard } from "@/components/groups/GroupMembersCard";
 
 type TabType = "activity" | "balances";
-
-type ActivityItem =
-  | { kind: "expense"; ts: string; expense: ExpenseWithSplits }
-  | { kind: "payment"; ts: string; payment: PaymentWithProfiles };
 
 export default function GroupDetail() {
   const theme = useAppTheme();
@@ -144,16 +141,16 @@ export default function GroupDetail() {
     });
   };
 
-  const activityItems: ActivityItem[] = [
+  const activityItems: GroupActivityItem[] = [
     ...(expenses ?? []).map(
-      (expense): ActivityItem => ({
+      (expense): GroupActivityItem => ({
         kind: "expense",
         ts: expense.date,
         expense,
       })
     ),
     ...(payments ?? []).map(
-      (payment): ActivityItem => ({
+      (payment): GroupActivityItem => ({
         kind: "payment",
         ts: payment.created_at,
         payment,
@@ -195,94 +192,33 @@ export default function GroupDetail() {
         options={{
           title: group?.name ?? "Group",
           headerRight: () => (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Pressable
-                role="button"
-                accessibilityLabel="Group settings"
-                onPress={() =>
-                  router.push({
-                    pathname: "/(tabs)/groups/manage",
-                    params: { groupId: id },
-                  })
-                }
-                hitSlop={8}
-                style={{ paddingHorizontal: 8 }}
-              >
-                <MaterialCommunityIcons
-                  name="cog-outline"
-                  size={22}
-                  color={theme.colors.onPrimary}
-                />
-              </Pressable>
-              <Pressable
-                role="button"
-                accessibilityLabel="Leave group"
-                onPress={handleLeaveGroup}
-                hitSlop={8}
-                style={{ paddingHorizontal: 8 }}
-              >
-                <MaterialCommunityIcons
-                  name="logout"
-                  size={22}
-                  color={theme.colors.onPrimary}
-                />
-              </Pressable>
-            </View>
+            <GroupHeaderActions
+              onSettings={() =>
+                router.push({
+                  pathname: "/(tabs)/groups/manage",
+                  params: { groupId: id },
+                })
+              }
+              onLeave={handleLeaveGroup}
+            />
           ),
         }}
       />
       <View
         style={{ flex: 1, backgroundColor: theme.colors.background }}
       >
-        {members.length > 0 && (
-          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <Card mode="contained">
-              <Card.Content style={{ paddingVertical: 4 }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingTop: 8,
-                  }}
-                >
-                  <Text
-                    variant="labelLarge"
-                    style={{ color: theme.colors.onSurfaceVariant }}
-                  >
-                    Members ({members.length})
-                  </Text>
-                  <Button
-                    mode="text"
-                    compact
-                    icon="account-plus"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(tabs)/groups/add-members",
-                        params: { groupId: id },
-                      })
-                    }
-                  >
-                    Add
-                  </Button>
-                </View>
-                {members.map((member) => (
-                  <GroupMemberRow
-                    key={member.user_id}
-                    name={member.profiles?.full_name ?? "Unknown"}
-                    isSelf={member.user_id === user?.id}
-                    balance={
-                      member.user_id === user?.id
-                        ? undefined
-                        : pairwiseByUser.get(member.user_id) ?? 0
-                    }
-                    currency={groupCurrency}
-                  />
-                ))}
-              </Card.Content>
-            </Card>
-          </View>
-        )}
+        <GroupMembersCard
+          members={members}
+          currentUserId={user?.id}
+          pairwiseByUser={pairwiseByUser}
+          currency={groupCurrency}
+          onAddMembers={() =>
+            router.push({
+              pathname: "/(tabs)/groups/add-members",
+              params: { groupId: id },
+            })
+          }
+        />
 
         <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
           <SegmentedButtons
@@ -313,102 +249,48 @@ export default function GroupDetail() {
           contentContainerStyle={{ padding: 16 }}
         >
           {activeTab === "activity" ? (
-            <>
-              {activityItems.length === 0 ? (
-                <EmptyState
-                  icon="timeline-text-outline"
-                  title="No activity yet"
-                />
-              ) : (
-                <View style={{ gap: 12 }}>
-                  {activityItems.map((item) =>
-                    item.kind === "expense" ? (
-                      <ExpenseCard
-                        key={`expense-${item.expense.id}`}
-                        expense={item.expense}
-                        currentUserId={user?.id}
-                        onDelete={handleDeleteExpense}
-                        onEdit={(expenseId) =>
-                          router.push({
-                            pathname: "/(tabs)/groups/add-expense",
-                            params: { groupId: id, expenseId },
-                          })
-                        }
-                      />
-                    ) : (
-                      <PaymentCard
-                        key={`payment-${item.payment.id}`}
-                        payment={item.payment}
-                        currentUserId={user?.id}
-                        onDelete={handleDeletePayment}
-                        onEdit={(paymentId) =>
-                          router.push({
-                            pathname: "/(tabs)/groups/edit-payment",
-                            params: { groupId: id, paymentId },
-                          })
-                        }
-                      />
-                    )
-                  )}
-                </View>
-              )}
-            </>
+            <GroupActivityList
+              items={activityItems}
+              currentUserId={user?.id}
+              onDeleteExpense={handleDeleteExpense}
+              onEditExpense={(expenseId) =>
+                router.push({
+                  pathname: "/(tabs)/groups/add-expense",
+                  params: { groupId: id, expenseId },
+                })
+              }
+              onDeletePayment={handleDeletePayment}
+              onEditPayment={(paymentId) =>
+                router.push({
+                  pathname: "/(tabs)/groups/edit-payment",
+                  params: { groupId: id, paymentId },
+                })
+              }
+            />
           ) : (
-            <>
-              {balances && balances.length > 0 && (
-                <View style={{ gap: 12 }}>
-                  {balances.map((b) => (
-                    <MemberBalanceCard
-                      key={b.user_id}
-                      balance={b}
-                      breakdown={memberBreakdown(b.user_id)}
-                      accentColor={balanceColor(b.balance)}
-                      currency={groupCurrency}
-                    />
-                  ))}
-                </View>
-              )}
-
-              {(!balances || balances.length === 0) && (
-                <EmptyState
-                  icon="check-circle-outline"
-                  title="All settled up!"
-                />
-              )}
-            </>
+            <GroupBalancesList
+              balances={balances}
+              currency={groupCurrency}
+              getBreakdown={memberBreakdown}
+              getAccentColor={balanceColor}
+            />
           )}
         </ScrollView>
 
-        <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, gap: 12 }}>
-          <Button
-            mode="contained"
-            style={{ flex: 1 }}
-            contentStyle={{ paddingVertical: 4 }}
-            onPress={() =>
-              router.push({
-                pathname: "/(tabs)/groups/add-expense",
-                params: { groupId: id },
-              })
-            }
-          >
-            Add Expense
-          </Button>
-          <Button
-            mode="contained"
-            buttonColor={theme.colors.secondary}
-            textColor={theme.colors.onSecondary}
-            style={{ flex: 1 }}
-            contentStyle={{ paddingVertical: 4 }}
-            onPress={() =>
-              router.push({
-                pathname: "/(tabs)/groups/settle-up",
-                params: { groupId: id },
-              })
-            }
-          >
-            Settle Up
-          </Button>
-        </View>
+        <GroupActionBar
+          onAddExpense={() =>
+            router.push({
+              pathname: "/(tabs)/groups/add-expense",
+              params: { groupId: id },
+            })
+          }
+          onSettleUp={() =>
+            router.push({
+              pathname: "/(tabs)/groups/settle-up",
+              params: { groupId: id },
+            })
+          }
+        />
       </View>
     </>
   );
