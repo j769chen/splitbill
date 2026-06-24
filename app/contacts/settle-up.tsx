@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import {
-  View,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import {
   useContacts,
   useContactCurrency,
@@ -17,11 +15,12 @@ import {
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
-import { getCurrencySymbol } from "@/lib/currency";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
-
-type Direction = "you_paid" | "they_paid";
+import {
+  ContactPaymentForm,
+  type ContactPaymentDirection,
+} from "@/components/contacts/ContactPaymentForm";
 
 export default function ContactSettleUp() {
   const theme = useAppTheme();
@@ -43,7 +42,8 @@ export default function ContactSettleUp() {
   const contact = contacts?.find((c) => c.contact_user_id === contactUserId);
   const contactName = contact?.full_name ?? name ?? "Contact";
 
-  const [direction, setDirection] = useState<Direction>("you_paid");
+  const [direction, setDirection] =
+    useState<ContactPaymentDirection>("you_paid");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [hydrated, setHydrated] = useState(false);
@@ -139,63 +139,20 @@ export default function ContactSettleUp() {
         options={{ title: isEdit ? "Edit Payment" : "Settle Up" }}
       />
       <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
-        {!isEdit && (
-          <Text
-            variant="bodyMedium"
-            style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}
-          >
-            {balanceLabel}
-          </Text>
-        )}
-
-        <Text
-          variant="labelLarge"
-          style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
-        >
-          Who paid?
-        </Text>
-        <SegmentedButtons
-          value={direction}
-          onValueChange={(v) => setDirection(v as Direction)}
-          buttons={[
-            { value: "you_paid", label: `You paid ${contactName}` },
-            { value: "they_paid", label: `${contactName} paid you` },
-          ]}
+        <ContactPaymentForm
+          isEdit={isEdit}
+          contactName={contactName}
+          balanceLabel={balanceLabel}
+          direction={direction}
+          onDirectionChange={setDirection}
+          amount={amount}
+          onAmountChange={setAmount}
+          note={note}
+          onNoteChange={setNote}
+          pairCurrency={pairCurrency}
+          isPending={isPending}
+          onSubmit={handleSubmit}
         />
-
-        <View style={{ marginTop: 24 }}>
-          <TextInput
-            mode="outlined"
-            label={`Amount (${getCurrencySymbol(pairCurrency)})`}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-          />
-        </View>
-
-        <View style={{ marginTop: 16 }}>
-          <TextInput
-            mode="outlined"
-            label="Note (optional)"
-            value={note}
-            onChangeText={setNote}
-            placeholder="e.g., Venmo payment"
-          />
-        </View>
-
-        <Button
-          mode="contained"
-          buttonColor={theme.colors.secondary}
-          textColor={theme.colors.onSecondary}
-          onPress={handleSubmit}
-          loading={isPending}
-          disabled={isPending}
-          contentStyle={{ paddingVertical: 6 }}
-          style={{ marginTop: 32, marginBottom: 32 }}
-        >
-          {isEdit ? "Save Changes" : "Record Payment"}
-        </Button>
       </ScrollView>
     </KeyboardAvoidingView>
   );

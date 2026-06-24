@@ -15,6 +15,7 @@ type ExpenseAmountCurrencyInputProps = {
   convertedBase: number;
   isForeignCurrency: boolean;
   hasExchangeRate: boolean;
+  baseCurrencyLabel?: string;
 };
 
 export function ExpenseAmountCurrencyInput({
@@ -27,6 +28,7 @@ export function ExpenseAmountCurrencyInput({
   convertedBase,
   isForeignCurrency,
   hasExchangeRate,
+  baseCurrencyLabel,
 }: ExpenseAmountCurrencyInputProps) {
   const theme = useAppTheme();
 
@@ -53,7 +55,7 @@ export function ExpenseAmountCurrencyInput({
           variant="bodySmall"
           style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
         >
-          {`= ${formatCurrency(convertedBase, baseCurrency)} in ${baseCurrency} (group currency)`}
+          {`= ${formatCurrency(convertedBase, baseCurrency)} in ${baseCurrency}${baseCurrencyLabel ? ` (${baseCurrencyLabel})` : ""}`}
         </Text>
       ) : null}
       {isForeignCurrency && !hasExchangeRate ? (

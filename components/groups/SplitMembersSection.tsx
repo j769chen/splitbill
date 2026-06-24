@@ -1,19 +1,18 @@
 import { View } from "react-native";
 import { Text } from "react-native-paper";
 import { useAppTheme } from "@/lib/theme";
-import type { GroupWithMembers, SplitType } from "@/lib/types";
+import type { SplitType } from "@/lib/types";
+import type { PaidByMember } from "./PaidByPicker";
 import { MemberSplitRow } from "./MemberSplitRow";
 
-type SplitMember = GroupWithMembers["group_members"][number];
-
 type SplitMembersSectionProps = {
-  members: SplitMember[];
+  members: PaidByMember[];
   selectedMemberIds: string[];
   splitType: SplitType;
   totalAmount: number;
   customSplits: Record<string, string>;
   currencyCode: string;
-  getMemberName: (member: SplitMember) => string;
+  getMemberName: (member: PaidByMember) => string;
   onToggleMember: (userId: string) => void;
   onChangeCustom: (userId: string, value: string) => void;
 };

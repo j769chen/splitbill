@@ -210,6 +210,7 @@ export default function AddExpense() {
           convertedBase={convertedBase}
           isForeignCurrency={isForeignCurrency}
           hasExchangeRate={hasExchangeRate}
+          baseCurrencyLabel="group currency"
         />
 
         <PaidByPicker

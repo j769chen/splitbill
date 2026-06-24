@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import { View, ScrollView, RefreshControl } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
-import { Avatar, Button, Card, Text } from "react-native-paper";
 import {
   useContacts,
   useContactBalance,
@@ -14,23 +13,19 @@ import {
   useSetContactCurrency,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
-import { formatCurrency, getErrorMessage } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/utils";
 import { useDisplayCurrency } from "@/lib/display-currency";
-import { CurrencyPicker } from "@/components/CurrencyPicker";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
+import { ContactActionBar } from "@/components/contacts/ContactActionBar";
+import {
+  ContactActivityList,
+  type ContactActivityItem,
+} from "@/components/contacts/ContactActivityList";
+import { ContactGroupBreakdownList } from "@/components/contacts/ContactGroupBreakdownList";
+import { ContactSummaryCard } from "@/components/contacts/ContactSummaryCard";
 import { EmptyState } from "@/components/groups/EmptyState";
-import { ExpenseCard } from "@/components/groups/ExpenseCard";
-import { PaymentCard } from "@/components/groups/PaymentCard";
-import type {
-  ContactExpenseWithSplits,
-  ContactPaymentWithProfiles,
-} from "@/lib/types";
-
-type ContactActivityItem =
-  | { kind: "expense"; ts: string; expense: ContactExpenseWithSplits }
-  | { kind: "payment"; ts: string; payment: ContactPaymentWithProfiles };
 
 export default function ContactDetail() {
   const theme = useAppTheme();
@@ -161,167 +156,49 @@ export default function ContactDetail() {
           }
           contentContainerStyle={{ padding: 16 }}
         >
-          <Card mode="contained" style={{ marginBottom: 16 }}>
-            <Card.Content style={{ alignItems: "center", paddingVertical: 20 }}>
-              <Text
-                variant="labelLarge"
-                style={{ color: theme.colors.onSurfaceVariant }}
-              >
-                {summaryLabel}
-              </Text>
-              {(owed || owing) && (
-                <Text
-                  variant="headlineMedium"
-                  style={{
-                    color: summaryColor,
-                    fontWeight: "bold",
-                    marginTop: 4,
-                  }}
-                >
-                  {formatCurrency(Math.abs(balance), displayCurrency)}
-                </Text>
-              )}
-              <View style={{ marginTop: 16, alignItems: "center" }}>
-                <CurrencyPicker
-                  value={pairCurrency}
-                  disabled={hasOneOnOneActivity || setContactCurrency.isPending}
-                  onChange={(code) =>
-                    setContactCurrency.mutate(
-                      { contactUserId: id!, currency: code },
-                      {
-                        onError: (error) =>
-                          showError(
-                            getErrorMessage(
-                              error,
-                              "Couldn't update the currency. Please try again."
-                            )
-                          ),
-                      }
-                    )
-                  }
-                />
-                <Text
-                  variant="bodySmall"
-                  style={{
-                    color: theme.colors.onSurfaceVariant,
-                    marginTop: 6,
-                    textAlign: "center",
-                  }}
-                >
-                  {hasOneOnOneActivity
-                    ? `One-on-one balances are tracked in ${pairCurrency}.`
-                    : `Set the base currency for one-on-one expenses.`}
-                </Text>
-              </View>
-            </Card.Content>
-          </Card>
+          <ContactSummaryCard
+            summaryLabel={summaryLabel}
+            showAmount={owed || owing}
+            balance={balance}
+            displayCurrency={displayCurrency}
+            summaryColor={summaryColor}
+            pairCurrency={pairCurrency}
+            hasOneOnOneActivity={hasOneOnOneActivity}
+            currencyPending={setContactCurrency.isPending}
+            onChangeCurrency={(currency, onError) =>
+              setContactCurrency.mutate(
+                { contactUserId: id!, currency },
+                { onError }
+              )
+            }
+            onCurrencyError={showError}
+          />
 
-          {hasGroups && (
-            <View style={{ marginBottom: 16 }}>
-              <Text
-                variant="titleMedium"
-                style={{ fontWeight: "bold", marginBottom: 12 }}
-              >
-                In shared groups
-              </Text>
-              <View style={{ gap: 12 }}>
-                {groups.map((group) => {
-                  const groupOwed = group.balance > 0.01;
-                  const groupOwing = group.balance < -0.01;
-                  const groupColor = groupOwed
-                    ? theme.colors.success
-                    : groupOwing
-                      ? theme.colors.error
-                      : theme.colors.onSurfaceVariant;
-                  const groupLabel = groupOwed
-                    ? `${contactName} owes you ${formatCurrency(group.balance, group.currency)}`
-                    : groupOwing
-                      ? `You owe ${formatCurrency(Math.abs(group.balance), group.currency)}`
-                      : "Settled up";
+          <ContactGroupBreakdownList
+            groups={groups}
+            contactName={contactName}
+            onOpenGroup={(groupId) => router.push(`/(tabs)/groups/${groupId}`)}
+          />
 
-                  return (
-                    <Card
-                      key={group.group_id}
-                      mode="elevated"
-                      onPress={() =>
-                        router.push(`/(tabs)/groups/${group.group_id}`)
-                      }
-                    >
-                      <Card.Content
-                        style={{ flexDirection: "row", alignItems: "center" }}
-                      >
-                        <Avatar.Text
-                          size={40}
-                          label={group.group_name.charAt(0).toUpperCase()}
-                          style={{
-                            backgroundColor: theme.colors.primaryContainer,
-                          }}
-                          labelStyle={{
-                            color: theme.colors.onPrimaryContainer,
-                          }}
-                        />
-                        <View style={{ marginLeft: 16, flex: 1 }}>
-                          <Text
-                            variant="titleMedium"
-                            style={{ fontWeight: "600" }}
-                          >
-                            {group.group_name}
-                          </Text>
-                          <Text variant="bodySmall" style={{ color: groupColor }}>
-                            {groupLabel}
-                          </Text>
-                        </View>
-                      </Card.Content>
-                    </Card>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {hasActivity && (
-            <View>
-              {hasGroups && (
-                <Text
-                  variant="titleMedium"
-                  style={{ fontWeight: "bold", marginBottom: 12 }}
-                >
-                  One-on-one
-                </Text>
-              )}
-              <View style={{ gap: 12 }}>
-                {activityItems.map((item) =>
-                  item.kind === "expense" ? (
-                    <ExpenseCard
-                      key={`expense-${item.expense.id}`}
-                      expense={item.expense}
-                      currentUserId={user?.id}
-                      onDelete={handleDeleteExpense}
-                      onEdit={(expenseId) =>
-                        router.push({
-                          pathname: "/contacts/add-expense",
-                          params: { contactUserId: id, expenseId },
-                        })
-                      }
-                    />
-                  ) : (
-                    <PaymentCard
-                      key={`payment-${item.payment.id}`}
-                      payment={item.payment}
-                      currentUserId={user?.id}
-                      onDelete={handleDeletePayment}
-                      onEdit={(paymentId) =>
-                        router.push({
-                          pathname: "/contacts/settle-up",
-                          params: { contactUserId: id, paymentId },
-                        })
-                      }
-                    />
-                  )
-                )}
-              </View>
-            </View>
-          )}
+          <ContactActivityList
+            items={activityItems}
+            showTitle={hasGroups}
+            currentUserId={user?.id}
+            onDeleteExpense={handleDeleteExpense}
+            onEditExpense={(expenseId) =>
+              router.push({
+                pathname: "/contacts/add-expense",
+                params: { contactUserId: id, expenseId },
+              })
+            }
+            onDeletePayment={handleDeletePayment}
+            onEditPayment={(paymentId) =>
+              router.push({
+                pathname: "/contacts/settle-up",
+                params: { contactUserId: id, paymentId },
+              })
+            }
+          />
 
           {!hasGroups && !hasActivity && (
             <EmptyState
@@ -332,44 +209,20 @@ export default function ContactDetail() {
           )}
         </ScrollView>
 
-        <View
-          style={{
-            flexDirection: "row",
-            paddingHorizontal: 16,
-            paddingBottom: 24,
-            paddingTop: 8,
-            gap: 12,
-          }}
-        >
-          <Button
-            mode="contained"
-            style={{ flex: 1 }}
-            contentStyle={{ paddingVertical: 4 }}
-            onPress={() =>
-              router.push({
-                pathname: "/contacts/add-expense",
-                params: { contactUserId: id },
-              })
-            }
-          >
-            Add Expense
-          </Button>
-          <Button
-            mode="contained"
-            buttonColor={theme.colors.secondary}
-            textColor={theme.colors.onSecondary}
-            style={{ flex: 1 }}
-            contentStyle={{ paddingVertical: 4 }}
-            onPress={() =>
-              router.push({
-                pathname: "/contacts/settle-up",
-                params: { contactUserId: id },
-              })
-            }
-          >
-            Settle Up
-          </Button>
-        </View>
+        <ContactActionBar
+          onAddExpense={() =>
+            router.push({
+              pathname: "/contacts/add-expense",
+              params: { contactUserId: id },
+            })
+          }
+          onSettleUp={() =>
+            router.push({
+              pathname: "/contacts/settle-up",
+              params: { contactUserId: id },
+            })
+          }
+        />
       </View>
     </>
   );

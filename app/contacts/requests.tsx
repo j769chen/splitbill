@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { View, ScrollView, RefreshControl } from "react-native";
-import { Avatar, Button, Card, Text } from "react-native-paper";
 import {
   useContactRequests,
   useRespondContactRequest,
@@ -9,23 +8,8 @@ import {
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { getErrorMessage } from "@/lib/utils";
+import { ContactRequestSection } from "@/components/contacts/ContactRequestSection";
 import { EmptyState } from "@/components/groups/EmptyState";
-import type { ContactRequest } from "@/lib/types";
-
-function RequestAvatar({ profile }: { profile: ContactRequest["profile"] }) {
-  const theme = useAppTheme();
-  if (profile.avatar_url) {
-    return <Avatar.Image size={44} source={{ uri: profile.avatar_url }} />;
-  }
-  return (
-    <Avatar.Text
-      size={44}
-      label={(profile.full_name || "?").charAt(0).toUpperCase()}
-      style={{ backgroundColor: theme.colors.secondaryContainer }}
-      labelStyle={{ color: theme.colors.onSecondaryContainer }}
-    />
-  );
-}
 
 export default function ContactRequests() {
   const theme = useAppTheme();
@@ -91,94 +75,23 @@ export default function ContactRequests() {
           />
         )}
 
-        {incoming.length > 0 && (
-          <View style={{ marginBottom: 24 }}>
-            <Text
-              variant="titleMedium"
-              style={{ fontWeight: "bold", marginBottom: 12 }}
-            >
-              Incoming
-            </Text>
-            <View style={{ gap: 12 }}>
-              {incoming.map((request) => (
-                <Card key={request.id} mode="elevated">
-                  <Card.Content
-                    style={{ flexDirection: "row", alignItems: "center" }}
-                  >
-                    <RequestAvatar profile={request.profile} />
-                    <View style={{ marginLeft: 16, flex: 1 }}>
-                      <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                        {request.profile.full_name}
-                      </Text>
-                      <Text
-                        variant="bodySmall"
-                        style={{ color: theme.colors.onSurfaceVariant }}
-                      >
-                        wants to connect
-                      </Text>
-                    </View>
-                  </Card.Content>
-                  <Card.Actions>
-                    <Button
-                      onPress={() => handleRespond(request.id, false)}
-                      disabled={pendingId === request.id}
-                    >
-                      Decline
-                    </Button>
-                    <Button
-                      mode="contained"
-                      onPress={() => handleRespond(request.id, true)}
-                      loading={pendingId === request.id && respond.isPending}
-                      disabled={pendingId === request.id}
-                    >
-                      Accept
-                    </Button>
-                  </Card.Actions>
-                </Card>
-              ))}
-            </View>
-          </View>
-        )}
+        <ContactRequestSection
+          title="Incoming"
+          requests={incoming}
+          pendingId={pendingId}
+          respondPending={respond.isPending}
+          onDecline={(requestId) => handleRespond(requestId, false)}
+          onAccept={(requestId) => handleRespond(requestId, true)}
+        />
 
-        {outgoing.length > 0 && (
-          <View>
-            <Text
-              variant="titleMedium"
-              style={{ fontWeight: "bold", marginBottom: 12 }}
-            >
-              Sent
-            </Text>
-            <View style={{ gap: 12 }}>
-              {outgoing.map((request) => (
-                <Card key={request.id} mode="elevated">
-                  <Card.Content
-                    style={{ flexDirection: "row", alignItems: "center" }}
-                  >
-                    <RequestAvatar profile={request.profile} />
-                    <View style={{ marginLeft: 16, flex: 1 }}>
-                      <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                        {request.profile.full_name}
-                      </Text>
-                      <Text
-                        variant="bodySmall"
-                        style={{ color: theme.colors.onSurfaceVariant }}
-                      >
-                        Pending
-                      </Text>
-                    </View>
-                    <Button
-                      onPress={() => handleCancel(request.id)}
-                      loading={pendingId === request.id && cancel.isPending}
-                      disabled={pendingId === request.id}
-                    >
-                      Cancel
-                    </Button>
-                  </Card.Content>
-                </Card>
-              ))}
-            </View>
-          </View>
-        )}
+        <ContactRequestSection
+          title="Sent"
+          requests={outgoing}
+          pendingId={pendingId}
+          cancelPending={cancel.isPending}
+          onCancel={handleCancel}
+          spacing="none"
+        />
       </ScrollView>
     </View>
   );
