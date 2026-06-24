@@ -29,6 +29,13 @@ export default function GroupsLayout() {
         }}
       />
       <Stack.Screen
+        name="add-members"
+        options={{
+          title: "Add Members",
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
         name="add-expense"
         options={{
           title: "Add Expense",

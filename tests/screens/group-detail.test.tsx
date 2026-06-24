@@ -284,6 +284,27 @@ describe("GroupDetail screen", () => {
     expect(screen.getByText("settled up")).toBeTruthy();
   });
 
+  it("navigates to add-members from the members card", async () => {
+    setup({
+      group: {
+        id: "g1",
+        name: "Trip",
+        group_members: [
+          { user_id: "u1", profiles: { full_name: "Me" } },
+          { user_id: "u2", profiles: { full_name: "Bob" } },
+        ],
+      },
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent.press(screen.getByText("Add"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/groups/add-members",
+      params: { groupId: "g1" },
+    });
+  });
+
   it("navigates to the manage screen from the settings header action", async () => {
     await renderWithPaper(<GroupDetail />);
 

@@ -237,15 +237,34 @@ export default function GroupDetail() {
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <Card mode="contained">
               <Card.Content style={{ paddingVertical: 4 }}>
-                <Text
-                  variant="labelLarge"
+                <View
                   style={{
-                    color: theme.colors.onSurfaceVariant,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
                     paddingTop: 8,
                   }}
                 >
-                  Members ({members.length})
-                </Text>
+                  <Text
+                    variant="labelLarge"
+                    style={{ color: theme.colors.onSurfaceVariant }}
+                  >
+                    Members ({members.length})
+                  </Text>
+                  <Button
+                    mode="text"
+                    compact
+                    icon="account-plus"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(tabs)/groups/add-members",
+                        params: { groupId: id },
+                      })
+                    }
+                  >
+                    Add
+                  </Button>
+                </View>
                 {members.map((member) => (
                   <GroupMemberRow
                     key={member.user_id}
