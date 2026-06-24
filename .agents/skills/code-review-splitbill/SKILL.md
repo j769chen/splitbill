@@ -12,10 +12,10 @@ project. Reviews should reflect that stack, not generic web conventions.
 
 ## Prerequisites
 
-**Preferred model**: GPT-5.2 (best for thorough code review)
+**Preferred model**: GPT-5.5 (best for thorough code review)
 
-!!IMPORTANT!!: Before starting, check what model you are. If you are not GPT-5.2-high, use `AskQuestion` to verify:
-- Prompt: "Code review works best with GPT-5.2, but you're currently using [model name]. Continue anyway?"
+!!IMPORTANT!!: Before starting, check what model you are. If you are not GPT-5.5, use `AskQuestion` to verify:
+- Prompt: "Code review works best with GPT-5.5, but you're currently using [model name]. Continue anyway?"
 - Options: "Yes, continue with current model" / "Cancel (I'll switch models)"
 
 ## Workflow
