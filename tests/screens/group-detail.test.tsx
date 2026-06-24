@@ -51,6 +51,7 @@ jest.mock("@/lib/queries/usePayments", () => ({
 jest.mock("@/lib/queries/useBalances", () => ({
   useGroupBalances: jest.fn(),
   useMyGroupPairwiseBalances: jest.fn(),
+  useGroupPairwiseBalances: jest.fn(),
 }));
 jest.mock("@/lib/realtime", () => ({ useRealtimeSubscription: jest.fn() }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
@@ -64,6 +65,7 @@ import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import {
   useGroupBalances,
   useMyGroupPairwiseBalances,
+  useGroupPairwiseBalances,
 } from "@/lib/queries/useBalances";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
@@ -126,6 +128,10 @@ function setup(overrides?: {
   (useGroupBalances as jest.Mock).mockReturnValue({
     data: overrides && "balances" in overrides ? overrides.balances : owingBalances,
     refetch: mockRefetchBalances,
+  });
+  (useGroupPairwiseBalances as jest.Mock).mockReturnValue({
+    data: [],
+    refetch: jest.fn(),
   });
 }
 

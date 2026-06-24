@@ -3,6 +3,7 @@ import { renderWithPaper } from "../helpers/testUtils";
 import ManageGroup from "@/app/(tabs)/groups/manage";
 
 const mockRenameAsync = jest.fn();
+const mockSetSimplifyAsync = jest.fn();
 const mockShowError = jest.fn();
 const mockShowSuccess = jest.fn();
 
@@ -13,27 +14,35 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/queries/useGroups", () => ({
   useGroup: jest.fn(),
   useRenameGroup: jest.fn(),
+  useSetGroupSimplifyDebts: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
 import {
   useGroup,
   useRenameGroup,
+  useSetGroupSimplifyDebts,
 } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockRenameAsync.mockResolvedValue({ id: "g1", name: "Ski Trip" });
+  mockSetSimplifyAsync.mockResolvedValue({ id: "g1", simplify_debts: false });
   (useGroup as jest.Mock).mockReturnValue({
     data: {
       id: "g1",
       name: "Trip",
+      simplify_debts: true,
       group_members: [{ user_id: "u1", profiles: { full_name: "Me" } }],
     },
   });
   (useRenameGroup as jest.Mock).mockReturnValue({
     mutateAsync: mockRenameAsync,
+    isPending: false,
+  });
+  (useSetGroupSimplifyDebts as jest.Mock).mockReturnValue({
+    mutateAsync: mockSetSimplifyAsync,
     isPending: false,
   });
   (useSnackbar as jest.Mock).mockReturnValue({
@@ -75,5 +84,19 @@ describe("ManageGroup screen", () => {
 
     expect(mockShowError).toHaveBeenCalledWith("Please enter a group name");
     expect(mockRenameAsync).not.toHaveBeenCalled();
+  });
+
+  it("toggles debt simplification off", async () => {
+    await renderWithPaper(<ManageGroup />);
+
+    await fireEvent(screen.getByRole("switch"), "valueChange", false);
+
+    await waitFor(() =>
+      expect(mockSetSimplifyAsync).toHaveBeenCalledWith({
+        groupId: "g1",
+        enabled: false,
+      })
+    );
+    expect(mockShowSuccess).toHaveBeenCalledWith("Debt simplification off");
   });
 });

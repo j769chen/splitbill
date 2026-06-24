@@ -31,6 +31,7 @@ export interface Database {
           created_by: string;
           created_at: string;
           currency: string;
+          simplify_debts: boolean;
         };
         Insert: {
           id?: string;
@@ -38,11 +39,13 @@ export interface Database {
           image_url?: string | null;
           created_by: string;
           currency?: string;
+          simplify_debts?: boolean;
         };
         Update: {
           name?: string;
           image_url?: string | null;
           currency?: string;
+          simplify_debts?: boolean;
         };
         Relationships: [];
       };
@@ -357,6 +360,16 @@ export interface Database {
           balance: number;
         }[];
       };
+      get_group_pairwise_balances: {
+        Args: { p_group_id: string };
+        Returns: {
+          from_user: string;
+          from_name: string;
+          to_user: string;
+          to_name: string;
+          amount: number;
+        }[];
+      };
       create_expense_with_splits: {
         Args: {
           p_group_id: string;
@@ -475,6 +488,10 @@ export interface Database {
       };
       set_group_currency: {
         Args: { p_group_id: string; p_currency: string };
+        Returns: Database["public"]["Tables"]["groups"]["Row"];
+      };
+      set_group_simplify_debts: {
+        Args: { p_group_id: string; p_enabled: boolean };
         Returns: Database["public"]["Tables"]["groups"]["Row"];
       };
       get_contacts_with_combined_balances: {

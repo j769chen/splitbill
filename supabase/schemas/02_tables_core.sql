@@ -17,7 +17,10 @@ create table public.groups (
   created_by uuid not null references public.profiles (id) on delete cascade,
   created_at timestamptz not null default now(),
   -- Base currency the group's balances and settle-up are expressed in.
-  currency text not null default 'USD'
+  currency text not null default 'USD',
+  -- When true, balances/settle-up show greedy minimum-transfer suggestions.
+  -- When false, the raw pairwise "who owes whom" ledger is shown instead.
+  simplify_debts boolean not null default true
 );
 
 create table public.group_members (

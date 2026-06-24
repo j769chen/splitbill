@@ -2,7 +2,10 @@ import { useState } from "react";
 import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button, Text } from "react-native-paper";
-import { useGroupBalances } from "@/lib/queries/useBalances";
+import {
+  useGroupBalances,
+  useGroupPairwiseBalances,
+} from "@/lib/queries/useBalances";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
@@ -24,6 +27,8 @@ export default function SettleUp() {
   const { data: balances } = useGroupBalances(groupId!);
   const { data: group } = useGroup(groupId!);
   const groupCurrency = group?.currency ?? "USD";
+  const simplify = group?.simplify_debts ?? true;
+  const { data: rawDebts } = useGroupPairwiseBalances(groupId!, !simplify);
   const createPayment = useCreatePayment();
   const { showError, showSuccess } = useSnackbar();
 
@@ -31,7 +36,11 @@ export default function SettleUp() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 
-  const debts = balances ? simplifyDebts(balances) : [];
+  const debts = simplify
+    ? balances
+      ? simplifyDebts(balances)
+      : []
+    : (rawDebts ?? []);
   const userDebts = debts.filter(
     (d) => d.from === user?.id || d.to === user?.id
   );

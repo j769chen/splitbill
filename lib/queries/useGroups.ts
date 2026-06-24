@@ -236,6 +236,34 @@ export function useRenameGroup() {
   });
 }
 
+export function useSetGroupSimplifyDebts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      groupId,
+      enabled,
+    }: {
+      groupId: string;
+      enabled: boolean;
+    }) => {
+      const { data, error } = await supabase.rpc("set_group_simplify_debts", {
+        p_group_id: groupId,
+        p_enabled: enabled,
+      });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["group", variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise-all", variables.groupId],
+      });
+    },
+  });
+}
+
 export function useCheckEmailExists() {
   return useMutation({
     mutationFn: async (email: string) => {

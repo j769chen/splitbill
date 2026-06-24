@@ -7,6 +7,7 @@ import { useExpenses, useDeleteExpense } from "@/lib/queries/useExpenses";
 import { useGroupPayments, useDeletePayment } from "@/lib/queries/usePayments";
 import {
   useGroupBalances,
+  useGroupPairwiseBalances,
   useMyGroupPairwiseBalances,
 } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
@@ -34,6 +35,9 @@ export default function GroupDetail() {
   const { data: balances, refetch: refetchBalances } = useGroupBalances(id!);
   const { data: pairwise, refetch: refetchPairwise } =
     useMyGroupPairwiseBalances(id!);
+  const simplify = group?.simplify_debts ?? true;
+  const { data: rawDebts, refetch: refetchRawDebts } =
+    useGroupPairwiseBalances(id!, !simplify);
   const deleteExpense = useDeleteExpense();
   const deletePayment = useDeletePayment();
   const leaveGroup = useLeaveGroup();
@@ -83,6 +87,7 @@ export default function GroupDetail() {
       refetchPayments(),
       refetchBalances(),
       refetchPairwise(),
+      refetchRawDebts(),
     ]);
     setRefreshing(false);
   }, [
@@ -91,6 +96,7 @@ export default function GroupDetail() {
     refetchPayments,
     refetchBalances,
     refetchPairwise,
+    refetchRawDebts,
   ]);
 
   const handleDeleteExpense = (expenseId: string) => {
@@ -156,7 +162,11 @@ export default function GroupDetail() {
     ),
   ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
-  const debts = balances ? simplifyDebts(balances) : [];
+  const debts = simplify
+    ? balances
+      ? simplifyDebts(balances)
+      : []
+    : (rawDebts ?? []);
 
   const balanceColor = (value: number) => getBalanceColor(value, theme.colors);
 

@@ -144,6 +144,27 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/e\.paid_by = v_uid/i);
   });
 
+  it("guards the all-pairs group pairwise-balance RPC to authenticated members", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_group_pairwise_balances");
+
+    expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+  });
+
+  it("restricts toggling debt simplification to authenticated members", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "set_group_simplify_debts");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+  });
+
   it("restricts adding group members to authenticated members", () => {
     const functions = readSchema("04_functions.sql");
     const body = functionBody(functions, "add_group_members");

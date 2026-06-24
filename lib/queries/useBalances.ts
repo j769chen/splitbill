@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
-import type { GroupBalance } from "../types";
+import type { DebtEdge, GroupBalance } from "../types";
 import { useAuth } from "../auth";
 import { convert } from "../currency";
 import { useDisplayCurrency } from "../display-currency";
@@ -40,6 +40,33 @@ export function useMyGroupPairwiseBalances(groupId: string) {
       })) as GroupBalance[];
     },
     enabled: !!user && !!groupId,
+  });
+}
+
+// All-pairs raw "who owes whom" for the whole group. Used when a group has
+// debt simplification turned OFF (the simplified view derives edges from
+// get_group_balances via simplifyDebts instead).
+export function useGroupPairwiseBalances(groupId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["group-pairwise-all", groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "get_group_pairwise_balances",
+        { p_group_id: groupId }
+      );
+
+      if (error) throw error;
+      return (data ?? []).map(
+        (row): DebtEdge => ({
+          from: row.from_user,
+          from_name: row.from_name,
+          to: row.to_user,
+          to_name: row.to_name,
+          amount: Number(row.amount),
+        })
+      );
+    },
+    enabled: !!groupId && enabled,
   });
 }
 

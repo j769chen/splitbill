@@ -14,14 +14,20 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ groupId: "g1" }),
 }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
-jest.mock("@/lib/queries/useBalances", () => ({ useGroupBalances: jest.fn() }));
+jest.mock("@/lib/queries/useBalances", () => ({
+  useGroupBalances: jest.fn(),
+  useGroupPairwiseBalances: jest.fn(),
+}));
 jest.mock("@/lib/queries/useGroups", () => ({ useGroup: jest.fn() }));
 jest.mock("@/lib/queries/usePayments", () => ({ useCreatePayment: jest.fn() }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
-import { useGroupBalances } from "@/lib/queries/useBalances";
+import {
+  useGroupBalances,
+  useGroupPairwiseBalances,
+} from "@/lib/queries/useBalances";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreatePayment } from "@/lib/queries/usePayments";
 import { useSnackbar } from "@/lib/snackbar";
@@ -46,7 +52,10 @@ beforeEach(() => {
   mockPayAsync.mockResolvedValue({ id: "pay-1" });
   (router as unknown as { back: jest.Mock }).back = mockBack;
   (useAuth as jest.Mock).mockReturnValue({ user: { id: "u1" } });
-  (useGroup as jest.Mock).mockReturnValue({ data: { currency: "USD" } });
+  (useGroup as jest.Mock).mockReturnValue({
+    data: { currency: "USD", simplify_debts: true },
+  });
+  (useGroupPairwiseBalances as jest.Mock).mockReturnValue({ data: [] });
   setBalances(owingBalances);
   (useCreatePayment as jest.Mock).mockReturnValue({
     mutateAsync: mockPayAsync,
@@ -89,6 +98,39 @@ describe("SettleUp screen", () => {
     );
     expect(mockShowSuccess).toHaveBeenCalledWith("Payment recorded!");
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  it("uses raw pairwise edges when simplification is off", async () => {
+    (useGroup as jest.Mock).mockReturnValue({
+      data: { currency: "USD", simplify_debts: false },
+    });
+    // Net balances would simplify Me -> Cara, but the raw ledger has Me owing
+    // Bob directly. With simplification off we must settle along the raw edge.
+    setBalances([
+      { user_id: "u1", full_name: "Me", balance: -25 },
+      { user_id: "u2", full_name: "Bob", balance: 25 },
+    ]);
+    (useGroupPairwiseBalances as jest.Mock).mockReturnValue({
+      data: [
+        { from: "u1", from_name: "Me", to: "u2", to_name: "Bob", amount: 25 },
+      ],
+    });
+
+    await renderWithPaper(<SettleUp />);
+
+    await fireEvent.press(screen.getByTestId("debt-card-u1-u2"));
+    await fireEvent.press(screen.getByText("Record Payment"));
+
+    await waitFor(() =>
+      expect(mockPayAsync).toHaveBeenCalledWith({
+        groupId: "g1",
+        paidBy: "u1",
+        paidTo: "u2",
+        amount: 25,
+        note: undefined,
+        currency: "USD",
+      })
+    );
   });
 
   it("keeps the selected debt when balances refetch in a different order", async () => {

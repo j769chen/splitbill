@@ -140,6 +140,9 @@ export function useCreateExpense() {
       queryClient.invalidateQueries({
         queryKey: ["group-pairwise", variables.groupId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise-all", variables.groupId],
+      });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
@@ -194,6 +197,9 @@ export function useUpdateExpense() {
       queryClient.invalidateQueries({
         queryKey: ["group-pairwise", variables.groupId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise-all", variables.groupId],
+      });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
@@ -230,6 +236,9 @@ export function useDeleteExpense() {
       });
       queryClient.invalidateQueries({
         queryKey: ["group-pairwise", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise-all", variables.groupId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
