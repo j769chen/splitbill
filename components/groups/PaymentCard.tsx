@@ -9,12 +9,14 @@ type PaymentCardProps = {
   payment: PaymentWithProfiles;
   currentUserId?: string;
   onDelete?: (paymentId: string) => void;
+  onEdit?: (paymentId: string) => void;
 };
 
 export function PaymentCard({
   payment,
   currentUserId,
   onDelete,
+  onEdit,
 }: PaymentCardProps) {
   const theme = useAppTheme();
   const isPayer = payment.paid_by === currentUserId;
@@ -37,6 +39,7 @@ export function PaymentCard({
     <Card
       mode="contained"
       style={{ backgroundColor: theme.colors.secondaryContainer }}
+      onPress={onEdit ? () => onEdit(payment.id) : undefined}
       onLongPress={canDelete ? () => onDelete!(payment.id) : undefined}
     >
       <Card.Content>
@@ -82,6 +85,15 @@ export function PaymentCard({
               </Text>
             </View>
           </View>
+          {onEdit && (
+            <IconButton
+              icon="pencil-outline"
+              size={18}
+              iconColor={theme.colors.onSecondaryContainer}
+              onPress={() => onEdit(payment.id)}
+              style={{ margin: 0, marginLeft: 4 }}
+            />
+          )}
           {canDelete && (
             <IconButton
               icon="trash-can-outline"

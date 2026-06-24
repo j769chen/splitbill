@@ -182,4 +182,71 @@ describe("SQL security guards", () => {
       /array_length\(emails,\s*1\)\s*>\s*20/i
     );
   });
+
+  it("authorizes group expense edits to any member and re-validates splits", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "update_expense_with_splits");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/raise exception 'Expense not found'/i);
+    // Any member of the expense's group may edit (mirrors the delete policy).
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(v_group_id,\s*v_uid\) THEN/i
+    );
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(v_group_id,\s*p_paid_by\) THEN/i
+    );
+    expect(body).toMatch(
+      /Split amounts must add up to the expense total/i
+    );
+  });
+
+  it("restricts contact expense edits to participants and re-validates splits", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "update_contact_expense_with_splits");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/raise exception 'Expense not found'/i);
+    expect(body).toMatch(/v_uid <> v_lo and v_uid <> v_hi/i);
+    expect(body).toMatch(/p_paid_by <> v_lo and p_paid_by <> v_hi/i);
+    expect(body).toMatch(/Split amounts must add up to the expense total/i);
+  });
+
+  it("folds one-on-one contact payments into the contact balance", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_contact_balance");
+
+    expect(body).toMatch(/from public\.contact_payments cp/i);
+    expect(body).toMatch(
+      /cp\.paid_by = v_uid and cp\.paid_to = p_contact_user_id then cp\.amount/i
+    );
+    expect(body).toMatch(
+      /cp\.paid_by = p_contact_user_id and cp\.paid_to = v_uid then -cp\.amount/i
+    );
+  });
+
+  it("only lets group members update payments and keeps payer/payee in-group", () => {
+    const policies = readSchema("05_policies.sql");
+
+    expect(policies).toMatch(
+      /create policy "Members can update payments"[\s\S]*?on public\.payments for update[\s\S]*?using \(public\.is_group_member\(group_id,\s*auth\.uid\(\)\)\)[\s\S]*?is_group_member\(group_id,\s*paid_by\)[\s\S]*?is_group_member\(group_id,\s*paid_to\)/i
+    );
+  });
+
+  it("restricts contact_payments access to the two participants", () => {
+    const policies = readSchema("05_policies.sql");
+
+    expect(policies).toMatch(
+      /create policy "Participants can view contact payments"[\s\S]*?on public\.contact_payments for select[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
+    );
+    expect(policies).toMatch(
+      /create policy "Participants can create contact payments"[\s\S]*?on public\.contact_payments for insert[\s\S]*?paid_by = user_lo or paid_by = user_hi[\s\S]*?paid_to = user_lo or paid_to = user_hi/i
+    );
+    expect(policies).toMatch(
+      /create policy "Participants can update contact payments"[\s\S]*?on public\.contact_payments for update/i
+    );
+    expect(policies).toMatch(
+      /create policy "Participants can delete contact payments"[\s\S]*?on public\.contact_payments for delete[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
+    );
+  });
 });

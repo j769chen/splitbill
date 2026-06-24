@@ -102,6 +102,60 @@ export function useCreatePayment() {
         queryKey: ["balances", variables.groupId],
       });
       queryClient.invalidateQueries({
+        queryKey: ["group-pairwise", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["payments", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["expenses", variables.groupId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    },
+  });
+}
+
+interface UpdatePaymentInput {
+  paymentId: string;
+  groupId: string;
+  paidBy: string;
+  paidTo: string;
+  amount: number;
+  note?: string;
+}
+
+export function useUpdatePayment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdatePaymentInput) => {
+      const { data, error } = await supabase
+        .from("payments")
+        .update({
+          paid_by: input.paidBy,
+          paid_to: input.paidTo,
+          amount: input.amount,
+          note: input.note ?? null,
+        })
+        .eq("id", input.paymentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["balances", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise", variables.groupId],
+      });
+      queryClient.invalidateQueries({
         queryKey: ["payments", variables.groupId],
       });
       queryClient.invalidateQueries({
@@ -139,6 +193,9 @@ export function useDeletePayment() {
       });
       queryClient.invalidateQueries({
         queryKey: ["balances", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise", variables.groupId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity-payments"] });

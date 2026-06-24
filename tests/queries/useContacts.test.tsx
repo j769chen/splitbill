@@ -12,7 +12,12 @@ import {
   useRespondContactRequest,
   useCancelContactRequest,
   useCreateContactExpense,
+  useUpdateContactExpense,
   useDeleteContactExpense,
+  useContactPayments,
+  useCreateContactPayment,
+  useUpdateContactPayment,
+  useDeleteContactPayment,
 } from "@/lib/queries/useContacts";
 
 jest.mock("@/lib/supabase", () => ({
@@ -478,6 +483,216 @@ describe("useDeleteContactExpense", () => {
     await expect(
       actAsync(() =>
         result.current.mutateAsync({ expenseId: "ce-1", contactUserId: "user-2" })
+      )
+    ).rejects.toThrow("nope");
+  });
+});
+
+describe("useUpdateContactExpense", () => {
+  it("rejects when split amounts do not add up to the total", async () => {
+    const { result } = await renderHook(() => useUpdateContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          expenseId: "ce-1",
+          contactUserId: "user-2",
+          paidBy: "user-1",
+          amount: 10,
+          description: "Lunch",
+          splitType: "equal",
+          splits: [{ userId: "user-1", amount: 4 }],
+        })
+      )
+    ).rejects.toThrow("Split amounts must add up to the expense total");
+
+    expect(mockedSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("calls update_contact_expense_with_splits with mapped params", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "ce-1" }, error: null });
+
+    const { result } = await renderHook(() => useUpdateContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    const updated = await actAsync(() =>
+      result.current.mutateAsync({
+        expenseId: "ce-1",
+        contactUserId: "user-2",
+        paidBy: "user-2",
+        amount: 10,
+        description: "Dinner",
+        splitType: "equal",
+        splits: [
+          { userId: "user-1", amount: 5 },
+          { userId: "user-2", amount: 5 },
+        ],
+      })
+    );
+
+    expect(updated).toEqual({ id: "ce-1" });
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "update_contact_expense_with_splits",
+      {
+        p_expense_id: "ce-1",
+        p_paid_by: "user-2",
+        p_amount: 10,
+        p_description: "Dinner",
+        p_category: null,
+        p_split_type: "equal",
+        p_splits: [
+          { userId: "user-1", amount: 5 },
+          { userId: "user-2", amount: 5 },
+        ],
+        p_date: null,
+      }
+    );
+  });
+});
+
+describe("useContactPayments", () => {
+  it("queries the normalized participant pair ordered by created_at", async () => {
+    const rows = [{ id: "cp-1" }];
+    const builder = queryBuilder({ data: rows, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useContactPayments("user-2"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
+    expect(builder.eq).toHaveBeenCalledWith("user_lo", "user-1");
+    expect(builder.eq).toHaveBeenCalledWith("user_hi", "user-2");
+    expect(builder.order).toHaveBeenCalledWith("created_at", {
+      ascending: false,
+    });
+    expect(result.current.data).toEqual(rows);
+  });
+});
+
+describe("useCreateContactPayment", () => {
+  it("inserts a payment with the sorted participant pair", async () => {
+    const builder = queryBuilder({ data: { id: "cp-1" }, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useCreateContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    const created = await actAsync(() =>
+      result.current.mutateAsync({
+        contactUserId: "user-2",
+        paidBy: "user-1",
+        paidTo: "user-2",
+        amount: 15,
+        note: "venmo",
+      })
+    );
+
+    expect(created).toEqual({ id: "cp-1" });
+    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
+    expect(builder.insert).toHaveBeenCalledWith({
+      paid_by: "user-1",
+      paid_to: "user-2",
+      user_lo: "user-1",
+      user_hi: "user-2",
+      amount: 15,
+      note: "venmo",
+    });
+  });
+
+  it("normalizes the pair regardless of direction", async () => {
+    const builder = queryBuilder({ data: { id: "cp-1" }, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useCreateContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({
+        contactUserId: "user-2",
+        paidBy: "user-2",
+        paidTo: "user-1",
+        amount: 15,
+      })
+    );
+
+    expect(builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_lo: "user-1",
+        user_hi: "user-2",
+        note: null,
+      })
+    );
+  });
+});
+
+describe("useUpdateContactPayment", () => {
+  it("updates the payment direction, amount, and note by id", async () => {
+    const builder = queryBuilder({ data: { id: "cp-1" }, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useUpdateContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({
+        paymentId: "cp-1",
+        contactUserId: "user-2",
+        paidBy: "user-2",
+        paidTo: "user-1",
+        amount: 8,
+        note: "cash",
+      })
+    );
+
+    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
+    expect(builder.update).toHaveBeenCalledWith({
+      paid_by: "user-2",
+      paid_to: "user-1",
+      amount: 8,
+      note: "cash",
+    });
+    expect(builder.eq).toHaveBeenCalledWith("id", "cp-1");
+  });
+});
+
+describe("useDeleteContactPayment", () => {
+  it("deletes the contact payment by id", async () => {
+    const builder = queryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeleteContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({ paymentId: "cp-1", contactUserId: "user-2" })
+    );
+
+    expect(result.current.isSuccess).toBe(true);
+    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
+    expect(builder.delete).toHaveBeenCalled();
+    expect(builder.eq).toHaveBeenCalledWith("id", "cp-1");
+  });
+
+  it("propagates delete errors", async () => {
+    const builder = queryBuilder({ data: null, error: new Error("nope") });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeleteContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({ paymentId: "cp-1", contactUserId: "user-2" })
       )
     ).rejects.toThrow("nope");
   });

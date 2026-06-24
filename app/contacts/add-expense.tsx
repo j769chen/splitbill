@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
-import { useContacts, useCreateContactExpense } from "@/lib/queries/useContacts";
+import {
+  useContacts,
+  useContactExpenses,
+  useCreateContactExpense,
+  useUpdateContactExpense,
+} from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
 import { computeSplits, getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
@@ -20,10 +25,16 @@ type Participant = GroupWithMembers["group_members"][number];
 
 export default function AddContactExpense() {
   const theme = useAppTheme();
-  const { contactUserId } = useLocalSearchParams<{ contactUserId: string }>();
+  const { contactUserId, expenseId } = useLocalSearchParams<{
+    contactUserId: string;
+    expenseId?: string;
+  }>();
+  const isEdit = !!expenseId;
   const { user } = useAuth();
   const { data: contacts } = useContacts();
+  const { data: contactExpenses } = useContactExpenses(contactUserId!);
   const createContactExpense = useCreateContactExpense();
+  const updateContactExpense = useUpdateContactExpense();
   const { showError } = useSnackbar();
 
   const [description, setDescription] = useState("");
@@ -32,9 +43,43 @@ export default function AddContactExpense() {
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   const contact = contacts?.find((c) => c.contact_user_id === contactUserId);
   const contactName = contact?.full_name ?? "Contact";
+  const existingExpense = isEdit
+    ? contactExpenses?.find((e) => e.id === expenseId)
+    : undefined;
+
+  useEffect(() => {
+    if (!isEdit || hydrated || !existingExpense) return;
+
+    setDescription(existingExpense.description);
+    setAmount(String(existingExpense.amount));
+    setPaidBy(existingExpense.paid_by);
+    setSplitType(existingExpense.split_type);
+
+    const splits = existingExpense.expense_splits ?? [];
+    const splitUserIds = splits.map((s) => s.user_id);
+    setExcludedMemberIds(
+      [existingExpense.user_lo, existingExpense.user_hi].filter(
+        (id) => !splitUserIds.includes(id)
+      )
+    );
+
+    const total = existingExpense.amount;
+    const custom: Record<string, string> = {};
+    if (existingExpense.split_type === "exact") {
+      for (const s of splits) custom[s.user_id] = s.amount.toFixed(2);
+    } else if (existingExpense.split_type === "percentage") {
+      for (const s of splits) {
+        custom[s.user_id] =
+          total > 0 ? ((s.amount / total) * 100).toFixed(2) : "";
+      }
+    }
+    setCustomSplits(custom);
+    setHydrated(true);
+  }, [isEdit, hydrated, existingExpense]);
 
   const members = [
     {
@@ -99,27 +144,51 @@ export default function AddContactExpense() {
     }
 
     try {
-      await createContactExpense.mutateAsync({
-        contactUserId: contactUserId!,
-        paidBy: effectivePaidBy,
-        amount: totalAmount,
-        description: description.trim(),
-        splitType,
-        splits: result.splits,
-      });
+      if (isEdit && expenseId) {
+        await updateContactExpense.mutateAsync({
+          expenseId,
+          contactUserId: contactUserId!,
+          paidBy: effectivePaidBy,
+          amount: totalAmount,
+          description: description.trim(),
+          splitType,
+          splits: result.splits,
+        });
+      } else {
+        await createContactExpense.mutateAsync({
+          contactUserId: contactUserId!,
+          paidBy: effectivePaidBy,
+          amount: totalAmount,
+          description: description.trim(),
+          splitType,
+          splits: result.splits,
+        });
+      }
       router.back();
     } catch (error) {
       showError(
-        getErrorMessage(error, "Couldn't add the expense. Please try again.")
+        getErrorMessage(
+          error,
+          isEdit
+            ? "Couldn't save the expense. Please try again."
+            : "Couldn't add the expense. Please try again."
+        )
       );
     }
   };
+
+  const isPending = isEdit
+    ? updateContactExpense.isPending
+    : createContactExpense.isPending;
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
+      <Stack.Screen
+        options={{ title: isEdit ? "Edit Expense" : "Add Expense" }}
+      />
       <ScrollView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
         <TextInput
           mode="outlined"
@@ -204,12 +273,12 @@ export default function AddContactExpense() {
         <Button
           mode="contained"
           onPress={handleSubmit}
-          loading={createContactExpense.isPending}
-          disabled={createContactExpense.isPending}
+          loading={isPending}
+          disabled={isPending}
           contentStyle={{ paddingVertical: 6 }}
           style={{ marginTop: 32, marginBottom: 32 }}
         >
-          Add Expense
+          {isEdit ? "Save Changes" : "Add Expense"}
         </Button>
       </ScrollView>
     </KeyboardAvoidingView>

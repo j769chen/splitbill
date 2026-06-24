@@ -115,6 +115,60 @@ export function useCreateExpense() {
       queryClient.invalidateQueries({
         queryKey: ["balances", variables.groupId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise", variables.groupId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["activity", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    },
+  });
+}
+
+interface UpdateExpenseInput extends CreateExpenseInput {
+  expenseId: string;
+}
+
+export function useUpdateExpense() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: UpdateExpenseInput) => {
+      const splitAmounts = input.splits.map((s) => s.amount);
+      if (!validateSplitsTotal(input.amount, splitAmounts)) {
+        throw new Error("Split amounts must add up to the expense total");
+      }
+
+      const { data: expense, error: expenseError } = await supabase.rpc(
+        "update_expense_with_splits",
+        {
+          p_expense_id: input.expenseId,
+          p_paid_by: input.paidBy,
+          p_amount: input.amount,
+          p_description: input.description,
+          p_category: input.category ?? null,
+          p_split_type: input.splitType,
+          p_splits: input.splits,
+          p_date: input.date ?? null,
+        }
+      );
+
+      if (expenseError) throw expenseError;
+      return expense;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["expenses", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["balances", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise", variables.groupId],
+      });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
@@ -148,6 +202,9 @@ export function useDeleteExpense() {
       });
       queryClient.invalidateQueries({
         queryKey: ["balances", variables.groupId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["group-pairwise", variables.groupId],
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });

@@ -113,6 +113,15 @@ create policy "Members can create payments"
     and (auth.uid() = paid_by or auth.uid() = paid_to)
   );
 
+create policy "Members can update payments"
+  on public.payments for update
+  using (public.is_group_member(group_id, auth.uid()))
+  with check (
+    public.is_group_member(group_id, auth.uid())
+    and public.is_group_member(group_id, paid_by)
+    and public.is_group_member(group_id, paid_to)
+  );
+
 create policy "Members can delete payments"
   on public.payments for delete
   using (public.is_group_member(group_id, auth.uid()));
@@ -165,6 +174,35 @@ create policy "Payer can delete contact expense splits"
   using (expense_id in (
     select id from public.contact_expenses where paid_by = auth.uid()
   ));
+
+-- contact_payments
+-- Either participant may view/record/edit/delete a one-on-one payment (mirrors
+-- the relaxed delete model elsewhere). The pair and direction must both stay
+-- within the two participants.
+create policy "Participants can view contact payments"
+  on public.contact_payments for select
+  using (auth.uid() = user_lo or auth.uid() = user_hi);
+
+create policy "Participants can create contact payments"
+  on public.contact_payments for insert
+  with check (
+    (auth.uid() = user_lo or auth.uid() = user_hi)
+    and (paid_by = user_lo or paid_by = user_hi)
+    and (paid_to = user_lo or paid_to = user_hi)
+  );
+
+create policy "Participants can update contact payments"
+  on public.contact_payments for update
+  using (auth.uid() = user_lo or auth.uid() = user_hi)
+  with check (
+    (auth.uid() = user_lo or auth.uid() = user_hi)
+    and (paid_by = user_lo or paid_by = user_hi)
+    and (paid_to = user_lo or paid_to = user_hi)
+  );
+
+create policy "Participants can delete contact payments"
+  on public.contact_payments for delete
+  using (auth.uid() = user_lo or auth.uid() = user_hi);
 
 -- contact_requests
 -- Reads are allowed for either party; all writes go through SECURITY DEFINER

@@ -33,6 +33,23 @@ create table public.contact_expense_splits (
   unique (expense_id, user_id)
 );
 
+-- One-on-one settle-up payments between two contacts (outside any group).
+-- user_lo/user_hi store the participant pair in sorted order, mirroring
+-- contact_expenses, so a pair maps to a single canonical (lo, hi) regardless of
+-- payment direction; paid_by/paid_to carry the direction.
+create table public.contact_payments (
+  id uuid primary key default gen_random_uuid(),
+  paid_by uuid not null references public.profiles (id) on delete cascade,
+  paid_to uuid not null references public.profiles (id) on delete cascade,
+  user_lo uuid not null references public.profiles (id) on delete cascade,
+  user_hi uuid not null references public.profiles (id) on delete cascade,
+  amount numeric(12, 2) not null check (amount > 0),
+  note text,
+  created_at timestamptz not null default now(),
+  check (paid_by <> paid_to),
+  check (user_lo < user_hi)
+);
+
 -- A contact only becomes a `contacts` row pair once the recipient accepts a
 -- request. The unique pair lets a re-sent request reuse (reset) the prior row.
 create table public.contact_requests (
@@ -53,10 +70,14 @@ create index idx_contact_expenses_user_lo on public.contact_expenses (user_lo);
 create index idx_contact_expenses_user_hi on public.contact_expenses (user_hi);
 create index idx_contact_expense_splits_expense on public.contact_expense_splits (expense_id);
 create index idx_contact_expense_splits_user on public.contact_expense_splits (user_id);
+create index idx_contact_payments_paid_by on public.contact_payments (paid_by);
+create index idx_contact_payments_user_lo on public.contact_payments (user_lo);
+create index idx_contact_payments_user_hi on public.contact_payments (user_hi);
 create index idx_contact_requests_recipient on public.contact_requests (recipient_id);
 create index idx_contact_requests_requester on public.contact_requests (requester_id);
 
 alter table public.contacts enable row level security;
 alter table public.contact_expenses enable row level security;
 alter table public.contact_expense_splits enable row level security;
+alter table public.contact_payments enable row level security;
 alter table public.contact_requests enable row level security;

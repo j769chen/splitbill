@@ -307,6 +307,12 @@ export default function GroupDetail() {
                         expense={item.expense}
                         currentUserId={user?.id}
                         onDelete={handleDeleteExpense}
+                        onEdit={(expenseId) =>
+                          router.push({
+                            pathname: "/(tabs)/groups/add-expense",
+                            params: { groupId: id, expenseId },
+                          })
+                        }
                       />
                     ) : (
                       <PaymentCard
@@ -314,6 +320,12 @@ export default function GroupDetail() {
                         payment={item.payment}
                         currentUserId={user?.id}
                         onDelete={handleDeletePayment}
+                        onEdit={(paymentId) =>
+                          router.push({
+                            pathname: "/(tabs)/groups/edit-payment",
+                            params: { groupId: id, paymentId },
+                          })
+                        }
                       />
                     )
                   )}

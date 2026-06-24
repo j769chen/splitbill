@@ -4,6 +4,7 @@ import ContactDetail from "@/app/contacts/[id]";
 
 const mockPush = jest.fn();
 const mockDeleteMutate = jest.fn();
+const mockDeletePaymentMutate = jest.fn();
 const mockShowError = jest.fn();
 const mockConfirm = jest.fn();
 const mockScreenHolder: { options: any } = { options: null };
@@ -24,8 +25,10 @@ jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
   useContactBalance: jest.fn(),
   useContactExpenses: jest.fn(),
+  useContactPayments: jest.fn(),
   useContactGroupBreakdown: jest.fn(),
   useDeleteContactExpense: jest.fn(),
+  useDeleteContactPayment: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 jest.mock("@/lib/confirm", () => ({ useConfirm: jest.fn() }));
@@ -36,8 +39,10 @@ import {
   useContacts,
   useContactBalance,
   useContactExpenses,
+  useContactPayments,
   useContactGroupBreakdown,
   useDeleteContactExpense,
+  useDeleteContactPayment,
 } from "@/lib/queries/useContacts";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
@@ -57,9 +62,23 @@ const expensesFixture = [
   },
 ];
 
+const paymentsFixture = [
+  {
+    id: "cp-1",
+    amount: 20,
+    paid_by: "user-1",
+    paid_to: "user-2",
+    payer: { full_name: "Me" },
+    payee: { full_name: "Bob" },
+    note: "Venmo",
+    created_at: "2024-01-03",
+  },
+];
+
 function setup(overrides?: {
   balance?: number;
   expenses?: unknown;
+  payments?: unknown;
   groupBreakdown?: unknown[];
 }) {
   (useContactBalance as jest.Mock).mockReturnValue({
@@ -68,6 +87,10 @@ function setup(overrides?: {
   });
   (useContactExpenses as jest.Mock).mockReturnValue({
     data: overrides && "expenses" in overrides ? overrides.expenses : expensesFixture,
+    refetch: jest.fn().mockResolvedValue(undefined),
+  });
+  (useContactPayments as jest.Mock).mockReturnValue({
+    data: overrides && "payments" in overrides ? overrides.payments : [],
     refetch: jest.fn().mockResolvedValue(undefined),
   });
   (useContactGroupBreakdown as jest.Mock).mockReturnValue({
@@ -88,6 +111,9 @@ beforeEach(() => {
   });
   (useDeleteContactExpense as jest.Mock).mockReturnValue({
     mutate: mockDeleteMutate,
+  });
+  (useDeleteContactPayment as jest.Mock).mockReturnValue({
+    mutate: mockDeletePaymentMutate,
   });
   (useSnackbar as jest.Mock).mockReturnValue({ showError: mockShowError });
   (useConfirm as jest.Mock).mockReturnValue(mockConfirm);
@@ -181,6 +207,52 @@ describe("ContactDetail screen", () => {
       pathname: "/contacts/add-expense",
       params: { contactUserId: "user-2" },
     });
+  });
+
+  it("navigates to settle-up with the contact id", async () => {
+    await renderWithPaper(<ContactDetail />);
+
+    await fireEvent.press(screen.getByText("Settle Up"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/contacts/settle-up",
+      params: { contactUserId: "user-2" },
+    });
+  });
+
+  it("renders a one-on-one payment and navigates to edit it", async () => {
+    setup({ payments: paymentsFixture });
+    await renderWithPaper(<ContactDetail />);
+
+    expect(screen.getByText("You paid Bob $20.00")).toBeTruthy();
+
+    await fireEvent.press(screen.getByText("You paid Bob $20.00"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/contacts/settle-up",
+      params: { contactUserId: "user-2", paymentId: "cp-1" },
+    });
+  });
+
+  it("confirms and deletes a one-on-one payment on confirm", async () => {
+    setup({ payments: paymentsFixture });
+    await renderWithPaper(<ContactDetail />);
+
+    await fireEvent(screen.getByText("You paid Bob $20.00"), "longPress");
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    const confirmArg = mockConfirm.mock.calls[0][0];
+    expect(confirmArg.title).toBe("Delete Payment");
+    expect(confirmArg.destructive).toBe(true);
+
+    await actAsync(async () => {
+      confirmArg.onConfirm();
+    });
+
+    expect(mockDeletePaymentMutate).toHaveBeenCalledWith(
+      { paymentId: "cp-1", contactUserId: "user-2" },
+      expect.objectContaining({ onError: expect.any(Function) })
+    );
   });
 
   it("confirms and deletes an expense on confirm", async () => {

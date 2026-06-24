@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
+import { QueryClient } from "@tanstack/react-query";
 import { actAsync, createWrapper, queryBuilder } from "../helpers/testUtils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -7,6 +8,7 @@ import {
   useDeleteExpense,
   useExpenses,
   useRecentActivity,
+  useUpdateExpense,
 } from "@/lib/queries/useExpenses";
 
 jest.mock("@/lib/supabase", () => ({
@@ -173,6 +175,125 @@ describe("useCreateExpense", () => {
         })
       )
     ).rejects.toThrow("rpc failed");
+  });
+});
+
+describe("useUpdateExpense", () => {
+  it("rejects when split amounts do not add up to the total", async () => {
+    const { result } = await renderHook(() => useUpdateExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          expenseId: "exp-1",
+          groupId: "g1",
+          paidBy: "user-1",
+          amount: 10,
+          description: "Lunch",
+          splitType: "equal",
+          splits: [{ userId: "user-1", amount: 4 }],
+        })
+      )
+    ).rejects.toThrow("Split amounts must add up to the expense total");
+
+    expect(mockedSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("calls the update_expense_with_splits RPC with mapped params", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "exp-1" }, error: null });
+
+    const { result } = await renderHook(() => useUpdateExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    const updated = await actAsync(() =>
+      result.current.mutateAsync({
+        expenseId: "exp-1",
+        groupId: "g1",
+        paidBy: "user-2",
+        amount: 10,
+        description: "Dinner",
+        splitType: "equal",
+        splits: [
+          { userId: "user-1", amount: 5 },
+          { userId: "user-2", amount: 5 },
+        ],
+      })
+    );
+
+    expect(updated).toEqual({ id: "exp-1" });
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "update_expense_with_splits",
+      {
+        p_expense_id: "exp-1",
+        p_paid_by: "user-2",
+        p_amount: 10,
+        p_description: "Dinner",
+        p_category: null,
+        p_split_type: "equal",
+        p_splits: [
+          { userId: "user-1", amount: 5 },
+          { userId: "user-2", amount: 5 },
+        ],
+        p_date: null,
+      }
+    );
+  });
+
+  it("propagates RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: new Error("rpc failed"),
+    });
+
+    const { result } = await renderHook(() => useUpdateExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          expenseId: "exp-1",
+          groupId: "g1",
+          paidBy: "user-1",
+          amount: 10,
+          description: "Lunch",
+          splitType: "equal",
+          splits: [{ userId: "user-1", amount: 10 }],
+        })
+      )
+    ).rejects.toThrow("rpc failed");
+  });
+
+  it("invalidates the group pairwise roster so it live-refreshes on edit", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "exp-1" }, error: null });
+    const invalidateSpy = jest.spyOn(
+      QueryClient.prototype,
+      "invalidateQueries"
+    );
+
+    const { result } = await renderHook(() => useUpdateExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({
+        expenseId: "exp-1",
+        groupId: "g1",
+        paidBy: "user-1",
+        amount: 10,
+        description: "Lunch",
+        splitType: "equal",
+        splits: [{ userId: "user-1", amount: 10 }],
+      })
+    );
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["group-pairwise", "g1"],
+    });
+    invalidateSpy.mockRestore();
   });
 });
 

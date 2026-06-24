@@ -4,21 +4,32 @@ import AddExpense from "@/app/(tabs)/groups/add-expense";
 
 const mockBack = jest.fn();
 const mockMutateAsync = jest.fn();
+const mockUpdateMutateAsync = jest.fn();
 const mockShowError = jest.fn();
+const mockParams: { groupId: string; expenseId?: string } = { groupId: "g1" };
 
 jest.mock("expo-router", () => ({
   router: { back: jest.fn() },
-  useLocalSearchParams: () => ({ groupId: "g1" }),
+  useLocalSearchParams: () => mockParams,
+  Stack: { Screen: () => null },
 }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useGroups", () => ({ useGroup: jest.fn() }));
-jest.mock("@/lib/queries/useExpenses", () => ({ useCreateExpense: jest.fn() }));
+jest.mock("@/lib/queries/useExpenses", () => ({
+  useCreateExpense: jest.fn(),
+  useExpenses: jest.fn(),
+  useUpdateExpense: jest.fn(),
+}));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useGroup } from "@/lib/queries/useGroups";
-import { useCreateExpense } from "@/lib/queries/useExpenses";
+import {
+  useCreateExpense,
+  useExpenses,
+  useUpdateExpense,
+} from "@/lib/queries/useExpenses";
 import { useSnackbar } from "@/lib/snackbar";
 
 const group = {
@@ -33,12 +44,20 @@ const group = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams.groupId = "g1";
+  mockParams.expenseId = undefined;
   mockMutateAsync.mockResolvedValue({ id: "exp-1" });
+  mockUpdateMutateAsync.mockResolvedValue({ id: "exp-1" });
   (router as unknown as { back: jest.Mock }).back = mockBack;
   (useAuth as jest.Mock).mockReturnValue({ user: { id: "u1" } });
   (useGroup as jest.Mock).mockReturnValue({ data: group });
   (useCreateExpense as jest.Mock).mockReturnValue({
     mutateAsync: mockMutateAsync,
+    isPending: false,
+  });
+  (useExpenses as jest.Mock).mockReturnValue({ data: [] });
+  (useUpdateExpense as jest.Mock).mockReturnValue({
+    mutateAsync: mockUpdateMutateAsync,
     isPending: false,
   });
   (useSnackbar as jest.Mock).mockReturnValue({ showError: mockShowError });
@@ -207,5 +226,59 @@ describe("AddExpense screen", () => {
       "Percentages must add up to 100% (currently 90.0%)"
     );
     expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  describe("edit mode", () => {
+    beforeEach(() => {
+      mockParams.expenseId = "exp-1";
+      (useExpenses as jest.Mock).mockReturnValue({
+        data: [
+          {
+            id: "exp-1",
+            description: "Old dinner",
+            amount: 30,
+            paid_by: "u1",
+            split_type: "equal",
+            expense_splits: [
+              { user_id: "u1", amount: 15 },
+              { user_id: "u2", amount: 15 },
+            ],
+          },
+        ],
+      });
+    });
+
+    it("prefills the form and shows the edit affordances", async () => {
+      await renderWithPaper(<AddExpense />);
+
+      expect(screen.getByDisplayValue("Old dinner")).toBeTruthy();
+      expect(screen.getByDisplayValue("30")).toBeTruthy();
+      expect(screen.getByText("Save Changes")).toBeTruthy();
+    });
+
+    it("submits the update RPC with the expense id", async () => {
+      await renderWithPaper(<AddExpense />);
+
+      await fireEvent.press(screen.getByText("Save Changes"));
+
+      await waitFor(() =>
+        expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1)
+      );
+      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expenseId: "exp-1",
+          groupId: "g1",
+          description: "Old dinner",
+          amount: 30,
+          splitType: "equal",
+          splits: [
+            { userId: "u1", amount: 15 },
+            { userId: "u2", amount: 15 },
+          ],
+        })
+      );
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    });
   });
 });

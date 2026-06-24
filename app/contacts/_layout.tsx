@@ -28,6 +28,13 @@ export default function ContactsLayout() {
           presentation: "modal",
         }}
       />
+      <Stack.Screen
+        name="settle-up"
+        options={{
+          title: "Settle Up",
+          presentation: "modal",
+        }}
+      />
     </Stack>
   );
 }

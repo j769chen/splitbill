@@ -42,6 +42,13 @@ export default function GroupsLayout() {
           presentation: "modal",
         }}
       />
+      <Stack.Screen
+        name="edit-payment"
+        options={{
+          title: "Edit Payment",
+          presentation: "modal",
+        }}
+      />
     </Stack>
   );
 }

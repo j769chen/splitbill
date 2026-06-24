@@ -423,6 +423,29 @@ describe("GroupDetail screen", () => {
     expect(mockDeleteMutate).not.toHaveBeenCalled();
   });
 
+  it("navigates to edit an expense when its card is pressed", async () => {
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent.press(screen.getByText("Dinner"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/groups/add-expense",
+      params: { groupId: "g1", expenseId: "e1" },
+    });
+  });
+
+  it("navigates to edit a payment when its card is pressed", async () => {
+    setup({ expenses: [], payments: paymentsFixture });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent.press(screen.getByText("You paid Bob $20.00"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/groups/edit-payment",
+      params: { groupId: "g1", paymentId: "p1" },
+    });
+  });
+
   it("lets a non-payer delete an expense they did not create", async () => {
     setup({
       expenses: [

@@ -11,6 +11,7 @@ type PaidByPickerProps = {
   paidBy: string;
   onSelect: (userId: string) => void;
   getMemberName: (member: GroupMemberWithProfile) => string;
+  label?: string;
 };
 
 export function PaidByPicker({
@@ -18,6 +19,7 @@ export function PaidByPicker({
   paidBy,
   onSelect,
   getMemberName,
+  label: fieldLabel = "Paid by",
 }: PaidByPickerProps) {
   const theme = useAppTheme();
   const [visible, setVisible] = useState(false);
@@ -30,7 +32,7 @@ export function PaidByPicker({
         variant="labelLarge"
         style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
       >
-        Paid by
+        {fieldLabel}
       </Text>
       <Menu
         visible={visible}

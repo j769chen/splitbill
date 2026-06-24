@@ -472,6 +472,112 @@ begin
 end;
 $$;
 
+-- Edits an existing group expense and replaces its splits atomically. Any group
+-- member may edit (mirrors the relaxed delete policy); the SECURITY DEFINER
+-- context bypasses the payer-only UPDATE RLS. Validations match create.
+create or replace function public.update_expense_with_splits(
+  p_expense_id uuid,
+  p_paid_by uuid,
+  p_amount numeric,
+  p_description text,
+  p_category text,
+  p_split_type public.split_type,
+  p_splits jsonb,
+  p_date timestamptz default null
+)
+returns public.expenses
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_group_id uuid;
+  v_expense public.expenses;
+  v_split jsonb;
+  v_split_user uuid;
+  v_split_amount numeric(12, 2);
+  v_split_total numeric(12, 2) := 0;
+  v_split_count int := 0;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select group_id into v_group_id from public.expenses where id = p_expense_id;
+
+  if v_group_id is null then
+    raise exception 'Expense not found';
+  end if;
+
+  if not public.is_group_member(v_group_id, v_uid) then
+    raise exception 'You are not a member of this group';
+  end if;
+
+  if not public.is_group_member(v_group_id, p_paid_by) then
+    raise exception 'Expense payer must be a group member';
+  end if;
+
+  if p_amount <= 0 then
+    raise exception 'Expense amount must be greater than zero';
+  end if;
+
+  if btrim(coalesce(p_description, '')) = '' then
+    raise exception 'Expense description is required';
+  end if;
+
+  for v_split in select value from jsonb_array_elements(coalesce(p_splits, '[]'::jsonb))
+  loop
+    v_split_user := (v_split->>'userId')::uuid;
+    v_split_amount := round((v_split->>'amount')::numeric, 2);
+
+    if v_split_amount < 0 then
+      raise exception 'Split amount cannot be negative';
+    end if;
+
+    if not public.is_group_member(v_group_id, v_split_user) then
+      raise exception 'Every split user must be a group member';
+    end if;
+
+    v_split_count := v_split_count + 1;
+    v_split_total := v_split_total + v_split_amount;
+  end loop;
+
+  if v_split_count = 0 then
+    raise exception 'At least one split is required';
+  end if;
+
+  if v_split_total <> round(p_amount, 2) then
+    raise exception 'Split amounts must add up to the expense total';
+  end if;
+
+  update public.expenses
+  set
+    paid_by = p_paid_by,
+    amount = round(p_amount, 2),
+    description = btrim(p_description),
+    category = p_category,
+    split_type = p_split_type,
+    date = coalesce(p_date, date)
+  where id = p_expense_id
+  returning * into v_expense;
+
+  delete from public.expense_splits where expense_id = p_expense_id;
+
+  for v_split in select value from jsonb_array_elements(p_splits)
+  loop
+    insert into public.expense_splits (expense_id, user_id, amount)
+    values (
+      p_expense_id,
+      (v_split->>'userId')::uuid,
+      round((v_split->>'amount')::numeric, 2)
+    );
+  end loop;
+
+  return v_expense;
+end;
+$$;
+
 -- Inserts the bidirectional accepted-contact pair. Helper shared by request
 -- acceptance and the mutual-send auto-accept path.
 create or replace function public.create_contact_pair(p_user_a uuid, p_user_b uuid)
@@ -787,6 +893,115 @@ begin
 end;
 $$;
 
+-- Edits an existing one-on-one contact expense and replaces its splits. Either
+-- participant may edit (SECURITY DEFINER bypasses the payer-only UPDATE RLS).
+-- The participant pair (user_lo/user_hi) is immutable; only payer/amount/
+-- description/category/split/date and the splits change.
+create or replace function public.update_contact_expense_with_splits(
+  p_expense_id uuid,
+  p_paid_by uuid,
+  p_amount numeric,
+  p_description text,
+  p_category text,
+  p_split_type public.split_type,
+  p_splits jsonb,
+  p_date timestamptz default null
+)
+returns public.contact_expenses
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_lo uuid;
+  v_hi uuid;
+  v_expense public.contact_expenses;
+  v_split jsonb;
+  v_split_user uuid;
+  v_split_amount numeric(12, 2);
+  v_split_total numeric(12, 2) := 0;
+  v_split_count int := 0;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select user_lo, user_hi into v_lo, v_hi
+  from public.contact_expenses where id = p_expense_id;
+
+  if v_lo is null then
+    raise exception 'Expense not found';
+  end if;
+
+  if v_uid <> v_lo and v_uid <> v_hi then
+    raise exception 'You are not a participant in this expense';
+  end if;
+
+  if p_paid_by <> v_lo and p_paid_by <> v_hi then
+    raise exception 'Expense payer must be a participant';
+  end if;
+
+  if p_amount <= 0 then
+    raise exception 'Expense amount must be greater than zero';
+  end if;
+
+  if btrim(coalesce(p_description, '')) = '' then
+    raise exception 'Expense description is required';
+  end if;
+
+  for v_split in select value from jsonb_array_elements(coalesce(p_splits, '[]'::jsonb))
+  loop
+    v_split_user := (v_split->>'userId')::uuid;
+    v_split_amount := round((v_split->>'amount')::numeric, 2);
+
+    if v_split_amount < 0 then
+      raise exception 'Split amount cannot be negative';
+    end if;
+
+    if v_split_user <> v_lo and v_split_user <> v_hi then
+      raise exception 'Every split user must be a participant';
+    end if;
+
+    v_split_count := v_split_count + 1;
+    v_split_total := v_split_total + v_split_amount;
+  end loop;
+
+  if v_split_count = 0 then
+    raise exception 'At least one split is required';
+  end if;
+
+  if v_split_total <> round(p_amount, 2) then
+    raise exception 'Split amounts must add up to the expense total';
+  end if;
+
+  update public.contact_expenses
+  set
+    paid_by = p_paid_by,
+    amount = round(p_amount, 2),
+    description = btrim(p_description),
+    category = p_category,
+    split_type = p_split_type,
+    date = coalesce(p_date, date)
+  where id = p_expense_id
+  returning * into v_expense;
+
+  delete from public.contact_expense_splits where expense_id = p_expense_id;
+
+  for v_split in select value from jsonb_array_elements(p_splits)
+  loop
+    insert into public.contact_expense_splits (expense_id, user_id, amount)
+    values (
+      p_expense_id,
+      (v_split->>'userId')::uuid,
+      round((v_split->>'amount')::numeric, 2)
+    );
+  end loop;
+
+  return v_expense;
+end;
+$$;
+
 create or replace function public.get_contact_balance(p_contact_user_id uuid)
 returns numeric
 language plpgsql
@@ -797,7 +1012,8 @@ declare
   v_uid uuid := auth.uid();
   v_lo uuid;
   v_hi uuid;
-  v_balance numeric(12, 2);
+  v_expense_balance numeric(12, 2);
+  v_payment_balance numeric(12, 2);
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -822,12 +1038,26 @@ begin
       else 0
     end
   ), 0)
-  into v_balance
+  into v_expense_balance
   from public.contact_expenses ce
   join public.contact_expense_splits ces on ces.expense_id = ce.id
   where ce.user_lo = v_lo and ce.user_hi = v_hi;
 
-  return v_balance;
+  -- A 1-on-1 payment you make to the contact settles your debt (raises the
+  -- balance); a payment they make to you lowers it. Same sign rules as the
+  -- shared-group payment term in get_contact_group_balance.
+  select coalesce(sum(
+    case
+      when cp.paid_by = v_uid and cp.paid_to = p_contact_user_id then cp.amount
+      when cp.paid_by = p_contact_user_id and cp.paid_to = v_uid then -cp.amount
+      else 0
+    end
+  ), 0)
+  into v_payment_balance
+  from public.contact_payments cp
+  where cp.user_lo = v_lo and cp.user_hi = v_hi;
+
+  return coalesce(v_expense_balance, 0) + coalesce(v_payment_balance, 0);
 end;
 $$;
 
@@ -858,6 +1088,10 @@ begin
     select case when ce.user_lo = v_uid then ce.user_hi else ce.user_lo end as uid
     from public.contact_expenses ce
     where ce.user_lo = v_uid or ce.user_hi = v_uid
+    union
+    select case when cp.user_lo = v_uid then cp.user_hi else cp.user_lo end as uid
+    from public.contact_payments cp
+    where cp.user_lo = v_uid or cp.user_hi = v_uid
   )
   select
     ci.uid,
@@ -984,6 +1218,10 @@ begin
     select case when ce.user_lo = v_uid then ce.user_hi else ce.user_lo end as uid
     from public.contact_expenses ce
     where ce.user_lo = v_uid or ce.user_hi = v_uid
+    union
+    select case when cp.user_lo = v_uid then cp.user_hi else cp.user_lo end as uid
+    from public.contact_payments cp
+    where cp.user_lo = v_uid or cp.user_hi = v_uid
   )
   select
     ci.uid,

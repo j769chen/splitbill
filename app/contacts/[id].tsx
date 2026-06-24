@@ -7,7 +7,9 @@ import {
   useContactBalance,
   useContactExpenses,
   useContactGroupBreakdown,
+  useContactPayments,
   useDeleteContactExpense,
+  useDeleteContactPayment,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
@@ -16,7 +18,17 @@ import { useConfirm } from "@/lib/confirm";
 import { useAppTheme } from "@/lib/theme";
 import { EmptyState } from "@/components/groups/EmptyState";
 import { ExpenseCard } from "@/components/groups/ExpenseCard";
-import type { ExpenseWithSplits } from "@/lib/types";
+import { PaymentCard } from "@/components/groups/PaymentCard";
+import type {
+  ContactExpenseWithSplits,
+  ContactPaymentWithProfiles,
+  ExpenseWithSplits,
+  PaymentWithProfiles,
+} from "@/lib/types";
+
+type ContactActivityItem =
+  | { kind: "expense"; ts: string; expense: ContactExpenseWithSplits }
+  | { kind: "payment"; ts: string; payment: ContactPaymentWithProfiles };
 
 export default function ContactDetail() {
   const theme = useAppTheme();
@@ -25,9 +37,11 @@ export default function ContactDetail() {
   const { data: contacts } = useContacts();
   const { data: balance = 0, refetch: refetchBalance } = useContactBalance(id!);
   const { data: expenses, refetch: refetchExpenses } = useContactExpenses(id!);
+  const { data: payments, refetch: refetchPayments } = useContactPayments(id!);
   const { data: groupBreakdown, refetch: refetchGroupBreakdown } =
     useContactGroupBreakdown(id!);
   const deleteContactExpense = useDeleteContactExpense();
+  const deleteContactPayment = useDeleteContactPayment();
   const { showError } = useSnackbar();
   const confirm = useConfirm();
   const [refreshing, setRefreshing] = useState(false);
@@ -40,14 +54,32 @@ export default function ContactDetail() {
     await Promise.all([
       refetchBalance(),
       refetchExpenses(),
+      refetchPayments(),
       refetchGroupBreakdown(),
     ]);
     setRefreshing(false);
-  }, [refetchBalance, refetchExpenses, refetchGroupBreakdown]);
+  }, [refetchBalance, refetchExpenses, refetchPayments, refetchGroupBreakdown]);
 
   const groups = groupBreakdown ?? [];
   const hasGroups = groups.length > 0;
-  const hasExpenses = (expenses?.length ?? 0) > 0;
+
+  const activityItems: ContactActivityItem[] = [
+    ...(expenses ?? []).map(
+      (expense): ContactActivityItem => ({
+        kind: "expense",
+        ts: expense.date,
+        expense,
+      })
+    ),
+    ...(payments ?? []).map(
+      (payment): ContactActivityItem => ({
+        kind: "payment",
+        ts: payment.created_at,
+        payment,
+      })
+    ),
+  ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  const hasActivity = activityItems.length > 0;
 
   const handleDeleteExpense = (expenseId: string) => {
     confirm({
@@ -65,6 +97,30 @@ export default function ContactDetail() {
                 getErrorMessage(
                   error,
                   "Couldn't delete the expense. Please try again."
+                )
+              ),
+          }
+        );
+      },
+    });
+  };
+
+  const handleDeletePayment = (paymentId: string) => {
+    confirm({
+      title: "Delete Payment",
+      message:
+        "Are you sure you want to delete this payment? This will remove it for both people involved.",
+      confirmText: "Delete",
+      destructive: true,
+      onConfirm: () => {
+        deleteContactPayment.mutate(
+          { paymentId, contactUserId: id! },
+          {
+            onError: (error) =>
+              showError(
+                getErrorMessage(
+                  error,
+                  "Couldn't delete the payment. Please try again."
                 )
               ),
           }
@@ -183,7 +239,7 @@ export default function ContactDetail() {
             </View>
           )}
 
-          {hasExpenses && (
+          {hasActivity && (
             <View>
               {hasGroups && (
                 <Text
@@ -194,19 +250,42 @@ export default function ContactDetail() {
                 </Text>
               )}
               <View style={{ gap: 12 }}>
-                {expenses!.map((expense) => (
-                  <ExpenseCard
-                    key={expense.id}
-                    expense={expense as unknown as ExpenseWithSplits}
-                    currentUserId={user?.id}
-                    onDelete={handleDeleteExpense}
-                  />
-                ))}
+                {activityItems.map((item) =>
+                  item.kind === "expense" ? (
+                    <ExpenseCard
+                      key={`expense-${item.expense.id}`}
+                      expense={item.expense as unknown as ExpenseWithSplits}
+                      currentUserId={user?.id}
+                      onDelete={handleDeleteExpense}
+                      onEdit={(expenseId) =>
+                        router.push({
+                          pathname: "/contacts/add-expense",
+                          params: { contactUserId: id, expenseId },
+                        })
+                      }
+                    />
+                  ) : (
+                    <PaymentCard
+                      key={`payment-${item.payment.id}`}
+                      payment={
+                        item.payment as unknown as PaymentWithProfiles
+                      }
+                      currentUserId={user?.id}
+                      onDelete={handleDeletePayment}
+                      onEdit={(paymentId) =>
+                        router.push({
+                          pathname: "/contacts/settle-up",
+                          params: { contactUserId: id, paymentId },
+                        })
+                      }
+                    />
+                  )
+                )}
               </View>
             </View>
           )}
 
-          {!hasGroups && !hasExpenses && (
+          {!hasGroups && !hasActivity && (
             <EmptyState
               icon="timeline-text-outline"
               title="No activity yet"
@@ -217,13 +296,16 @@ export default function ContactDetail() {
 
         <View
           style={{
+            flexDirection: "row",
             paddingHorizontal: 16,
             paddingBottom: 24,
             paddingTop: 8,
+            gap: 12,
           }}
         >
           <Button
             mode="contained"
+            style={{ flex: 1 }}
             contentStyle={{ paddingVertical: 4 }}
             onPress={() =>
               router.push({
@@ -233,6 +315,21 @@ export default function ContactDetail() {
             }
           >
             Add Expense
+          </Button>
+          <Button
+            mode="contained"
+            buttonColor={theme.colors.secondary}
+            textColor={theme.colors.onSecondary}
+            style={{ flex: 1 }}
+            contentStyle={{ paddingVertical: 4 }}
+            onPress={() =>
+              router.push({
+                pathname: "/contacts/settle-up",
+                params: { contactUserId: id },
+              })
+            }
+          >
+            Settle Up
           </Button>
         </View>
       </View>

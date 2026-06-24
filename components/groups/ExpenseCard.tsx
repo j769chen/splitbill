@@ -9,12 +9,14 @@ type ExpenseCardProps = {
   expense: ExpenseWithSplits;
   currentUserId?: string;
   onDelete: (expenseId: string) => void;
+  onEdit?: (expenseId: string) => void;
 };
 
 export function ExpenseCard({
   expense,
   currentUserId,
   onDelete,
+  onEdit,
 }: ExpenseCardProps) {
   const theme = useAppTheme();
   const isPayer = expense.paid_by === currentUserId;
@@ -43,7 +45,11 @@ export function ExpenseCard({
   const year = date.getFullYear();
 
   return (
-    <Card mode="elevated" onLongPress={() => onDelete(expense.id)}>
+    <Card
+      mode="elevated"
+      onPress={onEdit ? () => onEdit(expense.id) : undefined}
+      onLongPress={() => onDelete(expense.id)}
+    >
       <Card.Content>
         <View
           style={{
@@ -107,6 +113,15 @@ export function ExpenseCard({
               >
                 Not involved
               </Text>
+            )}
+            {onEdit && (
+              <IconButton
+                icon="pencil-outline"
+                size={18}
+                iconColor={theme.colors.onSecondaryContainer}
+                onPress={() => onEdit(expense.id)}
+                style={{ margin: 0, marginLeft: 4 }}
+              />
             )}
             <IconButton
               icon="trash-can-outline"

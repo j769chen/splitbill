@@ -9,17 +9,25 @@ const mockShowError = jest.fn();
 jest.mock("expo-router", () => ({
   router: { back: jest.fn() },
   useLocalSearchParams: () => ({ contactUserId: "user-2" }),
+  Stack: { Screen: () => null },
 }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
+  useContactExpenses: jest.fn(),
   useCreateContactExpense: jest.fn(),
+  useUpdateContactExpense: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
-import { useContacts, useCreateContactExpense } from "@/lib/queries/useContacts";
+import {
+  useContacts,
+  useContactExpenses,
+  useCreateContactExpense,
+  useUpdateContactExpense,
+} from "@/lib/queries/useContacts";
 import { useSnackbar } from "@/lib/snackbar";
 
 beforeEach(() => {
@@ -30,8 +38,13 @@ beforeEach(() => {
   (useContacts as jest.Mock).mockReturnValue({
     data: [{ contact_user_id: "user-2", full_name: "Bob", balance: 0 }],
   });
+  (useContactExpenses as jest.Mock).mockReturnValue({ data: [] });
   (useCreateContactExpense as jest.Mock).mockReturnValue({
     mutateAsync: mockMutateAsync,
+    isPending: false,
+  });
+  (useUpdateContactExpense as jest.Mock).mockReturnValue({
+    mutateAsync: jest.fn(),
     isPending: false,
   });
   (useSnackbar as jest.Mock).mockReturnValue({ showError: mockShowError });

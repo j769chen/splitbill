@@ -124,6 +124,8 @@ export interface Database {
           note?: string | null;
         };
         Update: {
+          paid_by?: string;
+          paid_to?: string;
           amount?: number;
           note?: string | null;
         };
@@ -192,6 +194,34 @@ export interface Database {
         };
         Update: {
           amount?: number;
+        };
+        Relationships: [];
+      };
+      contact_payments: {
+        Row: {
+          id: string;
+          paid_by: string;
+          paid_to: string;
+          user_lo: string;
+          user_hi: string;
+          amount: number;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          paid_by: string;
+          paid_to: string;
+          user_lo: string;
+          user_hi: string;
+          amount: number;
+          note?: string | null;
+        };
+        Update: {
+          paid_by?: string;
+          paid_to?: string;
+          amount?: number;
+          note?: string | null;
         };
         Relationships: [];
       };
@@ -276,6 +306,19 @@ export interface Database {
         };
         Returns: Database["public"]["Tables"]["expenses"]["Row"];
       };
+      update_expense_with_splits: {
+        Args: {
+          p_expense_id: string;
+          p_paid_by: string;
+          p_amount: number;
+          p_description: string;
+          p_category: string | null;
+          p_split_type: SplitType;
+          p_splits: { userId: string; amount: number }[];
+          p_date?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["expenses"]["Row"];
+      };
       leave_group: {
         Args: { p_group_id: string };
         Returns: void;
@@ -307,6 +350,19 @@ export interface Database {
       create_contact_expense_with_splits: {
         Args: {
           p_contact_user_id: string;
+          p_paid_by: string;
+          p_amount: number;
+          p_description: string;
+          p_category: string | null;
+          p_split_type: SplitType;
+          p_splits: { userId: string; amount: number }[];
+          p_date?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["contact_expenses"]["Row"];
+      };
+      update_contact_expense_with_splits: {
+        Args: {
+          p_expense_id: string;
           p_paid_by: string;
           p_amount: number;
           p_description: string;
@@ -370,6 +426,8 @@ export type ContactExpense =
   Database["public"]["Tables"]["contact_expenses"]["Row"];
 export type ContactExpenseSplit =
   Database["public"]["Tables"]["contact_expense_splits"]["Row"];
+export type ContactPayment =
+  Database["public"]["Tables"]["contact_payments"]["Row"];
 
 export interface ContactWithBalance {
   contact_user_id: string;
@@ -403,6 +461,11 @@ export interface ExpenseWithSplits extends Expense {
 }
 
 export interface PaymentWithProfiles extends Payment {
+  payer: Profile;
+  payee: Profile;
+}
+
+export interface ContactPaymentWithProfiles extends ContactPayment {
   payer: Profile;
   payee: Profile;
 }

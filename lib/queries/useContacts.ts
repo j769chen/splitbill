@@ -8,6 +8,7 @@ import { supabase } from "../supabase";
 import type {
   ContactExpenseWithSplits,
   ContactGroupBreakdown,
+  ContactPaymentWithProfiles,
   ContactRequest,
   ContactWithBalance,
   Profile,
@@ -316,6 +317,52 @@ export function useCreateContactExpense() {
   });
 }
 
+interface UpdateContactExpenseInput extends CreateContactExpenseInput {
+  expenseId: string;
+}
+
+export function useUpdateContactExpense() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: UpdateContactExpenseInput) => {
+      const splitAmounts = input.splits.map((s) => s.amount);
+      if (!validateSplitsTotal(input.amount, splitAmounts)) {
+        throw new Error("Split amounts must add up to the expense total");
+      }
+
+      const { data: expense, error } = await supabase.rpc(
+        "update_contact_expense_with_splits",
+        {
+          p_expense_id: input.expenseId,
+          p_paid_by: input.paidBy,
+          p_amount: input.amount,
+          p_description: input.description,
+          p_category: input.category ?? null,
+          p_split_type: input.splitType,
+          p_splits: input.splits,
+          p_date: input.date ?? null,
+        }
+      );
+
+      if (error) throw error;
+      return expense;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-expenses", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-balance", user?.id, variables.contactUserId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+    },
+  });
+}
+
 export function useDeleteContactExpense() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -344,6 +391,155 @@ export function useDeleteContactExpense() {
       });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
       queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+    },
+  });
+}
+
+export function useContactPayments(contactUserId: string) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["contact-payments", user?.id, contactUserId],
+    queryFn: async () => {
+      const [lo, hi] = sortPair(user!.id, contactUserId);
+
+      const { data, error } = await supabase
+        .from("contact_payments")
+        .select(
+          `
+          *,
+          payer:profiles!contact_payments_paid_by_fkey (*),
+          payee:profiles!contact_payments_paid_to_fkey (*)
+        `
+        )
+        .eq("user_lo", lo)
+        .eq("user_hi", hi)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data as unknown as ContactPaymentWithProfiles[];
+    },
+    enabled: !!user && !!contactUserId,
+  });
+}
+
+interface CreateContactPaymentInput {
+  contactUserId: string;
+  paidBy: string;
+  paidTo: string;
+  amount: number;
+  note?: string;
+}
+
+function invalidateContactPaymentQueries(
+  queryClient: QueryClient,
+  userId: string | undefined,
+  contactUserId: string
+) {
+  queryClient.invalidateQueries({ queryKey: ["contacts"] });
+  queryClient.invalidateQueries({
+    queryKey: ["contact-payments", userId, contactUserId],
+  });
+  queryClient.invalidateQueries({
+    queryKey: ["contact-balance", userId, contactUserId],
+  });
+  queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+  queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+}
+
+export function useCreateContactPayment() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: CreateContactPaymentInput) => {
+      const [lo, hi] = sortPair(input.paidBy, input.paidTo);
+
+      const { data, error } = await supabase
+        .from("contact_payments")
+        .insert({
+          paid_by: input.paidBy,
+          paid_to: input.paidTo,
+          user_lo: lo,
+          user_hi: hi,
+          amount: input.amount,
+          note: input.note ?? null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      invalidateContactPaymentQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
+    },
+  });
+}
+
+interface UpdateContactPaymentInput extends CreateContactPaymentInput {
+  paymentId: string;
+}
+
+export function useUpdateContactPayment() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: UpdateContactPaymentInput) => {
+      const { data, error } = await supabase
+        .from("contact_payments")
+        .update({
+          paid_by: input.paidBy,
+          paid_to: input.paidTo,
+          amount: input.amount,
+          note: input.note ?? null,
+        })
+        .eq("id", input.paymentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      invalidateContactPaymentQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
+    },
+  });
+}
+
+export function useDeleteContactPayment() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      paymentId,
+    }: {
+      paymentId: string;
+      contactUserId: string;
+    }) => {
+      const { error } = await supabase
+        .from("contact_payments")
+        .delete()
+        .eq("id", paymentId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      invalidateContactPaymentQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }
