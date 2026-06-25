@@ -1,6 +1,6 @@
 # SplitBill
 
-A Splitwise clone built with Expo (React Native) and Supabase.
+A bill splitting app built with Expo (React Native) and Supabase.
 
 ## Tech Stack
 
