@@ -102,7 +102,7 @@ describe("Activity screen", () => {
     ).toBeTruthy();
   });
 
-  it("labels the current user's own expenses as 'You'", async () => {
+  it("shows what the current user lent on their own expense", async () => {
     setActivity({
       data: [
         {
@@ -113,17 +113,22 @@ describe("Activity screen", () => {
           payer: { full_name: "Me" },
           groups: { name: "Trip" },
           date: "2024-01-01",
+          expense_splits: [
+            { user_id: "u1", amount: 10 },
+            { user_id: "u2", amount: 20 },
+          ],
         },
       ],
     });
     await renderWithPaper(<Activity />);
 
     expect(screen.getByText("Dinner")).toBeTruthy();
-    expect(screen.getByText("You paid in Trip")).toBeTruthy();
-    expect(screen.getByText("$30.00")).toBeTruthy();
+    expect(screen.getByText("You paid $30.00 in Trip")).toBeTruthy();
+    expect(screen.getByText("You lent")).toBeTruthy();
+    expect(screen.getByText("$20.00")).toBeTruthy();
   });
 
-  it("labels other members' expenses by their name and group", async () => {
+  it("shows what the current user borrowed on another member's expense", async () => {
     setActivity({
       data: [
         {
@@ -134,15 +139,21 @@ describe("Activity screen", () => {
           payer: { full_name: "Bob" },
           groups: { name: "Trip" },
           date: "2024-01-02",
+          expense_splits: [
+            { user_id: "u1", amount: 6 },
+            { user_id: "u2", amount: 6 },
+          ],
         },
       ],
     });
     await renderWithPaper(<Activity />);
 
-    expect(screen.getByText("Bob paid in Trip")).toBeTruthy();
+    expect(screen.getByText("Bob paid $12.00 in Trip")).toBeTruthy();
+    expect(screen.getByText("You borrowed")).toBeTruthy();
+    expect(screen.getByText("$6.00")).toBeTruthy();
   });
 
-  it("falls back gracefully when payer and group are missing", async () => {
+  it("filters out expenses the current user is not involved in", async () => {
     setActivity({
       data: [
         {
@@ -153,12 +164,14 @@ describe("Activity screen", () => {
           payer: null,
           groups: null,
           date: "2024-01-03",
+          expense_splits: [{ user_id: "u3", amount: 5 }],
         },
       ],
     });
     await renderWithPaper(<Activity />);
 
-    expect(screen.getByText("Someone paid in a group")).toBeTruthy();
+    expect(screen.queryByText("Snacks")).toBeNull();
+    expect(screen.getByText("No recent activity")).toBeTruthy();
   });
 
   it("shows a payment the current user made to settle a debt", async () => {
@@ -220,14 +233,19 @@ describe("Activity screen", () => {
           payer: { id: "u1", full_name: "Me" },
           user_lo_profile: { id: "u1", full_name: "Me" },
           user_hi_profile: { id: "u2", full_name: "Bob" },
+          expense_splits: [
+            { user_id: "u1", amount: 12 },
+            { user_id: "u2", amount: 12 },
+          ],
         },
       ],
     });
     await renderWithPaper(<Activity />);
 
     expect(screen.getByText("Movie tickets")).toBeTruthy();
-    expect(screen.getByText("You paid · with Bob")).toBeTruthy();
-    expect(screen.getByText("$24.00")).toBeTruthy();
+    expect(screen.getByText("You paid $24.00 · with Bob")).toBeTruthy();
+    expect(screen.getByText("You lent")).toBeTruthy();
+    expect(screen.getByText("$12.00")).toBeTruthy();
   });
 
   it("labels a contact expense paid by the other person", async () => {
@@ -244,12 +262,18 @@ describe("Activity screen", () => {
           payer: { id: "u2", full_name: "Bob" },
           user_lo_profile: { id: "u1", full_name: "Me" },
           user_hi_profile: { id: "u2", full_name: "Bob" },
+          expense_splits: [
+            { user_id: "u1", amount: 20 },
+            { user_id: "u2", amount: 20 },
+          ],
         },
       ],
     });
     await renderWithPaper(<Activity />);
 
-    expect(screen.getByText("Bob paid · with you")).toBeTruthy();
+    expect(screen.getByText("Bob paid $40.00 · with you")).toBeTruthy();
+    expect(screen.getByText("You borrowed")).toBeTruthy();
+    expect(screen.getByText("$20.00")).toBeTruthy();
   });
 
   it("shows a contact payment the current user made", async () => {

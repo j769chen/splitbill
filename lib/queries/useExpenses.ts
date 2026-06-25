@@ -13,6 +13,7 @@ export interface ActivityExpense {
   paid_by: string;
   payer: Profile | null;
   groups: { name: string } | null;
+  expense_splits: { user_id: string; amount: number }[];
 }
 
 // Builds the RPC split payload, converting each split into the group/pair base
@@ -47,7 +48,8 @@ export function useRecentActivity() {
           date,
           paid_by,
           payer:profiles!expenses_paid_by_fkey (*),
-          groups (name)
+          groups (name),
+          expense_splits (user_id, amount)
         `
         )
         .order("date", { ascending: false })

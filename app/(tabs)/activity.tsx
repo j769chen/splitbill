@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { useAppTheme } from "@/lib/theme";
 import {
   ActivityFeedItemCard,
+  isInvolvedInExpense,
   type ActivityFeedItem,
 } from "@/components/activity/ActivityFeedItem";
 import { EmptyState } from "@/components/EmptyState";
@@ -72,13 +73,15 @@ export default function Activity() {
   ]);
 
   const feed: ActivityFeedItem[] = [
-    ...(expenses ?? []).map(
-      (expense): ActivityFeedItem => ({
-        kind: "expense",
-        ts: expense.date,
-        expense,
-      })
-    ),
+    ...(expenses ?? [])
+      .filter((expense) => isInvolvedInExpense(expense, user?.id))
+      .map(
+        (expense): ActivityFeedItem => ({
+          kind: "expense",
+          ts: expense.date,
+          expense,
+        })
+      ),
     ...(payments ?? []).map(
       (payment): ActivityFeedItem => ({
         kind: "payment",
@@ -86,13 +89,15 @@ export default function Activity() {
         payment,
       })
     ),
-    ...(contactExpenses ?? []).map(
-      (contactExpense): ActivityFeedItem => ({
-        kind: "contact-expense",
-        ts: contactExpense.date,
-        contactExpense,
-      })
-    ),
+    ...(contactExpenses ?? [])
+      .filter((contactExpense) => isInvolvedInExpense(contactExpense, user?.id))
+      .map(
+        (contactExpense): ActivityFeedItem => ({
+          kind: "contact-expense",
+          ts: contactExpense.date,
+          contactExpense,
+        })
+      ),
     ...(contactPayments ?? []).map(
       (contactPayment): ActivityFeedItem => ({
         kind: "contact-payment",

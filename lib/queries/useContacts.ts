@@ -50,6 +50,7 @@ export interface ActivityContactExpense {
   payer: Profile | null;
   user_lo_profile: Profile | null;
   user_hi_profile: Profile | null;
+  expense_splits: { user_id: string; amount: number }[];
 }
 
 export function useRecentContactActivity() {
@@ -72,7 +73,8 @@ export function useRecentContactActivity() {
           user_hi,
           payer:profiles!contact_expenses_paid_by_fkey (*),
           user_lo_profile:profiles!contact_expenses_user_lo_fkey (*),
-          user_hi_profile:profiles!contact_expenses_user_hi_fkey (*)
+          user_hi_profile:profiles!contact_expenses_user_hi_fkey (*),
+          expense_splits:contact_expense_splits (user_id, amount)
         `
         )
         .order("date", { ascending: false })

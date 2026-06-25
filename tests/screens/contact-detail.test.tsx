@@ -204,7 +204,9 @@ describe("ContactDetail screen", () => {
 
     await fireEvent.press(screen.getByText("Ski Trip"));
 
-    expect(mockPush).toHaveBeenCalledWith("/(tabs)/groups/g1");
+    expect(mockPush).toHaveBeenCalledWith("/(tabs)/groups/g1", {
+      withAnchor: true,
+    });
   });
 
   it("navigates to add-expense with the contact id", async () => {

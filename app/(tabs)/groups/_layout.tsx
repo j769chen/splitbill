@@ -1,6 +1,15 @@
 import { Stack } from "expo-router";
 import { useAppTheme } from "@/lib/theme";
 
+// Anchor the stack at the Groups list. Without this, deep-linking or
+// cross-tab navigating straight to a group ([id]) makes that screen the only
+// entry in the stack — no back button, and the Groups tab gets stranded on a
+// detail screen with no way back to the list. In-app cross-tab callers also
+// pass `withAnchor` so the list is pushed beneath the detail screen.
+export const unstable_settings = {
+  initialRouteName: "index",
+};
+
 export default function GroupsLayout() {
   const theme = useAppTheme();
   return (

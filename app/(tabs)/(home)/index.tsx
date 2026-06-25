@@ -113,7 +113,11 @@ export default function Dashboard() {
                   avatarSize={48}
                   showChevron={false}
                   style={{ marginBottom: 0 }}
-                  onPress={() => router.push(`/(tabs)/groups/${group.id}`)}
+                  onPress={() =>
+                    router.push(`/(tabs)/groups/${group.id}`, {
+                      withAnchor: true,
+                    })
+                  }
                 />
               ))}
             </View>

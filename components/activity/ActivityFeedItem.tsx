@@ -69,6 +69,53 @@ export function ActivityFeedItemCard({
   }
 }
 
+// True when the current user paid for or has a split in the expense.
+export function isInvolvedInExpense(
+  expense: {
+    paid_by: string;
+    expense_splits: { user_id: string; amount: number }[];
+  },
+  currentUserId: string | undefined
+): boolean {
+  if (expense.paid_by === currentUserId) return true;
+  const userShare =
+    expense.expense_splits?.find((split) => split.user_id === currentUserId)
+      ?.amount ?? 0;
+  return userShare > 0;
+}
+
+// Net summary for the current user on an expense: positive means they lent
+// (get back, shown green), negative means they borrowed (owe, shown red).
+function getExpenseSummary(
+  expense: {
+    amount: number;
+    paid_by: string;
+    expense_splits: { user_id: string; amount: number }[];
+  },
+  currentUserId: string | undefined,
+  theme: ReturnType<typeof useAppTheme>
+) {
+  const isPayer = expense.paid_by === currentUserId;
+  const userShare =
+    expense.expense_splits?.find((split) => split.user_id === currentUserId)
+      ?.amount ?? 0;
+  const lentAmount = expense.amount - userShare;
+  const isInvolved = isPayer || userShare > 0;
+  const amount = isPayer ? lentAmount : userShare;
+  const color =
+    !isInvolved || amount <= 0
+      ? theme.colors.onSurfaceVariant
+      : isPayer
+        ? theme.colors.success
+        : theme.colors.error;
+  return {
+    isInvolved,
+    amount,
+    color,
+    label: isPayer ? "You lent" : "You borrowed",
+  };
+}
+
 function ExpenseRow({
   item,
   currentUserId,
@@ -81,6 +128,7 @@ function ExpenseRow({
     item.paid_by === currentUserId
       ? "You"
       : item.payer?.full_name ?? "Someone";
+  const summary = getExpenseSummary(item, currentUserId, theme);
 
   return (
     <Card mode="elevated" style={{ marginBottom: 12 }}>
@@ -101,13 +149,31 @@ function ExpenseRow({
                 variant="bodySmall"
                 style={{ color: theme.colors.onSurfaceVariant }}
               >
-                {payerName} paid in {item.groups?.name ?? "a group"}
+                {payerName} paid {formatCurrency(item.amount, item.currency)} in{" "}
+                {item.groups?.name ?? "a group"}
               </Text>
             </View>
           </View>
-          <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-            {formatCurrency(item.amount, item.currency)}
-          </Text>
+          {summary.isInvolved ? (
+            <View style={{ alignItems: "flex-end" }}>
+              <Text variant="labelSmall" style={{ color: summary.color }}>
+                {summary.label}
+              </Text>
+              <Text
+                variant="titleMedium"
+                style={{ fontWeight: "bold", color: summary.color }}
+              >
+                {formatCurrency(summary.amount, item.currency)}
+              </Text>
+            </View>
+          ) : (
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              Not involved
+            </Text>
+          )}
         </View>
         <Text
           variant="labelSmall"
@@ -140,6 +206,7 @@ function ContactExpenseRow({
     otherProfile?.id === currentUserId
       ? "you"
       : otherProfile?.full_name ?? "someone";
+  const summary = getExpenseSummary(item, currentUserId, theme);
 
   return (
     <Card mode="elevated" style={{ marginBottom: 12 }}>
@@ -160,13 +227,31 @@ function ContactExpenseRow({
                 variant="bodySmall"
                 style={{ color: theme.colors.onSurfaceVariant }}
               >
-                {payerName} paid · with {otherName}
+                {payerName} paid {formatCurrency(item.amount, item.currency)} ·
+                with {otherName}
               </Text>
             </View>
           </View>
-          <Text variant="titleMedium" style={{ fontWeight: "bold" }}>
-            {formatCurrency(item.amount, item.currency)}
-          </Text>
+          {summary.isInvolved ? (
+            <View style={{ alignItems: "flex-end" }}>
+              <Text variant="labelSmall" style={{ color: summary.color }}>
+                {summary.label}
+              </Text>
+              <Text
+                variant="titleMedium"
+                style={{ fontWeight: "bold", color: summary.color }}
+              >
+                {formatCurrency(summary.amount, item.currency)}
+              </Text>
+            </View>
+          ) : (
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              Not involved
+            </Text>
+          )}
         </View>
         <Text
           variant="labelSmall"
