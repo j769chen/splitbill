@@ -1,6 +1,6 @@
-import { screen } from "@testing-library/react-native";
+import { screen, fireEvent } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
-import Activity from "@/app/(tabs)/activity";
+import Activity from "@/app/(tabs)/activity/index";
 
 const mockRefetch = jest.fn();
 const mockRefetchPayments = jest.fn();
@@ -8,6 +8,7 @@ const mockRefetchContactExpenses = jest.fn();
 const mockRefetchContactPayments = jest.fn();
 const mockRefetchSimplifyEvents = jest.fn();
 
+jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useExpenses", () => ({ useRecentActivity: jest.fn() }));
 jest.mock("@/lib/queries/usePayments", () => ({ useRecentPayments: jest.fn() }));
@@ -19,6 +20,7 @@ jest.mock("@/lib/queries/useGroups", () => ({
   useRecentGroupSettingChanges: jest.fn(),
 }));
 
+import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import { useRecentActivity } from "@/lib/queries/useExpenses";
 import { useRecentPayments } from "@/lib/queries/usePayments";
@@ -110,6 +112,7 @@ describe("Activity screen", () => {
           description: "Dinner",
           amount: 30,
           paid_by: "u1",
+          group_id: "g1",
           payer: { full_name: "Me" },
           groups: { name: "Trip" },
           date: "2024-01-01",
@@ -136,6 +139,7 @@ describe("Activity screen", () => {
           description: "Taxi",
           amount: 12,
           paid_by: "u2",
+          group_id: "g1",
           payer: { full_name: "Bob" },
           groups: { name: "Trip" },
           date: "2024-01-02",
@@ -183,6 +187,7 @@ describe("Activity screen", () => {
           created_at: "2024-01-05",
           paid_by: "u1",
           paid_to: "u2",
+          group_id: "g1",
           note: null,
           payer: { full_name: "Me" },
           payee: { full_name: "Bob" },
@@ -206,6 +211,7 @@ describe("Activity screen", () => {
           created_at: "2024-01-06",
           paid_by: "u3",
           paid_to: "u1",
+          group_id: "g2",
           note: "thanks!",
           payer: { full_name: "Carol" },
           payee: { full_name: "Me" },
@@ -357,6 +363,191 @@ describe("Activity screen", () => {
     await renderWithPaper(<Activity />);
 
     expect(screen.getByText("Bob turned off simplify debts")).toBeTruthy();
+  });
+
+  it("opens the group when a group expense row is tapped", async () => {
+    setActivity({
+      data: [
+        {
+          id: "e1",
+          description: "Dinner",
+          amount: 30,
+          paid_by: "u1",
+          group_id: "g1",
+          payer: { full_name: "Me" },
+          groups: { name: "Trip" },
+          date: "2024-01-01",
+          expense_splits: [{ user_id: "u1", amount: 30 }],
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    await fireEvent.press(screen.getByText("Dinner"));
+    expect(router.push).toHaveBeenCalledWith("/activity/group/g1");
+  });
+
+  it("edits a group expense when its pencil is tapped", async () => {
+    setActivity({
+      data: [
+        {
+          id: "e1",
+          description: "Dinner",
+          amount: 30,
+          paid_by: "u1",
+          group_id: "g1",
+          payer: { full_name: "Me" },
+          groups: { name: "Trip" },
+          date: "2024-01-01",
+          expense_splits: [{ user_id: "u1", amount: 30 }],
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    await fireEvent.press(screen.getByLabelText("Edit expense"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/group-add-expense",
+      params: { groupId: "g1", expenseId: "e1" },
+    });
+  });
+
+  it("opens the group when a payment row is tapped", async () => {
+    setPayments({
+      data: [
+        {
+          id: "p1",
+          amount: 20,
+          created_at: "2024-01-05",
+          paid_by: "u1",
+          paid_to: "u2",
+          group_id: "g1",
+          note: null,
+          payer: { full_name: "Me" },
+          payee: { full_name: "Bob" },
+          groups: { name: "Trip" },
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    await fireEvent.press(screen.getByText("You paid Bob"));
+    expect(router.push).toHaveBeenCalledWith("/activity/group/g1");
+  });
+
+  it("edits a payment when its pencil is tapped", async () => {
+    setPayments({
+      data: [
+        {
+          id: "p1",
+          amount: 20,
+          created_at: "2024-01-05",
+          paid_by: "u1",
+          paid_to: "u2",
+          group_id: "g1",
+          note: null,
+          payer: { full_name: "Me" },
+          payee: { full_name: "Bob" },
+          groups: { name: "Trip" },
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    await fireEvent.press(screen.getByLabelText("Edit payment"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/group-edit-payment",
+      params: { groupId: "g1", paymentId: "p1" },
+    });
+  });
+
+  it("opens the contact and edits a contact expense", async () => {
+    setContactExpenses({
+      data: [
+        {
+          id: "ce1",
+          description: "Movie tickets",
+          amount: 24,
+          date: "2024-01-07",
+          paid_by: "u1",
+          user_lo: "u1",
+          user_hi: "u2",
+          payer: { id: "u1", full_name: "Me" },
+          user_lo_profile: { id: "u1", full_name: "Me" },
+          user_hi_profile: { id: "u2", full_name: "Bob" },
+          expense_splits: [
+            { user_id: "u1", amount: 12 },
+            { user_id: "u2", amount: 12 },
+          ],
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    await fireEvent.press(screen.getByText("Movie tickets"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/activity/contacts/[id]",
+      params: { id: "u2", name: "Bob" },
+    });
+
+    await fireEvent.press(screen.getByLabelText("Edit expense"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/activity/contacts/add-expense",
+      params: { contactUserId: "u2", expenseId: "ce1" },
+    });
+  });
+
+  it("opens the contact and edits a contact payment", async () => {
+    setContactPayments({
+      data: [
+        {
+          id: "cp1",
+          amount: 18,
+          currency: "USD",
+          created_at: "2024-01-09",
+          paid_by: "u1",
+          paid_to: "u2",
+          note: "rent",
+          payer: { id: "u1", full_name: "Me" },
+          payee: { id: "u2", full_name: "Bob" },
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    await fireEvent.press(screen.getByText("You paid Bob"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/activity/contacts/[id]",
+      params: { id: "u2", name: "Bob" },
+    });
+
+    await fireEvent.press(screen.getByLabelText("Edit payment"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/activity/contacts/settle-up",
+      params: { contactUserId: "u2", paymentId: "cp1" },
+    });
+  });
+
+  it("navigates to the group from a simplify-debts row and shows no edit control", async () => {
+    setSimplifyEvents({
+      data: [
+        {
+          id: "sd1",
+          group_id: "g1",
+          actor_id: "u1",
+          enabled: true,
+          created_at: "2024-01-11",
+          actor: { id: "u1", full_name: "Me" },
+          groups: { name: "Trip" },
+        },
+      ],
+    });
+    await renderWithPaper(<Activity />);
+
+    expect(screen.queryByLabelText("Edit expense")).toBeNull();
+    expect(screen.queryByLabelText("Edit payment")).toBeNull();
+    await fireEvent.press(screen.getByText("You turned on simplify debts"));
+    expect(router.push).toHaveBeenCalledWith("/activity/group/g1");
   });
 
 });

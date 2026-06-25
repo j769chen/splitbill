@@ -32,7 +32,7 @@ export function GroupDetailScreen({
   leaveFallbackRoute = "/(tabs)/groups",
 }: {
   groupId: string;
-  leaveFallbackRoute?: "/(tabs)/groups" | "/(tabs)/(home)";
+  leaveFallbackRoute?: "/(tabs)/groups" | "/(tabs)/(home)" | "/(tabs)/activity";
 }) {
   const id = groupId;
   const theme = useAppTheme();

@@ -75,6 +75,7 @@ export default function TabsLayout() {
         name="activity"
         options={{
           title: "Activity",
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="history" size={size} color={color} />
           ),

@@ -1,6 +1,7 @@
 import { View } from "react-native";
+import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Card, Text } from "react-native-paper";
+import { Card, IconButton, Text } from "react-native-paper";
 import {
   type ActivityExpense,
 } from "@/lib/queries/useExpenses";
@@ -130,8 +131,15 @@ function ExpenseRow({
       : item.payer?.full_name ?? "Someone";
   const summary = getExpenseSummary(item, currentUserId, theme);
 
+  const openGroup = () => router.push(`/activity/group/${item.group_id}`);
+  const editExpense = () =>
+    router.push({
+      pathname: "/group-add-expense",
+      params: { groupId: item.group_id, expenseId: item.id },
+    });
+
   return (
-    <Card mode="elevated" style={{ marginBottom: 12 }}>
+    <Card mode="elevated" style={{ marginBottom: 12 }} onPress={openGroup}>
       <Card.Content>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
@@ -154,26 +162,35 @@ function ExpenseRow({
               </Text>
             </View>
           </View>
-          {summary.isInvolved ? (
-            <View style={{ alignItems: "flex-end" }}>
-              <Text variant="labelSmall" style={{ color: summary.color }}>
-                {summary.label}
-              </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {summary.isInvolved ? (
+              <View style={{ alignItems: "flex-end" }}>
+                <Text variant="labelSmall" style={{ color: summary.color }}>
+                  {summary.label}
+                </Text>
+                <Text
+                  variant="titleMedium"
+                  style={{ fontWeight: "bold", color: summary.color }}
+                >
+                  {formatCurrency(summary.amount, item.currency)}
+                </Text>
+              </View>
+            ) : (
               <Text
-                variant="titleMedium"
-                style={{ fontWeight: "bold", color: summary.color }}
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant }}
               >
-                {formatCurrency(summary.amount, item.currency)}
+                Not involved
               </Text>
-            </View>
-          ) : (
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              Not involved
-            </Text>
-          )}
+            )}
+            <IconButton
+              icon="pencil-outline"
+              size={18}
+              accessibilityLabel="Edit expense"
+              onPress={editExpense}
+              style={{ margin: 0, marginLeft: 4 }}
+            />
+          </View>
         </View>
         <Text
           variant="labelSmall"
@@ -208,8 +225,25 @@ function ContactExpenseRow({
       : otherProfile?.full_name ?? "someone";
   const summary = getExpenseSummary(item, currentUserId, theme);
 
+  const contactUserId =
+    item.user_lo === currentUserId ? item.user_hi : item.user_lo;
+  const contactProfile =
+    item.user_lo === currentUserId
+      ? item.user_hi_profile
+      : item.user_lo_profile;
+  const openContact = () =>
+    router.push({
+      pathname: "/activity/contacts/[id]",
+      params: { id: contactUserId, name: contactProfile?.full_name ?? "" },
+    });
+  const editExpense = () =>
+    router.push({
+      pathname: "/activity/contacts/add-expense",
+      params: { contactUserId, expenseId: item.id },
+    });
+
   return (
-    <Card mode="elevated" style={{ marginBottom: 12 }}>
+    <Card mode="elevated" style={{ marginBottom: 12 }} onPress={openContact}>
       <Card.Content>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
@@ -232,26 +266,35 @@ function ContactExpenseRow({
               </Text>
             </View>
           </View>
-          {summary.isInvolved ? (
-            <View style={{ alignItems: "flex-end" }}>
-              <Text variant="labelSmall" style={{ color: summary.color }}>
-                {summary.label}
-              </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {summary.isInvolved ? (
+              <View style={{ alignItems: "flex-end" }}>
+                <Text variant="labelSmall" style={{ color: summary.color }}>
+                  {summary.label}
+                </Text>
+                <Text
+                  variant="titleMedium"
+                  style={{ fontWeight: "bold", color: summary.color }}
+                >
+                  {formatCurrency(summary.amount, item.currency)}
+                </Text>
+              </View>
+            ) : (
               <Text
-                variant="titleMedium"
-                style={{ fontWeight: "bold", color: summary.color }}
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant }}
               >
-                {formatCurrency(summary.amount, item.currency)}
+                Not involved
               </Text>
-            </View>
-          ) : (
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              Not involved
-            </Text>
-          )}
+            )}
+            <IconButton
+              icon="pencil-outline"
+              size={18}
+              accessibilityLabel="Edit expense"
+              onPress={editExpense}
+              style={{ margin: 0, marginLeft: 4 }}
+            />
+          </View>
         </View>
         <Text
           variant="labelSmall"
@@ -281,6 +324,13 @@ function PaymentRow({
       ? "you"
       : item.payee?.full_name ?? "someone";
 
+  const openGroup = () => router.push(`/activity/group/${item.group_id}`);
+  const editPayment = () =>
+    router.push({
+      pathname: "/group-edit-payment",
+      params: { groupId: item.group_id, paymentId: item.id },
+    });
+
   return (
     <Card
       mode="contained"
@@ -288,6 +338,7 @@ function PaymentRow({
         marginBottom: 12,
         backgroundColor: theme.colors.secondaryContainer,
       }}
+      onPress={openGroup}
     >
       <Card.Content>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -316,12 +367,22 @@ function PaymentRow({
               </Text>
             </View>
           </View>
-          <Text
-            variant="titleMedium"
-            style={{ fontWeight: "bold", color: theme.colors.onSecondaryContainer }}
-          >
-            {formatCurrency(item.amount, item.currency)}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              variant="titleMedium"
+              style={{ fontWeight: "bold", color: theme.colors.onSecondaryContainer }}
+            >
+              {formatCurrency(item.amount, item.currency)}
+            </Text>
+            <IconButton
+              icon="pencil-outline"
+              size={18}
+              iconColor={theme.colors.onSecondaryContainer}
+              accessibilityLabel="Edit payment"
+              onPress={editPayment}
+              style={{ margin: 0, marginLeft: 4 }}
+            />
+          </View>
         </View>
         {item.note ? (
           <Text
@@ -359,6 +420,20 @@ function ContactPaymentRow({
       ? "you"
       : item.payee?.full_name ?? "someone";
 
+  const isPayer = item.paid_by === currentUserId;
+  const contactUserId = isPayer ? item.paid_to : item.paid_by;
+  const contactProfile = isPayer ? item.payee : item.payer;
+  const openContact = () =>
+    router.push({
+      pathname: "/activity/contacts/[id]",
+      params: { id: contactUserId, name: contactProfile?.full_name ?? "" },
+    });
+  const editPayment = () =>
+    router.push({
+      pathname: "/activity/contacts/settle-up",
+      params: { contactUserId, paymentId: item.id },
+    });
+
   return (
     <Card
       mode="contained"
@@ -366,6 +441,7 @@ function ContactPaymentRow({
         marginBottom: 12,
         backgroundColor: theme.colors.secondaryContainer,
       }}
+      onPress={openContact}
     >
       <Card.Content>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -388,12 +464,22 @@ function ContactPaymentRow({
               </Text>
             </View>
           </View>
-          <Text
-            variant="titleMedium"
-            style={{ fontWeight: "bold", color: theme.colors.onSecondaryContainer }}
-          >
-            {formatCurrency(item.amount, item.currency)}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              variant="titleMedium"
+              style={{ fontWeight: "bold", color: theme.colors.onSecondaryContainer }}
+            >
+              {formatCurrency(item.amount, item.currency)}
+            </Text>
+            <IconButton
+              icon="pencil-outline"
+              size={18}
+              iconColor={theme.colors.onSecondaryContainer}
+              accessibilityLabel="Edit payment"
+              onPress={editPayment}
+              style={{ margin: 0, marginLeft: 4 }}
+            />
+          </View>
         </View>
         {item.note ? (
           <Text
@@ -430,7 +516,11 @@ function SimplifyDebtsRow({
   const groupName = item.groups?.name ?? "a group";
 
   return (
-    <Card mode="elevated" style={{ marginBottom: 12 }}>
+    <Card
+      mode="elevated"
+      style={{ marginBottom: 12 }}
+      onPress={() => router.push(`/activity/group/${item.group_id}`)}
+    >
       <Card.Content>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <MaterialCommunityIcons

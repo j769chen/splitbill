@@ -11,6 +11,7 @@ export interface ActivityExpense {
   currency: string;
   date: string;
   paid_by: string;
+  group_id: string;
   payer: Profile | null;
   groups: { name: string } | null;
   expense_splits: { user_id: string; amount: number }[];
@@ -47,6 +48,7 @@ export function useRecentActivity() {
           currency,
           date,
           paid_by,
+          group_id,
           payer:profiles!expenses_paid_by_fkey (*),
           groups (name),
           expense_splits (user_id, amount)

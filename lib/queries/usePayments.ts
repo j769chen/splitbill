@@ -10,6 +10,7 @@ export interface ActivityPayment {
   created_at: string;
   paid_by: string;
   paid_to: string;
+  group_id: string;
   note: string | null;
   payer: Profile | null;
   payee: Profile | null;
@@ -32,6 +33,7 @@ export function useRecentPayments() {
           created_at,
           paid_by,
           paid_to,
+          group_id,
           note,
           payer:profiles!payments_paid_by_fkey (*),
           payee:profiles!payments_paid_to_fkey (*),
