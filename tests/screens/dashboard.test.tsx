@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
-import Dashboard from "@/app/(tabs)/index";
+import Dashboard from "@/app/(tabs)/(home)/index";
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));

@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
-import AddContact from "@/app/contacts/add";
+import AddContact from "@/app/(tabs)/(home)/contacts/add";
 
 const mockBack = jest.fn();
 const mockSendAsync = jest.fn();

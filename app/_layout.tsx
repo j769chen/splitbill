@@ -81,7 +81,6 @@ function ThemedApp() {
                 >
                   <Stack.Screen name="(auth)" />
                   <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="contacts" />
                 </Stack>
               </ConfirmProvider>
             </SnackbarProvider>

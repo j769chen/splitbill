@@ -1,6 +1,6 @@
 import { fireEvent, screen } from "@testing-library/react-native";
 import { renderWithPaper, actAsync } from "../helpers/testUtils";
-import ContactDetail from "@/app/contacts/[id]";
+import ContactDetail from "@/app/(tabs)/(home)/contacts/[id]";
 
 const mockPush = jest.fn();
 const mockDeleteMutate = jest.fn();
