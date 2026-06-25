@@ -6,6 +6,11 @@ import {
 } from "./currency";
 import type { SplitType } from "./types";
 
+function roundToDecimals(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
 export function formatCurrency(
   amount: number,
   currencyCode: CurrencyCode = DEFAULT_CURRENCY
@@ -37,20 +42,29 @@ export function convertSplitsToBase<T extends { amount: number }>(
   return result;
 }
 
-export function splitEqual(total: number, memberCount: number): number[] {
-  const perPerson = Math.floor((total * 100) / memberCount) / 100;
-  const remainder = Math.round((total - perPerson * memberCount) * 100) / 100;
+export function splitEqual(
+  total: number,
+  memberCount: number,
+  decimals = 2
+): number[] {
+  const factor = 10 ** decimals;
+  const perPerson = Math.floor((total * factor) / memberCount) / factor;
+  const remainder = roundToDecimals(total - perPerson * memberCount, decimals);
   const splits = new Array(memberCount).fill(perPerson);
   if (remainder > 0) {
-    splits[0] = Math.round((splits[0] + remainder) * 100) / 100;
+    splits[0] = roundToDecimals(splits[0] + remainder, decimals);
   }
   return splits;
 }
 
-export function validateSplitsTotal(total: number, splits: number[]): boolean {
-  const roundedTotal = Math.round(total * 100) / 100;
+export function validateSplitsTotal(
+  total: number,
+  splits: number[],
+  decimals = 2
+): boolean {
+  const roundedTotal = roundToDecimals(total, decimals);
   const splitTotal = splits.reduce((sum, amount) => sum + amount, 0);
-  return Math.round(splitTotal * 100) / 100 === roundedTotal;
+  return roundToDecimals(splitTotal, decimals) === roundedTotal;
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {
@@ -68,8 +82,10 @@ export function computeSplits(
   rawInputs: Record<string, string>,
   currencyCode: CurrencyCode = DEFAULT_CURRENCY
 ): ComputeSplitsResult {
+  const decimals = getCurrencyDecimals(currencyCode);
+
   if (splitType === "equal") {
-    const amounts = splitEqual(totalAmount, memberIds.length);
+    const amounts = splitEqual(totalAmount, memberIds.length, decimals);
     return {
       ok: true,
       splits: memberIds.map((userId, i) => ({ userId, amount: amounts[i] })),
@@ -79,10 +95,13 @@ export function computeSplits(
   if (splitType === "exact") {
     const splits = memberIds.map((userId) => ({
       userId,
-      amount: parseFloat(rawInputs[userId] || "0"),
+      amount: roundToDecimals(parseFloat(rawInputs[userId] || "0"), decimals),
     }));
     const sum = splits.reduce((acc, s) => acc + s.amount, 0);
-    if (Math.abs(sum - totalAmount) > 0.01) {
+    // Tolerate up to half of the currency's smallest unit so rounding noise
+    // doesn't reject an otherwise-balanced split.
+    const epsilon = 0.5 / 10 ** decimals;
+    if (Math.abs(sum - totalAmount) > epsilon) {
       return {
         ok: false,
         error: `Split amounts (${formatCurrency(sum, currencyCode)}) don't add up to total (${formatCurrency(totalAmount, currencyCode)})`,
@@ -101,17 +120,18 @@ export function computeSplits(
       error: `Percentages must add up to 100% (currently ${pctSum.toFixed(1)}%)`,
     };
   }
-  // Distribute by percentage, assigning any rounding remainder to the
-  // last member so splits always sum exactly to the total.
+  // Distribute by percentage, rounding to the currency's precision and
+  // assigning any rounding remainder to the last member so splits always sum
+  // exactly to the total.
   const splits = memberIds.map((userId) => {
     const pct = parseFloat(rawInputs[userId] || "0");
-    return { userId, amount: Math.round(totalAmount * pct) / 100 };
+    return { userId, amount: roundToDecimals((totalAmount * pct) / 100, decimals) };
   });
   const splitSum = splits.reduce((acc, s) => acc + s.amount, 0);
-  const remainder = Math.round((totalAmount - splitSum) * 100) / 100;
+  const remainder = roundToDecimals(totalAmount - splitSum, decimals);
   if (remainder !== 0 && splits.length > 0) {
     const last = splits[splits.length - 1];
-    last.amount = Math.round((last.amount + remainder) * 100) / 100;
+    last.amount = roundToDecimals(last.amount + remainder, decimals);
   }
   return { ok: true, splits };
 }

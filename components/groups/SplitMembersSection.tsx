@@ -1,6 +1,8 @@
 import { View } from "react-native";
 import { Text } from "react-native-paper";
 import { useAppTheme } from "@/lib/theme";
+import { getCurrencyDecimals } from "@/lib/currency";
+import { splitEqual } from "@/lib/utils";
 import type { SplitType } from "@/lib/types";
 import type { PaidByMember } from "./PaidByPicker";
 import { MemberSplitRow } from "./MemberSplitRow";
@@ -30,6 +32,18 @@ export function SplitMembersSection({
 }: SplitMembersSectionProps) {
   const theme = useAppTheme();
 
+  // Preview each member's actual equal share (remainder assigned to the first
+  // selected member), rounded to the currency's precision, so the displayed
+  // amounts reconcile exactly to the total even for zero-decimal currencies.
+  const equalSplits =
+    splitType === "equal" && selectedMemberIds.length > 0
+      ? splitEqual(
+          totalAmount,
+          selectedMemberIds.length,
+          getCurrencyDecimals(currencyCode)
+        )
+      : [];
+
   return (
     <View style={{ marginTop: 24 }}>
       <Text
@@ -41,9 +55,10 @@ export function SplitMembersSection({
       <View style={{ gap: 8 }}>
         {members.map((member) => {
           const isSelected = selectedMemberIds.includes(member.user_id);
+          const splitIndex = selectedMemberIds.indexOf(member.user_id);
           const perPerson =
-            splitType === "equal" && isSelected && selectedMemberIds.length > 0
-              ? totalAmount / selectedMemberIds.length
+            splitType === "equal" && isSelected && splitIndex >= 0
+              ? (equalSplits[splitIndex] ?? 0)
               : 0;
 
           return (

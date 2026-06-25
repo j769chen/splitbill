@@ -128,3 +128,71 @@ describe("computeSplits - percentage", () => {
     });
   });
 });
+
+describe("computeSplits - zero-decimal currencies (JPY)", () => {
+  const isInteger = (splits: { amount: number }[]) =>
+    splits.every((s) => Number.isInteger(s.amount));
+  const total = (splits: { amount: number }[]) =>
+    splits.reduce((acc, s) => acc + s.amount, 0);
+
+  it("splits equally into whole units that sum exactly to the total", () => {
+    const result = computeSplits("equal", 1000, ["a", "b", "c"], {}, "JPY");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.splits).toEqual([
+      { userId: "a", amount: 334 },
+      { userId: "b", amount: 333 },
+      { userId: "c", amount: 333 },
+    ]);
+    expect(isInteger(result.splits)).toBe(true);
+    expect(total(result.splits)).toBe(1000);
+  });
+
+  it("distributes a percentage split into whole units that reconcile", () => {
+    const result = computeSplits(
+      "percentage",
+      1000,
+      ["a", "b", "c"],
+      { a: "33.33", b: "33.33", c: "33.34" },
+      "JPY"
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(isInteger(result.splits)).toBe(true);
+    expect(total(result.splits)).toBe(1000);
+  });
+
+  it("rounds exact inputs to whole units before validating", () => {
+    const result = computeSplits(
+      "exact",
+      1000,
+      ["a", "b"],
+      { a: "600", b: "400" },
+      "JPY"
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.splits).toEqual([
+      { userId: "a", amount: 600 },
+      { userId: "b", amount: 400 },
+    ]);
+  });
+
+  it("reports the unreconciled exact total using whole-unit formatting", () => {
+    const result = computeSplits(
+      "exact",
+      1000,
+      ["a", "b"],
+      { a: "600", b: "300" },
+      "JPY"
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Split amounts (¥900) don't add up to total (¥1000)",
+    });
+  });
+});

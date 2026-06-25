@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Checkbox, Text, TextInput, TouchableRipple } from "react-native-paper";
 import { useAppTheme } from "@/lib/theme";
-import { getCurrencySymbol } from "@/lib/currency";
+import { formatCurrency } from "@/lib/utils";
 import type { SplitType } from "@/lib/types";
 
 type MemberSplitRowProps = {
@@ -30,7 +30,6 @@ export function MemberSplitRow({
   onChangeCustom,
 }: MemberSplitRowProps) {
   const theme = useAppTheme();
-  const symbol = getCurrencySymbol(currencyCode);
 
   return (
     <View>
@@ -71,7 +70,7 @@ export function MemberSplitRow({
               variant="bodyMedium"
               style={{ fontWeight: "600", color: theme.colors.primary }}
             >
-              {`${symbol}${perPerson.toFixed(2)}`}
+              {formatCurrency(perPerson, currencyCode)}
             </Text>
           )}
         </View>
@@ -82,7 +81,9 @@ export function MemberSplitRow({
           mode="outlined"
           dense
           style={{ marginTop: 4, marginLeft: 32 }}
-          placeholder={splitType === "percentage" ? "%" : `${symbol}0.00`}
+          placeholder={
+            splitType === "percentage" ? "%" : formatCurrency(0, currencyCode)
+          }
           value={customValue}
           onChangeText={(val) => onChangeCustom(userId, val)}
           keyboardType="decimal-pad"
