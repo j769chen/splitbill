@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Button, TextInput } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense, useExpenses, useUpdateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
+import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import { computeSplits, getErrorMessage } from "@/lib/utils";
 import { canConvert, getRate } from "@/lib/currency";
 import { useExchangeRates } from "@/lib/exchange-rates";
@@ -36,7 +37,6 @@ export default function AddExpense() {
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
   const [currency, setCurrency] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
 
   const baseCurrency = group?.currency ?? "USD";
   const entryCurrency = currency ?? baseCurrency;
@@ -45,8 +45,8 @@ export default function AddExpense() {
     ? expenses?.find((e) => e.id === expenseId)
     : undefined;
 
-  useEffect(() => {
-    if (!isEdit || hydrated || !existingExpense || members.length === 0) return;
+  useHydrateOnce(isEdit && !!existingExpense && members.length > 0, () => {
+    if (!existingExpense) return;
 
     setDescription(existingExpense.description);
     setAmount(String(existingExpense.amount));
@@ -57,9 +57,7 @@ export default function AddExpense() {
     const splits = existingExpense.expense_splits ?? [];
     const splitUserIds = splits.map((s) => s.user_id);
     setExcludedMemberIds(
-      members
-        .map((m) => m.user_id)
-        .filter((id) => !splitUserIds.includes(id))
+      members.map((m) => m.user_id).filter((id) => !splitUserIds.includes(id))
     );
 
     const total = existingExpense.amount;
@@ -73,8 +71,8 @@ export default function AddExpense() {
       }
     }
     setCustomSplits(custom);
-    setHydrated(true);
-  }, [isEdit, hydrated, existingExpense, members]);
+  });
+
   const selectedMembers = members
     .map((member) => member.user_id)
     .filter((userId) => !excludedMemberIds.includes(userId));

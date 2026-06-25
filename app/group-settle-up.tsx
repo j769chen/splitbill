@@ -50,7 +50,12 @@ export default function SettleUp() {
       return;
     }
 
-    const settleAmount = parseFloat(amount) || selectedDebt.amount;
+    // Fall back to the full debt only when the field is empty/unparseable — an
+    // explicit 0 should be rejected, not silently replaced with the debt total.
+    const parsedAmount = parseFloat(amount);
+    const settleAmount = Number.isNaN(parsedAmount)
+      ? selectedDebt.amount
+      : parsedAmount;
 
     if (settleAmount <= 0) {
       showError("Please enter a valid amount");

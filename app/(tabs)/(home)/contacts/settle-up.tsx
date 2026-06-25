@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import {
   useContacts,
@@ -9,6 +9,7 @@ import {
   useUpdateContactPayment,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
+import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import {
   formatContactSettleLabel,
   getBalanceDirection,
@@ -45,15 +46,12 @@ export default function ContactSettleUp() {
     useState<ContactPaymentDirection>("you_paid");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [hydrated, setHydrated] = useState(false);
 
   const existingPayment = isEdit
     ? payments?.find((p) => p.id === paymentId)
     : undefined;
 
-  useEffect(() => {
-    if (hydrated) return;
-
+  useHydrateOnce(isEdit ? !!existingPayment : true, () => {
     if (isEdit) {
       if (!existingPayment) return;
       setDirection(
@@ -61,7 +59,6 @@ export default function ContactSettleUp() {
       );
       setAmount(existingPayment.amount.toFixed(2));
       setNote(existingPayment.note ?? "");
-      setHydrated(true);
       return;
     }
 
@@ -73,8 +70,7 @@ export default function ContactSettleUp() {
     if (hasSignificantBalance(pairBalance)) {
       setAmount(Math.abs(pairBalance).toFixed(2));
     }
-    setHydrated(true);
-  }, [hydrated, isEdit, existingPayment, pairBalance, user?.id]);
+  });
 
   const handleSubmit = async () => {
     const totalAmount = parseFloat(amount) || 0;

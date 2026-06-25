@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Button, TextInput } from "react-native-paper";
 import {
@@ -9,6 +9,7 @@ import {
   useUpdateContactExpense,
 } from "@/lib/queries/useContacts";
 import { useAuth } from "@/lib/auth";
+import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import { computeSplits, getErrorMessage } from "@/lib/utils";
 import { canConvert, getRate } from "@/lib/currency";
 import { useExchangeRates } from "@/lib/exchange-rates";
@@ -42,7 +43,6 @@ export default function AddContactExpense() {
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
   const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
   const [currency, setCurrency] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
 
   const baseCurrency = pairCurrency ?? "USD";
   const entryCurrency = currency ?? baseCurrency;
@@ -52,8 +52,8 @@ export default function AddContactExpense() {
     ? contactExpenses?.find((e) => e.id === expenseId)
     : undefined;
 
-  useEffect(() => {
-    if (!isEdit || hydrated || !existingExpense) return;
+  useHydrateOnce(isEdit && !!existingExpense, () => {
+    if (!existingExpense) return;
 
     setDescription(existingExpense.description);
     setAmount(String(existingExpense.amount));
@@ -80,8 +80,7 @@ export default function AddContactExpense() {
       }
     }
     setCustomSplits(custom);
-    setHydrated(true);
-  }, [isEdit, hydrated, existingExpense]);
+  });
 
   const members = [
     {

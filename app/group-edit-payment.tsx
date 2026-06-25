@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import { useGroupPayments, useUpdatePayment } from "@/lib/queries/usePayments";
 import { useAuth } from "@/lib/auth";
+import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import { getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
@@ -27,19 +28,17 @@ export default function EditPayment() {
   const [paidTo, setPaidTo] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [hydrated, setHydrated] = useState(false);
 
   const members = group?.group_members ?? [];
   const payment = payments?.find((p) => p.id === paymentId);
 
-  useEffect(() => {
-    if (hydrated || !payment) return;
+  useHydrateOnce(!!payment, () => {
+    if (!payment) return;
     setPaidBy(payment.paid_by);
     setPaidTo(payment.paid_to);
     setAmount(payment.amount.toFixed(2));
     setNote(payment.note ?? "");
-    setHydrated(true);
-  }, [hydrated, payment]);
+  });
 
   const memberName = (member: {
     user_id: string;

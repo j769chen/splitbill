@@ -194,6 +194,17 @@ describe("SettleUp screen", () => {
     expect(mockPayAsync).not.toHaveBeenCalled();
   });
 
+  it("rejects an explicit zero amount instead of falling back to the full debt", async () => {
+    await renderWithPaper(<SettleUp />);
+
+    await fireEvent.press(screen.getByText("$20.00"));
+    await fireEvent.changeText(screen.getByPlaceholderText("0.00"), "0");
+    await fireEvent.press(screen.getByText("Record Payment"));
+
+    expect(mockShowError).toHaveBeenCalledWith("Please enter a valid amount");
+    expect(mockPayAsync).not.toHaveBeenCalled();
+  });
+
   it("surfaces an error when recording the payment fails", async () => {
     mockPayAsync.mockRejectedValue({});
     await renderWithPaper(<SettleUp />);
