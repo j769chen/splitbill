@@ -315,6 +315,26 @@ export interface Database {
         };
         Relationships: [];
       };
+      group_simplify_debts_events: {
+        Row: {
+          id: string;
+          group_id: string;
+          actor_id: string;
+          enabled: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          group_id: string;
+          actor_id: string;
+          enabled: boolean;
+          created_at?: string;
+        };
+        Update: {
+          enabled?: boolean;
+        };
+        Relationships: [];
+      };
     };
     Views: {};
     Functions: {

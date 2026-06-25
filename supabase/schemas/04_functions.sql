@@ -1347,6 +1347,8 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_group public.groups;
+  v_new boolean := coalesce(p_enabled, true);
+  v_old boolean;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -1356,10 +1358,21 @@ begin
     raise exception 'You are not a member of this group';
   end if;
 
+  select simplify_debts into v_old
+  from public.groups
+  where id = p_group_id;
+
   update public.groups
-  set simplify_debts = coalesce(p_enabled, true)
+  set simplify_debts = v_new
   where id = p_group_id
   returning * into v_group;
+
+  -- Record the change so the Activity feed can surface it. Only when the value
+  -- actually flips, so a no-op toggle does not spam the feed.
+  if v_old is distinct from v_new then
+    insert into public.group_simplify_debts_events (group_id, actor_id, enabled)
+    values (p_group_id, v_uid, v_new);
+  end if;
 
   return v_group;
 end;

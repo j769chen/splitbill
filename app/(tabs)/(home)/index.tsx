@@ -50,19 +50,12 @@ export default function Dashboard() {
     : theme.colors.onBrand;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View
         style={{
           paddingHorizontal: 24,
           paddingTop: 16,
           paddingBottom: 32,
-          borderBottomLeftRadius: 24,
-          borderBottomRightRadius: 24,
           backgroundColor: theme.colors.brand,
         }}
       >
@@ -84,106 +77,115 @@ export default function Dashboard() {
         </Text>
       </View>
 
-      <View style={{ paddingHorizontal: 24, marginTop: 24 }}>
-        <SectionHeader
-          title="Your Groups"
-          action={
-            <Button
-              mode="contained"
-              icon="plus"
-              compact
-              contentStyle={{ paddingHorizontal: 12 }}
-              onPress={() => router.push("/(tabs)/groups/create")}
-            >
-              New
-            </Button>
-          }
-        />
-        {!groups || groups.length === 0 ? (
-          <CallToActionCard
-            message="No groups yet. Create one to start splitting expenses!"
-            actionLabel="Create Group"
-            onAction={() => router.push("/(tabs)/groups/create")}
-          />
-        ) : (
-          <View style={{ gap: 12 }}>
-            {groups.map((group) => (
-              <GroupListItem
-                key={group.id}
-                group={group}
-                avatarSize={48}
-                showChevron={false}
-                style={{ marginBottom: 0 }}
-                onPress={() => router.push(`/(tabs)/groups/${group.id}`)}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-
-      <View style={{ paddingHorizontal: 24, marginTop: 32 }}>
-        <SectionHeader
-          title="Contacts"
-          action={
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <View>
-                <IconButton
-                  icon="account-clock-outline"
-                  mode="contained-tonal"
-                  size={20}
-                  onPress={() => router.push("/contacts/requests")}
-                  accessibilityLabel="Contact requests"
-                />
-                {incomingRequestCount > 0 && (
-                  <Badge
-                    style={{ position: "absolute", top: 2, right: 2 }}
-                    size={18}
-                  >
-                    {incomingRequestCount}
-                  </Badge>
-                )}
-              </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={{ paddingHorizontal: 24, marginTop: 24 }}>
+          <SectionHeader
+            title="Your Groups"
+            action={
               <Button
                 mode="contained"
                 icon="plus"
                 compact
                 contentStyle={{ paddingHorizontal: 12 }}
-                onPress={() => router.push("/contacts/add")}
+                onPress={() => router.push("/(tabs)/groups/create")}
               >
                 New
               </Button>
-            </View>
-          }
-        />
-        {!contacts || contacts.length === 0 ? (
-          <CallToActionCard
-            message="No contacts yet. Add someone to split one-on-one expenses!"
-            actionLabel="Add Contact"
-            onAction={() => router.push("/contacts/add")}
+            }
           />
-        ) : (
-          <View style={{ gap: 12 }}>
-            {contacts.map((contact) => (
-              <ContactListItem
-                key={contact.contact_user_id}
-                contact={contact}
-                currency={displayCurrency}
-                onPress={() =>
-                  router.push({
-                    pathname: "/contacts/[id]",
-                    params: {
-                      id: contact.contact_user_id,
-                      name: contact.full_name,
-                    },
-                  })
-                }
-              />
-            ))}
-          </View>
-        )}
-      </View>
+          {!groups || groups.length === 0 ? (
+            <CallToActionCard
+              message="No groups yet. Create one to start splitting expenses!"
+              actionLabel="Create Group"
+              onAction={() => router.push("/(tabs)/groups/create")}
+            />
+          ) : (
+            <View style={{ gap: 12 }}>
+              {groups.map((group) => (
+                <GroupListItem
+                  key={group.id}
+                  group={group}
+                  avatarSize={48}
+                  showChevron={false}
+                  style={{ marginBottom: 0 }}
+                  onPress={() => router.push(`/(tabs)/groups/${group.id}`)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
 
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        <View style={{ paddingHorizontal: 24, marginTop: 32 }}>
+          <SectionHeader
+            title="Contacts"
+            action={
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <View>
+                  <IconButton
+                    icon="account-clock-outline"
+                    mode="contained-tonal"
+                    size={20}
+                    onPress={() => router.push("/contacts/requests")}
+                    accessibilityLabel="Contact requests"
+                  />
+                  {incomingRequestCount > 0 && (
+                    <Badge
+                      style={{ position: "absolute", top: 2, right: 2 }}
+                      size={18}
+                    >
+                      {incomingRequestCount}
+                    </Badge>
+                  )}
+                </View>
+                <Button
+                  mode="contained"
+                  icon="plus"
+                  compact
+                  contentStyle={{ paddingHorizontal: 12 }}
+                  onPress={() => router.push("/contacts/add")}
+                >
+                  New
+                </Button>
+              </View>
+            }
+          />
+          {!contacts || contacts.length === 0 ? (
+            <CallToActionCard
+              message="No contacts yet. Add someone to split one-on-one expenses!"
+              actionLabel="Add Contact"
+              onAction={() => router.push("/contacts/add")}
+            />
+          ) : (
+            <View style={{ gap: 12 }}>
+              {contacts.map((contact) => (
+                <ContactListItem
+                  key={contact.contact_user_id}
+                  contact={contact}
+                  currency={displayCurrency}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/contacts/[id]",
+                      params: {
+                        id: contact.contact_user_id,
+                        name: contact.full_name,
+                      },
+                    })
+                  }
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </View>
   );
 }

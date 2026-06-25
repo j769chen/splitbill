@@ -76,6 +76,15 @@ create table public.payments (
   base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
 );
 
+create table public.group_simplify_debts_events (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups (id) on delete cascade,
+  actor_id uuid not null references public.profiles (id) on delete cascade,
+  -- The simplify_debts value the group was changed TO.
+  enabled boolean not null,
+  created_at timestamptz not null default now()
+);
+
 create index idx_group_members_group on public.group_members (group_id);
 create index idx_group_members_user on public.group_members (user_id);
 create index idx_expenses_group on public.expenses (group_id);
@@ -85,6 +94,7 @@ create index idx_expense_splits_user on public.expense_splits (user_id);
 create index idx_payments_group on public.payments (group_id);
 create index idx_payments_paid_by on public.payments (paid_by);
 create index idx_payments_paid_to on public.payments (paid_to);
+create index idx_group_simplify_debts_events_group on public.group_simplify_debts_events (group_id);
 
 alter table public.profiles enable row level security;
 alter table public.groups enable row level security;
@@ -92,3 +102,4 @@ alter table public.group_members enable row level security;
 alter table public.expenses enable row level security;
 alter table public.expense_splits enable row level security;
 alter table public.payments enable row level security;
+alter table public.group_simplify_debts_events enable row level security;

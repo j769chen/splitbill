@@ -126,6 +126,13 @@ create policy "Members can delete payments"
   on public.payments for delete
   using (public.is_group_member(group_id, auth.uid()));
 
+-- group_simplify_debts_events
+-- Read-only to clients; rows are written by set_group_simplify_debts (SECURITY
+-- DEFINER), so no insert/update/delete policies are defined.
+create policy "Members can view simplify debts events"
+  on public.group_simplify_debts_events for select
+  using (public.is_group_member(group_id, auth.uid()));
+
 -- contacts
 create policy "Users can view their contacts"
   on public.contacts for select using (owner_id = auth.uid());

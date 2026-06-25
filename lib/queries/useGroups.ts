@@ -1,7 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
-import type { GroupWithMembers } from "../types";
+import type { GroupWithMembers, Profile } from "../types";
 import { useAuth } from "../auth";
+
+export interface ActivitySimplifyDebtsEvent {
+  id: string;
+  group_id: string;
+  actor_id: string;
+  enabled: boolean;
+  created_at: string;
+  actor: Profile | null;
+  groups: { name: string } | null;
+}
 
 export function useGroups() {
   const { user } = useAuth();
@@ -245,6 +255,35 @@ export function useRenameGroup() {
   });
 }
 
+export function useRecentGroupSettingChanges() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["simplify-debts-activity", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("group_simplify_debts_events")
+        .select(
+          `
+          id,
+          group_id,
+          actor_id,
+          enabled,
+          created_at,
+          actor:profiles!group_simplify_debts_events_actor_id_fkey (*),
+          groups (name)
+        `
+        )
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data as unknown as ActivitySimplifyDebtsEvent[];
+    },
+    enabled: !!user,
+  });
+}
+
 export function useSetGroupSimplifyDebts() {
   const queryClient = useQueryClient();
 
@@ -277,6 +316,7 @@ export function useSetGroupSimplifyDebts() {
       queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
       queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["simplify-debts-activity"] });
     },
   });
 }

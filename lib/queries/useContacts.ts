@@ -85,6 +85,49 @@ export function useRecentContactActivity() {
   });
 }
 
+export interface ActivityContactPayment {
+  id: string;
+  amount: number;
+  currency: string;
+  created_at: string;
+  paid_by: string;
+  paid_to: string;
+  note: string | null;
+  payer: Profile | null;
+  payee: Profile | null;
+}
+
+export function useRecentContactPayments() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["contact-payments-activity", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contact_payments")
+        .select(
+          `
+          id,
+          amount,
+          currency,
+          created_at,
+          paid_by,
+          paid_to,
+          note,
+          payer:profiles!contact_payments_paid_by_fkey (*),
+          payee:profiles!contact_payments_paid_to_fkey (*)
+        `
+        )
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data as unknown as ActivityContactPayment[];
+    },
+    enabled: !!user,
+  });
+}
+
 interface ContactBalanceContextRow {
   contact_user_id: string;
   full_name: string;
@@ -566,6 +609,7 @@ function invalidateContactPaymentQueries(
   });
   queryClient.invalidateQueries({ queryKey: ["total-balance"] });
   queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+  queryClient.invalidateQueries({ queryKey: ["contact-payments-activity"] });
 }
 
 export function useCreateContactPayment() {

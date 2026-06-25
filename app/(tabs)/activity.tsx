@@ -1,7 +1,11 @@
 import { View, FlatList, RefreshControl } from "react-native";
 import { useRecentActivity } from "@/lib/queries/useExpenses";
 import { useRecentPayments } from "@/lib/queries/usePayments";
-import { useRecentContactActivity } from "@/lib/queries/useContacts";
+import {
+  useRecentContactActivity,
+  useRecentContactPayments,
+} from "@/lib/queries/useContacts";
+import { useRecentGroupSettingChanges } from "@/lib/queries/useGroups";
 import { useAuth } from "@/lib/auth";
 import { useAppTheme } from "@/lib/theme";
 import {
@@ -30,10 +34,24 @@ export default function Activity() {
     refetch: refetchContactExpenses,
     isLoading: contactExpensesLoading,
   } = useRecentContactActivity();
+  const {
+    data: contactPayments,
+    refetch: refetchContactPayments,
+    isLoading: contactPaymentsLoading,
+  } = useRecentContactPayments();
+  const {
+    data: simplifyEvents,
+    refetch: refetchSimplifyEvents,
+    isLoading: simplifyEventsLoading,
+  } = useRecentGroupSettingChanges();
   const [refreshing, setRefreshing] = useState(false);
 
   const isLoading =
-    expensesLoading || paymentsLoading || contactExpensesLoading;
+    expensesLoading ||
+    paymentsLoading ||
+    contactExpensesLoading ||
+    contactPaymentsLoading ||
+    simplifyEventsLoading;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -41,9 +59,17 @@ export default function Activity() {
       refetchExpenses(),
       refetchPayments(),
       refetchContactExpenses(),
+      refetchContactPayments(),
+      refetchSimplifyEvents(),
     ]);
     setRefreshing(false);
-  }, [refetchExpenses, refetchPayments, refetchContactExpenses]);
+  }, [
+    refetchExpenses,
+    refetchPayments,
+    refetchContactExpenses,
+    refetchContactPayments,
+    refetchSimplifyEvents,
+  ]);
 
   const feed: ActivityFeedItem[] = [
     ...(expenses ?? []).map(
@@ -67,6 +93,20 @@ export default function Activity() {
         contactExpense,
       })
     ),
+    ...(contactPayments ?? []).map(
+      (contactPayment): ActivityFeedItem => ({
+        kind: "contact-payment",
+        ts: contactPayment.created_at,
+        contactPayment,
+      })
+    ),
+    ...(simplifyEvents ?? []).map(
+      (event): ActivityFeedItem => ({
+        kind: "simplify-debts",
+        ts: event.created_at,
+        event,
+      })
+    ),
   ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
   if (isLoading) {
@@ -85,6 +125,10 @@ export default function Activity() {
               return `payment-${item.payment.id}`;
             case "contact-expense":
               return `contact-expense-${item.contactExpense.id}`;
+            case "contact-payment":
+              return `contact-payment-${item.contactPayment.id}`;
+            case "simplify-debts":
+              return `simplify-debts-${item.event.id}`;
           }
         }}
         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
