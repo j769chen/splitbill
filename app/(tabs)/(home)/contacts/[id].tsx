@@ -175,9 +175,7 @@ export default function ContactDetail() {
           <ContactGroupBreakdownList
             groups={groups}
             contactName={contactName}
-            onOpenGroup={(groupId) =>
-              router.push(`/(tabs)/groups/${groupId}`, { withAnchor: true })
-            }
+            onOpenGroup={(groupId) => router.push(`/group/${groupId}`)}
           />
 
           <ActivityList

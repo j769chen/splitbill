@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { PaperProvider } from "react-native-paper";
 import { lightTheme } from "@/lib/theme";
 import { renderWithPaper } from "../helpers/testUtils";
-import SettleUp from "@/app/(tabs)/groups/settle-up";
+import SettleUp from "@/app/group-settle-up";
 
 const mockBack = jest.fn();
 const mockPayAsync = jest.fn();

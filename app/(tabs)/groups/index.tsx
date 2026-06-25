@@ -52,7 +52,7 @@ export default function GroupsList() {
       <FAB
         icon="plus"
         style={{ position: "absolute", right: 16, bottom: 24 }}
-        onPress={() => router.push("/(tabs)/groups/create")}
+        onPress={() => router.push("/group-create")}
       />
     </View>
   );

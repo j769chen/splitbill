@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
-import ManageGroup from "@/app/(tabs)/groups/manage";
+import ManageGroup from "@/app/group-manage";
 
 const mockRenameAsync = jest.fn();
 const mockSetSimplifyAsync = jest.fn();

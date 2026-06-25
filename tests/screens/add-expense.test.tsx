@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
-import AddExpense from "@/app/(tabs)/groups/add-expense";
+import AddExpense from "@/app/group-add-expense";
 
 const mockBack = jest.fn();
 const mockMutateAsync = jest.fn();

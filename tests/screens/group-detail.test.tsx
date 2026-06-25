@@ -357,7 +357,7 @@ describe("GroupDetail screen", () => {
     await fireEvent.press(screen.getByText("Add"));
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(tabs)/groups/add-members",
+      pathname: "/group-add-members",
       params: { groupId: "g1" },
     });
   });
@@ -370,7 +370,7 @@ describe("GroupDetail screen", () => {
     });
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(tabs)/groups/manage",
+      pathname: "/group-manage",
       params: { groupId: "g1" },
     });
   });
@@ -391,11 +391,11 @@ describe("GroupDetail screen", () => {
     await fireEvent.press(screen.getByText("Settle Up"));
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(tabs)/groups/add-expense",
+      pathname: "/group-add-expense",
       params: { groupId: "g1" },
     });
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(tabs)/groups/settle-up",
+      pathname: "/group-settle-up",
       params: { groupId: "g1" },
     });
   });
@@ -498,7 +498,7 @@ describe("GroupDetail screen", () => {
     await fireEvent.press(screen.getByText("Dinner"));
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(tabs)/groups/add-expense",
+      pathname: "/group-add-expense",
       params: { groupId: "g1", expenseId: "e1" },
     });
   });
@@ -510,7 +510,7 @@ describe("GroupDetail screen", () => {
     await fireEvent.press(screen.getByText("You paid Bob $20.00"));
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(tabs)/groups/edit-payment",
+      pathname: "/group-edit-payment",
       params: { groupId: "g1", paymentId: "p1" },
     });
   });

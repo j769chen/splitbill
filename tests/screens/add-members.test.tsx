@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
-import AddGroupMembers from "@/app/(tabs)/groups/add-members";
+import AddGroupMembers from "@/app/group-add-members";
 
 const mockBack = jest.fn();
 const mockAddAsync = jest.fn();

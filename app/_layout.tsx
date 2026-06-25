@@ -58,6 +58,17 @@ function ThemedApp() {
     `;
   }, [theme]);
 
+  // Group action screens live at the root (above the tabs) so they present as
+  // modals over whichever tab opened them and dismiss back to it — the group
+  // detail is reachable from both the Home tab and the Groups tab.
+  const modalScreenOptions = {
+    presentation: "modal",
+    headerShown: true,
+    headerStyle: { backgroundColor: theme.colors.brand },
+    headerTintColor: theme.colors.onBrand,
+    headerTitleStyle: { fontWeight: "bold" },
+  } as const;
+
   return (
     <PaperProvider
       theme={theme}
@@ -81,6 +92,30 @@ function ThemedApp() {
                 >
                   <Stack.Screen name="(auth)" />
                   <Stack.Screen name="(tabs)" />
+                  <Stack.Screen
+                    name="group-create"
+                    options={{ ...modalScreenOptions, title: "Create Group" }}
+                  />
+                  <Stack.Screen
+                    name="group-manage"
+                    options={{ ...modalScreenOptions, title: "Group Settings" }}
+                  />
+                  <Stack.Screen
+                    name="group-add-members"
+                    options={{ ...modalScreenOptions, title: "Add Members" }}
+                  />
+                  <Stack.Screen
+                    name="group-add-expense"
+                    options={{ ...modalScreenOptions, title: "Add Expense" }}
+                  />
+                  <Stack.Screen
+                    name="group-settle-up"
+                    options={{ ...modalScreenOptions, title: "Settle Up" }}
+                  />
+                  <Stack.Screen
+                    name="group-edit-payment"
+                    options={{ ...modalScreenOptions, title: "Edit Payment" }}
+                  />
                 </Stack>
               </ConfirmProvider>
             </SnackbarProvider>

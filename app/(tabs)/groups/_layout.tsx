@@ -1,11 +1,10 @@
 import { Stack } from "expo-router";
 import { useAppTheme } from "@/lib/theme";
 
-// Anchor the stack at the Groups list. Without this, deep-linking or
-// cross-tab navigating straight to a group ([id]) makes that screen the only
-// entry in the stack — no back button, and the Groups tab gets stranded on a
-// detail screen with no way back to the list. In-app cross-tab callers also
-// pass `withAnchor` so the list is pushed beneath the detail screen.
+// Anchor the stack at the Groups list so deep-linking straight to a group
+// ([id]) still leaves the list beneath it — the native back button returns to
+// the Groups list. Navigations that should return to the dashboard instead use
+// the Home tab's own group detail route (app/(tabs)/(home)/group/[id]).
 export const unstable_settings = {
   initialRouteName: "index",
 };
@@ -23,48 +22,6 @@ export default function GroupsLayout() {
     >
       <Stack.Screen name="index" options={{ title: "Groups" }} />
       <Stack.Screen name="[id]" options={{ title: "Group" }} />
-      <Stack.Screen
-        name="create"
-        options={{
-          title: "Create Group",
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen
-        name="manage"
-        options={{
-          title: "Group Settings",
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen
-        name="add-members"
-        options={{
-          title: "Add Members",
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen
-        name="add-expense"
-        options={{
-          title: "Add Expense",
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen
-        name="settle-up"
-        options={{
-          title: "Settle Up",
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen
-        name="edit-payment"
-        options={{
-          title: "Edit Payment",
-          presentation: "modal",
-        }}
-      />
     </Stack>
   );
 }

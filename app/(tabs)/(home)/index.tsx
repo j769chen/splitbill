@@ -92,7 +92,7 @@ export default function Dashboard() {
                 icon="plus"
                 compact
                 contentStyle={{ paddingHorizontal: 12 }}
-                onPress={() => router.push("/(tabs)/groups/create")}
+                onPress={() => router.push("/group-create")}
               >
                 New
               </Button>
@@ -102,7 +102,7 @@ export default function Dashboard() {
             <CallToActionCard
               message="No groups yet. Create one to start splitting expenses!"
               actionLabel="Create Group"
-              onAction={() => router.push("/(tabs)/groups/create")}
+              onAction={() => router.push("/group-create")}
             />
           ) : (
             <View style={{ gap: 12 }}>
@@ -113,11 +113,7 @@ export default function Dashboard() {
                   avatarSize={48}
                   showChevron={false}
                   style={{ marginBottom: 0 }}
-                  onPress={() =>
-                    router.push(`/(tabs)/groups/${group.id}`, {
-                      withAnchor: true,
-                    })
-                  }
+                  onPress={() => router.push(`/group/${group.id}`)}
                 />
               ))}
             </View>

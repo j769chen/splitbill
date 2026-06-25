@@ -71,6 +71,6 @@ describe("GroupsList screen", () => {
     // Empty state has no cards, so the only button is the FAB.
     await fireEvent.press(screen.getByRole("button"));
 
-    expect(mockPush).toHaveBeenCalledWith("/(tabs)/groups/create");
+    expect(mockPush).toHaveBeenCalledWith("/group-create");
   });
 });

@@ -1,6 +1,12 @@
 import { Stack } from "expo-router";
 import { useAppTheme } from "@/lib/theme";
 
+// Anchor the Home stack at the dashboard so deep-links into pushed routes
+// (contact / group detail) keep the dashboard beneath them — back returns here.
+export const unstable_settings = {
+  initialRouteName: "index",
+};
+
 export default function HomeLayout() {
   const theme = useAppTheme();
   return (
@@ -13,6 +19,7 @@ export default function HomeLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: "Dashboard" }} />
+      <Stack.Screen name="group/[id]" options={{ title: "Group" }} />
       <Stack.Screen name="contacts/[id]" options={{ title: "Contact" }} />
       <Stack.Screen
         name="contacts/add"
