@@ -25,6 +25,10 @@ import {
   sumConverted,
 } from "../currency";
 import { useDisplayCurrency } from "../display-currency";
+import {
+  invalidateContactPairQueries,
+  invalidateContactQueries,
+} from "./invalidate";
 import { useExchangeRates } from "../exchange-rates";
 import { convertSplitsToBase, validateSplitsTotal } from "../utils";
 
@@ -283,8 +287,7 @@ export function useContactExpenses(contactUserId: string) {
 
 function invalidateContactRequestQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ["contact-requests"] });
-  queryClient.invalidateQueries({ queryKey: ["contacts"] });
-  queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+  invalidateContactQueries(queryClient);
 }
 
 export function useSendContactRequest() {
@@ -433,18 +436,11 @@ export function useCreateContactExpense() {
       return expense;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-expenses", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+      invalidateContactPairQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }
@@ -486,18 +482,11 @@ export function useUpdateContactExpense() {
       return expense;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-expenses", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+      invalidateContactPairQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }
@@ -528,18 +517,11 @@ export function useDeleteContactExpense() {
       }
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-expenses", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+      invalidateContactPairQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }
@@ -581,26 +563,6 @@ interface CreateContactPaymentInput {
   currency?: string;
 }
 
-function invalidateContactPaymentQueries(
-  queryClient: QueryClient,
-  userId: string | undefined,
-  contactUserId: string
-) {
-  queryClient.invalidateQueries({ queryKey: ["contacts"] });
-  queryClient.invalidateQueries({
-    queryKey: ["contact-payments", userId, contactUserId],
-  });
-  queryClient.invalidateQueries({
-    queryKey: ["contact-balance", userId, contactUserId],
-  });
-  queryClient.invalidateQueries({
-    queryKey: ["contact-pair-balance", userId, contactUserId],
-  });
-  queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-  queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
-  queryClient.invalidateQueries({ queryKey: ["contact-payments-activity"] });
-}
-
 export function useCreateContactPayment() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -629,7 +591,7 @@ export function useCreateContactPayment() {
       return data;
     },
     onSuccess: (_, variables) => {
-      invalidateContactPaymentQueries(
+      invalidateContactPairQueries(
         queryClient,
         user?.id,
         variables.contactUserId
@@ -671,7 +633,7 @@ export function useUpdateContactPayment() {
       return data;
     },
     onSuccess: (_, variables) => {
-      invalidateContactPaymentQueries(
+      invalidateContactPairQueries(
         queryClient,
         user?.id,
         variables.contactUserId
@@ -703,7 +665,7 @@ export function useDeleteContactPayment() {
       }
     },
     onSuccess: (_, variables) => {
-      invalidateContactPaymentQueries(
+      invalidateContactPairQueries(
         queryClient,
         user?.id,
         variables.contactUserId
@@ -751,14 +713,11 @@ export function useSetContactCurrency() {
       queryClient.invalidateQueries({
         queryKey: ["contact-currency", user?.id, variables.contactUserId],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["contact-pair-balance", user?.id, variables.contactUserId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      invalidateContactPairQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }

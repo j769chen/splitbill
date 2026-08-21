@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import { useAuth } from "../auth";
 import { getCurrencyDecimals } from "../currency";
+import { invalidateGroupQueries } from "./invalidate";
 import { convertSplitsToBase, validateSplitsTotal } from "../utils";
 
 const ACTIVITY_LIMIT = 50;
@@ -87,7 +88,6 @@ interface CreateExpenseInput {
 
 export function useCreateExpense() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (input: CreateExpenseInput) => {
@@ -118,23 +118,7 @@ export function useCreateExpense() {
       return expense;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["expenses", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }
@@ -145,7 +129,6 @@ interface UpdateExpenseInput extends CreateExpenseInput {
 
 export function useUpdateExpense() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (input: UpdateExpenseInput) => {
@@ -176,23 +159,7 @@ export function useUpdateExpense() {
       return expense;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["expenses", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }
@@ -220,23 +187,7 @@ export function useDeleteExpense() {
       }
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["expenses", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }

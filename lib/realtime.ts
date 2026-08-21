@@ -1,38 +1,12 @@
 import { useEffect } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "./supabase";
+import {
+  invalidateContactQueries,
+  invalidateGroupQueries,
+} from "./queries/invalidate";
 
 let channelSeq = 0;
-
-// Group expenses/payments feed the combined contact balance and the per-group
-// breakdown, so realtime changes must refresh contact queries too.
-function invalidateContactQueries(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ["contacts"] });
-  queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-  queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-}
-
-// The global Activity feed is assembled from five independent queries, and any
-// group-level write can show up in it.
-function invalidateActivityQueries(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ["activity"] });
-  queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
-  queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
-  queryClient.invalidateQueries({ queryKey: ["contact-payments-activity"] });
-  queryClient.invalidateQueries({ queryKey: ["simplify-debts-activity"] });
-}
-
-// Everything a group-scoped write moves: the group's balances, the pairwise and
-// simplified edges derived from them, cross-group totals, the contact views and
-// the activity feed.
-function invalidateGroupQueries(queryClient: QueryClient, groupId: string) {
-  queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
-  queryClient.invalidateQueries({ queryKey: ["group-pairwise-all", groupId] });
-  queryClient.invalidateQueries({ queryKey: ["group-simplified", groupId] });
-  queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-  invalidateContactQueries(queryClient);
-  invalidateActivityQueries(queryClient);
-}
 
 // Keeps the contact-requests list + badge live for the signed-in user.
 //
@@ -67,8 +41,7 @@ export function useContactRequestsSubscription(userId: string | undefined) {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["contact-requests"] });
-          queryClient.invalidateQueries({ queryKey: ["contacts"] });
-          queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
+          invalidateContactQueries(queryClient);
         }
       )
       .subscribe();
@@ -103,7 +76,6 @@ export function useRealtimeSubscription(groupId: string | undefined) {
           filter: `group_id=eq.${groupId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
           invalidateGroupQueries(queryClient, groupId);
         }
       )
@@ -115,7 +87,6 @@ export function useRealtimeSubscription(groupId: string | undefined) {
           table: "expense_splits",
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
           invalidateGroupQueries(queryClient, groupId);
         }
       )
@@ -128,7 +99,6 @@ export function useRealtimeSubscription(groupId: string | undefined) {
           filter: `group_id=eq.${groupId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["payments", groupId] });
           invalidateGroupQueries(queryClient, groupId);
         }
       )

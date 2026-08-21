@@ -5,6 +5,7 @@ import type {
   PaymentWithProfiles,
 } from "../types";
 import { useAuth } from "../auth";
+import { invalidateGroupQueries } from "./invalidate";
 
 export function useRecentPayments() {
   const { user } = useAuth();
@@ -97,26 +98,7 @@ export function useCreatePayment() {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["payments", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["expenses", variables.groupId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }
@@ -159,26 +141,7 @@ export function useUpdatePayment() {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["payments", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["expenses", variables.groupId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }
@@ -205,23 +168,7 @@ export function useDeletePayment() {
       }
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["payments", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }

@@ -5,6 +5,11 @@ import type {
   GroupWithMembers,
 } from "../types";
 import { useAuth } from "../auth";
+import {
+  invalidateActivityQueries,
+  invalidateContactQueries,
+  invalidateGroupQueries,
+} from "./invalidate";
 
 export function useGroups() {
   const { user } = useAuth();
@@ -202,23 +207,11 @@ export function useAddGroupMembers() {
       if (error) throw new Error(error.message);
     },
     onSuccess: (_, variables) => {
+      // New members change the simplified plan, so everything derived from the
+      // group moves, including the contact surfaces.
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       queryClient.invalidateQueries({ queryKey: ["group", variables.groupId] });
-      queryClient.invalidateQueries({
-        queryKey: ["balances", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      // New members change the simplified plan, so contact surfaces (combined
-      // balances, per-group breakdowns, phantom group-mates) can shift too.
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }
@@ -296,20 +289,10 @@ export function useSetGroupSimplifyDebts() {
       return data;
     },
     onSuccess: (_, variables) => {
+      // Simplification drives the contact surfaces and the activity feed too.
       queryClient.invalidateQueries({ queryKey: ["group", variables.groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups"] });
-      queryClient.invalidateQueries({
-        queryKey: ["group-pairwise-all", variables.groupId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["group-simplified", variables.groupId],
-      });
-      // Simplification now drives the contact surfaces too.
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["simplify-debts-activity"] });
+      invalidateGroupQueries(queryClient, variables.groupId);
     },
   });
 }
@@ -352,13 +335,12 @@ export function useLeaveGroup() {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Leaving a group can drop group-mates (and their phantom simplified
+      // debts) off the contact surfaces and the activity feed.
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-      // Leaving a group can drop group-mates (and their phantom simplified
-      // debts) off the contact surfaces.
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-balance"] });
-      queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
+      invalidateContactQueries(queryClient);
+      invalidateActivityQueries(queryClient);
     },
   });
 }
