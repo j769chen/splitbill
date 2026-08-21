@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { View, ScrollView, RefreshControl } from "react-native";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import {
   useContacts,
   useContactBalance,
@@ -32,36 +32,49 @@ import { ContactSummaryCard } from "@/components/contacts/ContactSummaryCard";
 export type ContactDetailScreenProps = {
   contactUserId: string;
   name?: string;
-  // Navigation is supplied by the hosting route so the same screen can live in
-  // different tab stacks (Home vs. Activity) and keep back returning to the
-  // tab that opened it.
-  onOpenGroup: (groupId: string) => void;
-  onAddExpense: () => void;
-  onEditExpense: (expenseId: string) => void;
-  onSettleUp: () => void;
-  onEditPayment: (paymentId: string) => void;
+  // The tab stack hosting this screen. Navigation targets resolve against it so
+  // back returns to the tab that opened the contact (mirrors GroupDetailScreen's
+  // leaveFallbackRoute).
+  routeBase?: "" | "/activity";
 };
 
 export function ContactDetailScreen({
   contactUserId,
   name,
-  onOpenGroup,
-  onAddExpense,
-  onEditExpense,
-  onSettleUp,
-  onEditPayment,
+  routeBase = "",
 }: ContactDetailScreenProps) {
-  const id = contactUserId;
+  const onOpenGroup = (groupId: string) =>
+    router.push(`${routeBase}/group/${groupId}`);
+  const onAddExpense = () =>
+    router.push({
+      pathname: `${routeBase}/contacts/add-expense`,
+      params: { contactUserId },
+    });
+  const onEditExpense = (expenseId: string) =>
+    router.push({
+      pathname: `${routeBase}/contacts/add-expense`,
+      params: { contactUserId, expenseId },
+    });
+  const onSettleUp = () =>
+    router.push({
+      pathname: `${routeBase}/contacts/settle-up`,
+      params: { contactUserId },
+    });
+  const onEditPayment = (paymentId: string) =>
+    router.push({
+      pathname: `${routeBase}/contacts/settle-up`,
+      params: { contactUserId, paymentId },
+    });
   const theme = useAppTheme();
   const { user } = useAuth();
   const { currency: displayCurrency } = useDisplayCurrency();
   const { data: contacts } = useContacts();
-  const { data: balance = 0, refetch: refetchBalance } = useContactBalance(id!);
-  const { data: expenses, refetch: refetchExpenses } = useContactExpenses(id!);
-  const { data: payments, refetch: refetchPayments } = useContactPayments(id!);
+  const { data: balance = 0, refetch: refetchBalance } = useContactBalance(contactUserId);
+  const { data: expenses, refetch: refetchExpenses } = useContactExpenses(contactUserId);
+  const { data: payments, refetch: refetchPayments } = useContactPayments(contactUserId);
   const { data: groupBreakdown, refetch: refetchGroupBreakdown } =
-    useContactGroupBreakdown(id!);
-  const { data: pairCurrency = "USD" } = useContactCurrency(id!);
+    useContactGroupBreakdown(contactUserId);
+  const { data: pairCurrency = "USD" } = useContactCurrency(contactUserId);
   const setContactCurrency = useSetContactCurrency();
   const deleteContactExpense = useDeleteContactExpense();
   const deleteContactPayment = useDeleteContactPayment();
@@ -72,7 +85,7 @@ export function ContactDetailScreen({
   const confirm = useConfirm();
   const [refreshing, setRefreshing] = useState(false);
 
-  const contact = contacts?.find((c) => c.contact_user_id === id);
+  const contact = contacts?.find((c) => c.contact_user_id === contactUserId);
   const contactName = contact?.full_name ?? name ?? "Contact";
   // Group-mates surfaced only via a shared (possibly simplified) balance aren't
   // accepted contacts, so 1-on-1 actions and the pair-currency editor don't
@@ -120,7 +133,7 @@ export function ContactDetailScreen({
       destructive: true,
       onConfirm: () => {
         deleteContactExpense.mutate(
-          { expenseId, contactUserId: id! },
+          { expenseId, contactUserId: contactUserId },
           {
             onError: (error) =>
               showError(
@@ -144,7 +157,7 @@ export function ContactDetailScreen({
       destructive: true,
       onConfirm: () => {
         deleteContactPayment.mutate(
-          { paymentId, contactUserId: id! },
+          { paymentId, contactUserId: contactUserId },
           {
             onError: (error) =>
               showError(
@@ -186,7 +199,7 @@ export function ContactDetailScreen({
             canEditCurrency={isAccepted}
             onChangeCurrency={(currency, onError) =>
               setContactCurrency.mutate(
-                { contactUserId: id!, currency },
+                { contactUserId: contactUserId, currency },
                 { onError }
               )
             }

@@ -1,6 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react-native";
 import { renderWithPaper, actAsync } from "../helpers/testUtils";
 import ContactDetail from "@/app/(tabs)/(home)/contacts/[id]";
+import ActivityContactDetail from "@/app/(tabs)/activity/contacts/[id]";
 
 const mockPush = jest.fn();
 const mockDeleteMutate = jest.fn();
@@ -305,3 +306,28 @@ describe("ContactDetail screen", () => {
     ).toBeNull();
   });
 });
+
+describe("ContactDetail hosted in the Activity tab", () => {
+  it("keeps navigation inside the activity stack", async () => {
+    setup({
+      groupBreakdown: [{ group_id: "g1", group_name: "Ski Trip", balance: 40 }],
+    });
+    await renderWithPaper(<ActivityContactDetail />);
+
+    await fireEvent.press(screen.getByText("Add Expense"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/activity/contacts/add-expense",
+      params: { contactUserId: "user-2" },
+    });
+
+    await fireEvent.press(screen.getByText("Settle Up"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/activity/contacts/settle-up",
+      params: { contactUserId: "user-2" },
+    });
+
+    await fireEvent.press(screen.getByText("Ski Trip"));
+    expect(mockPush).toHaveBeenCalledWith("/activity/group/g1");
+  });
+});
+
