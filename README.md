@@ -7,7 +7,7 @@ A bill splitting app built with Expo (React Native) and Supabase.
 - **Frontend**: Expo SDK 54, TypeScript, Expo Router, React Native Paper (MD3)
 - **Backend**: Supabase (PostgreSQL, Auth, Realtime, RLS)
 - **State Management**: TanStack Query v5
-- **Forms**: React Hook Form + Zod
+- **Forms**: local component state with hand-rolled validation
 
 ## Features
 
