@@ -641,23 +641,28 @@ export interface ContactRequest {
 }
 
 // One item in the global Activity feed, discriminated by `kind`.
+// Every member carries the same three fields plus its own payload type, so
+// sorting and keying need no per-kind branch -- only rendering does.
 export type ActivityFeedItem =
-  | { kind: "expense"; ts: string; expense: ActivityExpense }
-  | { kind: "payment"; ts: string; payment: ActivityPayment }
+  | { kind: "expense"; id: string; ts: string; payload: ActivityExpense }
+  | { kind: "payment"; id: string; ts: string; payload: ActivityPayment }
   | {
       kind: "contact-expense";
+      id: string;
       ts: string;
-      contactExpense: ActivityContactExpense;
+      payload: ActivityContactExpense;
     }
   | {
       kind: "contact-payment";
+      id: string;
       ts: string;
-      contactPayment: ActivityContactPayment;
+      payload: ActivityContactPayment;
     }
   | {
       kind: "simplify-debts";
+      id: string;
       ts: string;
-      event: ActivitySimplifyDebtsEvent;
+      payload: ActivitySimplifyDebtsEvent;
     };
 
 // One line of a member's debt breakdown: who they owe or are owed, and how much.

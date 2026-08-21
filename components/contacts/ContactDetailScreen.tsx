@@ -98,14 +98,14 @@ export function ContactDetailScreen({
       (expense): ActivityListItem => ({
         kind: "expense",
         ts: expense.date,
-        expense,
+        payload: expense,
       })
     ),
     ...(payments ?? []).map(
       (payment): ActivityListItem => ({
         kind: "payment",
         ts: payment.created_at,
-        payment,
+        payload: payment,
       })
     ),
   ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());

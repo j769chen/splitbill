@@ -10,16 +10,18 @@ import type {
   PaymentWithProfiles,
 } from "@/lib/types";
 
+// Mirrors ActivityFeedItem's shape: uniform kind/ts/payload so the list needs
+// one branch for rendering and none for keying or sorting.
 export type ActivityListItem =
   | {
       kind: "expense";
       ts: string;
-      expense: ExpenseWithSplits | ContactExpenseWithSplits;
+      payload: ExpenseWithSplits | ContactExpenseWithSplits;
     }
   | {
       kind: "payment";
       ts: string;
-      payment: PaymentWithProfiles | ContactPaymentWithProfiles;
+      payload: PaymentWithProfiles | ContactPaymentWithProfiles;
     };
 
 type EmptyStateConfig = {
@@ -64,16 +66,16 @@ export function ActivityList({
         {items.map((item) =>
           item.kind === "expense" ? (
             <ExpenseCard
-              key={`expense-${item.expense.id}`}
-              expense={item.expense}
+              key={`expense-${item.payload.id}`}
+              expense={item.payload}
               currentUserId={currentUserId}
               onDelete={onDeleteExpense}
               onEdit={onEditExpense}
             />
           ) : (
             <PaymentCard
-              key={`payment-${item.payment.id}`}
-              payment={item.payment}
+              key={`payment-${item.payload.id}`}
+              payment={item.payload}
               currentUserId={currentUserId}
               onDelete={onDeletePayment}
               onEdit={onEditPayment}

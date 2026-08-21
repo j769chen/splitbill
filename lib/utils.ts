@@ -231,30 +231,35 @@ export function buildActivityFeed(sources: {
   simplifyEvents?: ActivitySimplifyDebtsEvent[];
 }): ActivityFeedItem[] {
   return sortByTimestampDesc<ActivityFeedItem>([
-    ...(sources.expenses ?? []).map((expense) => ({
+    ...(sources.expenses ?? []).map((payload) => ({
       kind: "expense" as const,
-      ts: expense.date,
-      expense,
+      id: payload.id,
+      ts: payload.date,
+      payload,
     })),
-    ...(sources.payments ?? []).map((payment) => ({
+    ...(sources.payments ?? []).map((payload) => ({
       kind: "payment" as const,
-      ts: payment.created_at,
-      payment,
+      id: payload.id,
+      ts: payload.created_at,
+      payload,
     })),
-    ...(sources.contactExpenses ?? []).map((contactExpense) => ({
+    ...(sources.contactExpenses ?? []).map((payload) => ({
       kind: "contact-expense" as const,
-      ts: contactExpense.date,
-      contactExpense,
+      id: payload.id,
+      ts: payload.date,
+      payload,
     })),
-    ...(sources.contactPayments ?? []).map((contactPayment) => ({
+    ...(sources.contactPayments ?? []).map((payload) => ({
       kind: "contact-payment" as const,
-      ts: contactPayment.created_at,
-      contactPayment,
+      id: payload.id,
+      ts: payload.created_at,
+      payload,
     })),
-    ...(sources.simplifyEvents ?? []).map((event) => ({
+    ...(sources.simplifyEvents ?? []).map((payload) => ({
       kind: "simplify-debts" as const,
-      ts: event.created_at,
-      event,
+      id: payload.id,
+      ts: payload.created_at,
+      payload,
     })),
   ]);
 }

@@ -24,26 +24,26 @@ export function ActivityFeedItemCard({
 }: ActivityFeedItemCardProps) {
   switch (item.kind) {
     case "expense":
-      return <ExpenseRow item={item.expense} currentUserId={currentUserId} />;
+      return <ExpenseRow item={item.payload} currentUserId={currentUserId} />;
     case "payment":
-      return <PaymentRow item={item.payment} currentUserId={currentUserId} />;
+      return <PaymentRow item={item.payload} currentUserId={currentUserId} />;
     case "contact-expense":
       return (
         <ContactExpenseRow
-          item={item.contactExpense}
+          item={item.payload}
           currentUserId={currentUserId}
         />
       );
     case "contact-payment":
       return (
         <ContactPaymentRow
-          item={item.contactPayment}
+          item={item.payload}
           currentUserId={currentUserId}
         />
       );
     case "simplify-debts":
       return (
-        <SimplifyDebtsRow item={item.event} currentUserId={currentUserId} />
+        <SimplifyDebtsRow item={item.payload} currentUserId={currentUserId} />
       );
   }
 }

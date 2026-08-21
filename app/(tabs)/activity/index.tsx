@@ -92,20 +92,7 @@ export default function Activity() {
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <FlatList
         data={feed}
-        keyExtractor={(item) => {
-          switch (item.kind) {
-            case "expense":
-              return `expense-${item.expense.id}`;
-            case "payment":
-              return `payment-${item.payment.id}`;
-            case "contact-expense":
-              return `contact-expense-${item.contactExpense.id}`;
-            case "contact-payment":
-              return `contact-payment-${item.contactPayment.id}`;
-            case "simplify-debts":
-              return `simplify-debts-${item.event.id}`;
-          }
-        }}
+        keyExtractor={(item) => `${item.kind}-${item.id}`}
         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

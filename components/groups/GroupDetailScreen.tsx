@@ -167,14 +167,14 @@ export function GroupDetailScreen({
       (expense): ActivityListItem => ({
         kind: "expense",
         ts: expense.date,
-        expense,
+        payload: expense,
       })
     ),
     ...(payments ?? []).map(
       (payment): ActivityListItem => ({
         kind: "payment",
         ts: payment.created_at,
-        payment,
+        payload: payment,
       })
     ),
   ]);

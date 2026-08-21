@@ -114,6 +114,16 @@ describe("buildActivityFeed", () => {
       "expense",
       "contact-expense",
     ]);
+    // The uniform id/payload shape is what lets the feed be keyed and sorted
+    // without a per-kind branch.
+    expect(feed.map((item) => item.id)).toEqual([
+      "p1",
+      "cp1",
+      "s1",
+      "e1",
+      "ce1",
+    ]);
+    expect(feed[0].payload).toEqual({ id: "p1", created_at: "2024-01-05" });
   });
 
   it("returns an empty feed when every source is missing", () => {
