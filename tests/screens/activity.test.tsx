@@ -157,16 +157,21 @@ describe("Activity screen", () => {
     expect(screen.getByText("$6.00")).toBeTruthy();
   });
 
-  it("filters out expenses the current user is not involved in", async () => {
-    setActivity({
+  it("filters out contact expenses the current user is not involved in", async () => {
+    // Group expenses are filtered server-side by get_recent_activity; contact
+    // expenses are still filtered here.
+    setContactExpenses({
       data: [
         {
-          id: "e3",
+          id: "ce3",
           description: "Snacks",
           amount: 5,
           paid_by: "u3",
           payer: null,
-          groups: null,
+          user_lo: "u3",
+          user_hi: "u4",
+          user_lo_profile: null,
+          user_hi_profile: null,
           date: "2024-01-03",
           expense_splits: [{ user_id: "u3", amount: 5 }],
         },

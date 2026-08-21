@@ -5,6 +5,8 @@ import { useAuth } from "../auth";
 import { getCurrencyDecimals } from "../currency";
 import { convertSplitsToBase, validateSplitsTotal } from "../utils";
 
+const ACTIVITY_LIMIT = 50;
+
 export interface ActivityExpense {
   id: string;
   description: string;
@@ -39,27 +41,15 @@ export function useRecentActivity() {
   return useQuery({
     queryKey: ["activity", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("expenses")
-        .select(
-          `
-          id,
-          description,
-          amount,
-          currency,
-          date,
-          paid_by,
-          group_id,
-          payer:profiles!expenses_paid_by_fkey (*),
-          groups (name),
-          expense_splits (user_id, amount)
-        `
-        )
-        .order("date", { ascending: false })
-        .limit(50);
+      // The RPC applies the "caller is involved" predicate before the row cap.
+      // Selecting the 50 most recent expenses and filtering on the client
+      // pushed the caller's own items out of the feed in busy groups.
+      const { data, error } = await supabase.rpc("get_recent_activity", {
+        p_limit: ACTIVITY_LIMIT,
+      });
 
       if (error) throw error;
-      return data as unknown as ActivityExpense[];
+      return (data ?? []) as unknown as ActivityExpense[];
     },
     enabled: !!user,
   });

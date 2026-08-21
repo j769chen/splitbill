@@ -28,10 +28,9 @@ beforeEach(() => {
 });
 
 describe("useRecentActivity", () => {
-  it("fetches the recent expenses ordered by date", async () => {
+  it("fetches the caller's involved expenses through the RPC", async () => {
     const rows = [{ id: "exp-1", description: "Lunch" }];
-    const builder = queryBuilder({ data: rows, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+    mockedSupabase.rpc.mockResolvedValue({ data: rows, error: null });
 
     const { result } = await renderHook(() => useRecentActivity(), {
       wrapper: createWrapper(),
@@ -39,15 +38,18 @@ describe("useRecentActivity", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(rows);
-    expect(mockedSupabase.from).toHaveBeenCalledWith("expenses");
-    expect(builder.order).toHaveBeenCalledWith("date", { ascending: false });
-    expect(builder.limit).toHaveBeenCalledWith(50);
+    // The involvement predicate has to run before the row cap, so the limit is
+    // applied by the RPC rather than by a client-side filter.
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_recent_activity", {
+      p_limit: 50,
+    });
   });
 
   it("surfaces query errors", async () => {
-    mockedSupabase.from.mockReturnValue(
-      queryBuilder({ data: null, error: new Error("boom") })
-    );
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: new Error("boom"),
+    });
 
     const { result } = await renderHook(() => useRecentActivity(), {
       wrapper: createWrapper(),

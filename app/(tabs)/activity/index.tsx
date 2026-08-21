@@ -73,15 +73,15 @@ export default function Activity() {
   ]);
 
   const feed: ActivityFeedItem[] = [
-    ...(expenses ?? [])
-      .filter((expense) => isInvolvedInExpense(expense, user?.id))
-      .map(
-        (expense): ActivityFeedItem => ({
-          kind: "expense",
-          ts: expense.date,
-          expense,
-        })
-      ),
+    // get_recent_activity already returns only expenses the caller is involved
+    // in, so no client-side filter is needed here.
+    ...(expenses ?? []).map(
+      (expense): ActivityFeedItem => ({
+        kind: "expense",
+        ts: expense.date,
+        expense,
+      })
+    ),
     ...(payments ?? []).map(
       (payment): ActivityFeedItem => ({
         kind: "payment",

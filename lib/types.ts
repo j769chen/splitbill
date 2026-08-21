@@ -382,6 +382,21 @@ export interface Database {
           amount: number;
         }[];
       };
+      get_recent_activity: {
+        Args: { p_limit?: number };
+        Returns: {
+          id: string;
+          description: string;
+          amount: number;
+          currency: string;
+          date: string;
+          paid_by: string;
+          group_id: string;
+          payer: Profile | null;
+          groups: { name: string } | null;
+          expense_splits: { user_id: string; amount: number }[];
+        }[];
+      };
       get_group_simplified_edges: {
         Args: { p_group_id: string };
         Returns: {

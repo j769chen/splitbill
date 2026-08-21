@@ -106,6 +106,20 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/amount := v_transfer;/i);
   });
 
+  it("applies the involvement filter before the row cap in the activity RPC", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "get_recent_activity");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/public\.is_group_member\(e\.group_id, v_uid\)/i);
+    expect(body).toMatch(/e\.paid_by = v_uid/i);
+    expect(body).toMatch(/es\.user_id = v_uid/i);
+    // The limit must come after the where clause, not before it.
+    expect(body.indexOf("limit greatest")).toBeGreaterThan(
+      body.indexOf("es.user_id = v_uid")
+    );
+  });
+
   it("pins search_path on every SECURITY DEFINER function", () => {
     const functions = readSchema("04_functions.sql");
     const lines = functions.split("\n");
