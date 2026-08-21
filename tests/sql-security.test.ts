@@ -106,6 +106,26 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/amount := v_transfer;/i);
   });
 
+  it("pins search_path on every SECURITY DEFINER function", () => {
+    const functions = readSchema("04_functions.sql");
+    const lines = functions.split("\n");
+    const unpinned: string[] = [];
+
+    lines.forEach((line, i) => {
+      if (line.trim() !== "security definer") return;
+      // The clause may sit after a volatility marker (e.g. `stable`).
+      const following = lines.slice(i + 1, i + 4).map((l) => l.trim());
+      if (following.some((l) => l.startsWith("set search_path"))) return;
+      const declaration = lines
+        .slice(Math.max(0, i - 15), i)
+        .reverse()
+        .find((l) => l.includes("create or replace function"));
+      unpinned.push(declaration ?? `line ${i + 1}`);
+    });
+
+    expect(unpinned).toEqual([]);
+  });
+
   it("blocks leaving a group with an outstanding balance server-side", () => {
     const functions = readSchema("04_functions.sql");
     const body = functionBody(functions, "leave_group");
