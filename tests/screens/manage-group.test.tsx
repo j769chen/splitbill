@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
 import ManageGroup from "@/app/group-manage";
 
@@ -52,6 +52,25 @@ beforeEach(() => {
 });
 
 describe("ManageGroup screen", () => {
+  it("prefills the name once the group arrives after the first render", async () => {
+    (useGroup as jest.Mock).mockReturnValue({ data: undefined });
+    const view = await renderWithPaper(<ManageGroup />);
+
+    (useGroup as jest.Mock).mockReturnValue({
+      data: {
+        id: "g1",
+        name: "Trip",
+        simplify_debts: true,
+        group_members: [{ user_id: "u1", profiles: { full_name: "Me" } }],
+      },
+    });
+    await act(async () => {
+      view.rerender(<ManageGroup />);
+    });
+
+    await waitFor(() => expect(screen.getByDisplayValue("Trip")).toBeTruthy());
+  });
+
   it("prefills the current name and renames the group", async () => {
     await renderWithPaper(<ManageGroup />);
 

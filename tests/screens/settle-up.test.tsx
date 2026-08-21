@@ -1,6 +1,4 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { PaperProvider } from "react-native-paper";
-import { lightTheme } from "@/lib/theme";
 import { renderWithPaper } from "../helpers/testUtils";
 import SettleUp from "@/app/group-settle-up";
 
@@ -155,11 +153,7 @@ describe("SettleUp screen", () => {
     await waitFor(() => expect(screen.getByText("Record Payment")).toBeTruthy());
     setSimplifiedEdges([splitOwingEdges[1], splitOwingEdges[0]]);
     await act(async () => {
-      view.rerender(
-        <PaperProvider theme={lightTheme}>
-          <SettleUp />
-        </PaperProvider>
-      );
+      view.rerender(<SettleUp />);
     });
     await fireEvent.press(screen.getByText("Record Payment"));
 

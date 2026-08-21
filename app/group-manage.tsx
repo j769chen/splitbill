@@ -7,6 +7,7 @@ import {
   useRenameGroup,
   useSetGroupSimplifyDebts,
 } from "@/lib/queries/useGroups";
+import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { getErrorMessage } from "@/lib/utils";
@@ -17,7 +18,11 @@ export default function ManageGroup() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { data: group } = useGroup(groupId!);
 
-  const [name, setName] = useState(group?.name ?? "");
+  const [name, setName] = useState("");
+  // useState's initializer only runs on the first render, so seeding it from
+  // the query left the field permanently blank whenever the group wasn't
+  // already cached (deep link, or after cache eviction).
+  useHydrateOnce(!!group, () => setName(group?.name ?? ""));
 
   const renameGroup = useRenameGroup();
   const setSimplifyDebts = useSetGroupSimplifyDebts();

@@ -29,8 +29,14 @@ export async function actAsync<T>(fn: () => Promise<T>): Promise<T> {
  * react-native-paper components and useAppTheme resolve correctly. render() is
  * async in RNTL v14, so callers must await this.
  */
-export function renderWithPaper(ui: ReactElement) {
-  return render(<PaperProvider theme={lightTheme}>{ui}</PaperProvider>);
+export async function renderWithPaper(ui: ReactElement) {
+  const view = await render(<PaperProvider theme={lightTheme}>{ui}</PaperProvider>);
+  return {
+    ...view,
+    // Re-wrap on rerender; the bare RNTL rerender would drop PaperProvider.
+    rerender: (next: ReactElement) =>
+      view.rerender(<PaperProvider theme={lightTheme}>{next}</PaperProvider>),
+  };
 }
 
 /**
