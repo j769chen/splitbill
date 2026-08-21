@@ -4,17 +4,11 @@ import { Card, List, Text } from "react-native-paper";
 import { formatMemberOverallSummary } from "@/lib/balance-display";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
-import type { GroupBalance } from "@/lib/types";
-
-export type MemberBreakdownItem = {
-  direction: "owes" | "owed";
-  name: string;
-  amount: number;
-};
+import type { BalanceBreakdown, GroupBalance } from "@/lib/types";
 
 type MemberBalanceCardProps = {
   balance: GroupBalance;
-  breakdown: MemberBreakdownItem[];
+  breakdown: BalanceBreakdown[];
   accentColor: string;
   currency?: string;
 };

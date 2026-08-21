@@ -11,8 +11,8 @@ import { useAppTheme } from "@/lib/theme";
 import {
   ActivityFeedItemCard,
   isInvolvedInExpense,
-  type ActivityFeedItem,
 } from "@/components/activity/ActivityFeedItem";
+import { buildActivityFeed } from "@/lib/utils";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useState, useCallback } from "react";
@@ -72,47 +72,17 @@ export default function Activity() {
     refetchSimplifyEvents,
   ]);
 
-  const feed: ActivityFeedItem[] = [
-    // get_recent_activity already returns only expenses the caller is involved
-    // in, so no client-side filter is needed here.
-    ...(expenses ?? []).map(
-      (expense): ActivityFeedItem => ({
-        kind: "expense",
-        ts: expense.date,
-        expense,
-      })
+  // Contact expenses are still filtered here: RLS scopes them to the two
+  // participants, but a zero-share expense is not the caller's activity.
+  const feed = buildActivityFeed({
+    expenses,
+    payments,
+    contactExpenses: (contactExpenses ?? []).filter((contactExpense) =>
+      isInvolvedInExpense(contactExpense, user?.id)
     ),
-    ...(payments ?? []).map(
-      (payment): ActivityFeedItem => ({
-        kind: "payment",
-        ts: payment.created_at,
-        payment,
-      })
-    ),
-    ...(contactExpenses ?? [])
-      .filter((contactExpense) => isInvolvedInExpense(contactExpense, user?.id))
-      .map(
-        (contactExpense): ActivityFeedItem => ({
-          kind: "contact-expense",
-          ts: contactExpense.date,
-          contactExpense,
-        })
-      ),
-    ...(contactPayments ?? []).map(
-      (contactPayment): ActivityFeedItem => ({
-        kind: "contact-payment",
-        ts: contactPayment.created_at,
-        contactPayment,
-      })
-    ),
-    ...(simplifyEvents ?? []).map(
-      (event): ActivityFeedItem => ({
-        kind: "simplify-debts",
-        ts: event.created_at,
-        event,
-      })
-    ),
-  ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+    contactPayments,
+    simplifyEvents,
+  });
 
   if (isLoading) {
     return <LoadingScreen />;

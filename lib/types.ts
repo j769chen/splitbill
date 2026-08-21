@@ -640,6 +640,33 @@ export interface ContactRequest {
   };
 }
 
+// One item in the global Activity feed, discriminated by `kind`.
+export type ActivityFeedItem =
+  | { kind: "expense"; ts: string; expense: ActivityExpense }
+  | { kind: "payment"; ts: string; payment: ActivityPayment }
+  | {
+      kind: "contact-expense";
+      ts: string;
+      contactExpense: ActivityContactExpense;
+    }
+  | {
+      kind: "contact-payment";
+      ts: string;
+      contactPayment: ActivityContactPayment;
+    }
+  | {
+      kind: "simplify-debts";
+      ts: string;
+      event: ActivitySimplifyDebtsEvent;
+    };
+
+// One line of a member's debt breakdown: who they owe or are owed, and how much.
+export interface BalanceBreakdown {
+  direction: "owes" | "owed";
+  name: string;
+  amount: number;
+}
+
 // A member as the expense/payment forms need them: the id plus whatever display
 // name the joined profile carries.
 export interface MemberWithProfile {

@@ -6,30 +6,12 @@ import type {
   ActivityContactExpense,
   ActivityContactPayment,
   ActivityExpense,
+  ActivityFeedItem,
   ActivityPayment,
   ActivitySimplifyDebtsEvent,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
-
-export type ActivityFeedItem =
-  | { kind: "expense"; ts: string; expense: ActivityExpense }
-  | { kind: "payment"; ts: string; payment: ActivityPayment }
-  | {
-      kind: "contact-expense";
-      ts: string;
-      contactExpense: ActivityContactExpense;
-    }
-  | {
-      kind: "contact-payment";
-      ts: string;
-      contactPayment: ActivityContactPayment;
-    }
-  | {
-      kind: "simplify-debts";
-      ts: string;
-      event: ActivitySimplifyDebtsEvent;
-    };
 
 type ActivityFeedItemCardProps = {
   item: ActivityFeedItem;

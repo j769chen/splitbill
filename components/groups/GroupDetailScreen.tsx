@@ -12,7 +12,13 @@ import {
 } from "@/lib/queries/useBalances";
 import { useAuth } from "@/lib/auth";
 import { getBalanceColor } from "@/lib/balance-display";
-import { getErrorMessage } from "@/lib/utils";
+import {
+  getErrorMessage,
+  memberDebtBreakdown,
+  netDebtsByCounterparty,
+  sortByTimestampDesc,
+  sortMembersSelfFirst,
+} from "@/lib/utils";
 import { useRealtimeSubscription } from "@/lib/realtime";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
@@ -157,7 +163,7 @@ export function GroupDetailScreen({
     });
   };
 
-  const activityItems: ActivityListItem[] = [
+  const activityItems: ActivityListItem[] = sortByTimestampDesc([
     ...(expenses ?? []).map(
       (expense): ActivityListItem => ({
         kind: "expense",
@@ -172,40 +178,19 @@ export function GroupDetailScreen({
         payment,
       })
     ),
-  ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  ]);
 
   const debts = simplify ? (simplifiedDebts ?? []) : (rawDebts ?? []);
 
   const balanceColor = (value: number) => getBalanceColor(value, theme.colors);
-
-  const memberBreakdown = (userId: string) => [
-    ...debts
-      .filter((d) => d.from === userId)
-      .map((d) => ({ direction: "owes" as const, name: d.to_name, amount: d.amount })),
-    ...debts
-      .filter((d) => d.to === userId)
-      .map((d) => ({ direction: "owed" as const, name: d.from_name, amount: d.amount })),
-  ];
+  const memberBreakdown = (userId: string) =>
+    memberDebtBreakdown(debts, userId);
 
   const groupCurrency = group?.currency ?? "USD";
   // Derive the members-card balances from the same debt edges shown elsewhere so
   // the roster, the per-member breakdown, and the simplify toggle stay in sync.
-  // A positive value means that member owes you; negative means you owe them.
-  const pairwiseByUser = new Map<string, number>();
-  for (const debt of debts) {
-    if (debt.to === user?.id) {
-      pairwiseByUser.set(debt.from, (pairwiseByUser.get(debt.from) ?? 0) + debt.amount);
-    } else if (debt.from === user?.id) {
-      pairwiseByUser.set(debt.to, (pairwiseByUser.get(debt.to) ?? 0) - debt.amount);
-    }
-  }
-  const members = [...(group?.group_members ?? [])].sort((a, b) => {
-    if (a.user_id === user?.id) return -1;
-    if (b.user_id === user?.id) return 1;
-    return (a.profiles?.full_name ?? "").localeCompare(
-      b.profiles?.full_name ?? ""
-    );
-  });
+  const pairwiseByUser = netDebtsByCounterparty(debts, user?.id);
+  const members = sortMembersSelfFirst(group?.group_members ?? [], user?.id);
 
   return (
     <>

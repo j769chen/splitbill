@@ -4,7 +4,18 @@ import {
   getCurrencySymbol,
   type CurrencyCode,
 } from "./currency";
-import type { SplitType } from "./types";
+import type {
+  ActivityContactExpense,
+  ActivityContactPayment,
+  ActivityExpense,
+  ActivityFeedItem,
+  ActivityPayment,
+  ActivitySimplifyDebtsEvent,
+  BalanceBreakdown,
+  DebtEdge,
+  MemberWithProfile,
+  SplitType,
+} from "./types";
 
 function roundToDecimals(value: number, decimals: number): number {
   const factor = 10 ** decimals;
@@ -147,4 +158,103 @@ export function computeSplits(
     last.amount = roundToDecimals(last.amount + remainder, decimals);
   }
   return { ok: true, splits };
+}
+
+// Newest first, for feeds assembled from several differently-shaped queries.
+export function sortByTimestampDesc<T extends { ts: string }>(items: T[]): T[] {
+  return [...items].sort(
+    (a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()
+  );
+}
+
+// Every edge touching `userId`, framed from that member's point of view.
+export function memberDebtBreakdown(
+  debts: DebtEdge[],
+  userId: string
+): BalanceBreakdown[] {
+  return [
+    ...debts
+      .filter((d) => d.from === userId)
+      .map((d) => ({
+        direction: "owes" as const,
+        name: d.to_name,
+        amount: d.amount,
+      })),
+    ...debts
+      .filter((d) => d.to === userId)
+      .map((d) => ({
+        direction: "owed" as const,
+        name: d.from_name,
+        amount: d.amount,
+      })),
+  ];
+}
+
+// Net amount each other member owes `currentUserId` across the debt edges.
+// Positive means they owe the current user; negative means the reverse.
+export function netDebtsByCounterparty(
+  debts: DebtEdge[],
+  currentUserId: string | undefined
+): Map<string, number> {
+  const byUser = new Map<string, number>();
+  for (const debt of debts) {
+    if (debt.to === currentUserId) {
+      byUser.set(debt.from, (byUser.get(debt.from) ?? 0) + debt.amount);
+    } else if (debt.from === currentUserId) {
+      byUser.set(debt.to, (byUser.get(debt.to) ?? 0) - debt.amount);
+    }
+  }
+  return byUser;
+}
+
+// The current user first, then everyone else by display name.
+export function sortMembersSelfFirst<T extends MemberWithProfile>(
+  members: T[],
+  currentUserId: string | undefined
+): T[] {
+  return [...members].sort((a, b) => {
+    if (a.user_id === currentUserId) return -1;
+    if (b.user_id === currentUserId) return 1;
+    return (a.profiles?.full_name ?? "").localeCompare(
+      b.profiles?.full_name ?? ""
+    );
+  });
+}
+
+// Merges the five activity queries into one newest-first feed. Each source is
+// tagged with the `kind` its card renders and the timestamp it sorts on.
+export function buildActivityFeed(sources: {
+  expenses?: ActivityExpense[];
+  payments?: ActivityPayment[];
+  contactExpenses?: ActivityContactExpense[];
+  contactPayments?: ActivityContactPayment[];
+  simplifyEvents?: ActivitySimplifyDebtsEvent[];
+}): ActivityFeedItem[] {
+  return sortByTimestampDesc<ActivityFeedItem>([
+    ...(sources.expenses ?? []).map((expense) => ({
+      kind: "expense" as const,
+      ts: expense.date,
+      expense,
+    })),
+    ...(sources.payments ?? []).map((payment) => ({
+      kind: "payment" as const,
+      ts: payment.created_at,
+      payment,
+    })),
+    ...(sources.contactExpenses ?? []).map((contactExpense) => ({
+      kind: "contact-expense" as const,
+      ts: contactExpense.date,
+      contactExpense,
+    })),
+    ...(sources.contactPayments ?? []).map((contactPayment) => ({
+      kind: "contact-payment" as const,
+      ts: contactPayment.created_at,
+      contactPayment,
+    })),
+    ...(sources.simplifyEvents ?? []).map((event) => ({
+      kind: "simplify-debts" as const,
+      ts: event.created_at,
+      event,
+    })),
+  ]);
 }

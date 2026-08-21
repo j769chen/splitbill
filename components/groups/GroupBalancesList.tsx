@@ -1,14 +1,8 @@
 import { View } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import type { GroupBalance } from "@/lib/types";
+import type { BalanceBreakdown, GroupBalance } from "@/lib/types";
 import { EmptyState } from "@/components/EmptyState";
 import { MemberBalanceCard } from "./MemberBalanceCard";
-
-type BalanceBreakdown = {
-  direction: "owes" | "owed";
-  name: string;
-  amount: number;
-};
 
 type GroupBalancesListProps = {
   balances?: GroupBalance[];
