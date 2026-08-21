@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type { ExpenseWithSplits, Profile, SplitType } from "../types";
 import { useAuth } from "../auth";
+import { getCurrencyDecimals } from "../currency";
 import { convertSplitsToBase, validateSplitsTotal } from "../utils";
 
 export interface ActivityExpense {
@@ -110,7 +111,8 @@ export function useCreateExpense() {
   return useMutation({
     mutationFn: async (input: CreateExpenseInput) => {
       const splitAmounts = input.splits.map((s) => s.amount);
-      if (!validateSplitsTotal(input.amount, splitAmounts)) {
+      const decimals = getCurrencyDecimals(input.currency ?? "USD");
+      if (!validateSplitsTotal(input.amount, splitAmounts, decimals)) {
         throw new Error("Split amounts must add up to the expense total");
       }
 
@@ -167,7 +169,8 @@ export function useUpdateExpense() {
   return useMutation({
     mutationFn: async (input: UpdateExpenseInput) => {
       const splitAmounts = input.splits.map((s) => s.amount);
-      if (!validateSplitsTotal(input.amount, splitAmounts)) {
+      const decimals = getCurrencyDecimals(input.currency ?? "USD");
+      if (!validateSplitsTotal(input.amount, splitAmounts, decimals)) {
         throw new Error("Split amounts must add up to the expense total");
       }
 

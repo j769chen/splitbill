@@ -16,7 +16,12 @@ import type {
   SplitType,
 } from "../types";
 import { useAuth } from "../auth";
-import { canConvert, convert, sumConverted } from "../currency";
+import {
+  canConvert,
+  convert,
+  getCurrencyDecimals,
+  sumConverted,
+} from "../currency";
 import { useDisplayCurrency } from "../display-currency";
 import { useExchangeRates } from "../exchange-rates";
 import { convertSplitsToBase, validateSplitsTotal } from "../utils";
@@ -427,7 +432,8 @@ export function useCreateContactExpense() {
   return useMutation({
     mutationFn: async (input: CreateContactExpenseInput) => {
       const splitAmounts = input.splits.map((s) => s.amount);
-      if (!validateSplitsTotal(input.amount, splitAmounts)) {
+      const decimals = getCurrencyDecimals(input.currency ?? "USD");
+      if (!validateSplitsTotal(input.amount, splitAmounts, decimals)) {
         throw new Error("Split amounts must add up to the expense total");
       }
 
@@ -479,7 +485,8 @@ export function useUpdateContactExpense() {
   return useMutation({
     mutationFn: async (input: UpdateContactExpenseInput) => {
       const splitAmounts = input.splits.map((s) => s.amount);
-      if (!validateSplitsTotal(input.amount, splitAmounts)) {
+      const decimals = getCurrencyDecimals(input.currency ?? "USD");
+      if (!validateSplitsTotal(input.amount, splitAmounts, decimals)) {
         throw new Error("Split amounts must add up to the expense total");
       }
 

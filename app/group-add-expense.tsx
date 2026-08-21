@@ -5,7 +5,7 @@ import { useGroup } from "@/lib/queries/useGroups";
 import { useCreateExpense, useExpenses, useUpdateExpense } from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
 import { useHydrateOnce } from "@/lib/useHydrateOnce";
-import { computeSplits, getErrorMessage } from "@/lib/utils";
+import { computeSplits, getErrorMessage, roundToCurrency } from "@/lib/utils";
 import { resolveEntryRate } from "@/lib/currency";
 import { useExchangeRates } from "@/lib/exchange-rates";
 import { useSnackbar } from "@/lib/snackbar";
@@ -77,7 +77,10 @@ export default function AddExpense() {
     .map((member) => member.user_id)
     .filter((userId) => !excludedMemberIds.includes(userId));
   const effectivePaidBy = paidBy || user?.id || "";
-  const totalAmount = parseFloat(amount) || 0;
+  // Round to the entry currency's precision up front: a JPY amount of 1000.5
+  // cannot be split into whole yen, and the server compares the split total to
+  // round(p_amount, 2).
+  const totalAmount = roundToCurrency(parseFloat(amount) || 0, entryCurrency);
   const isForeignCurrency = entryCurrency !== baseCurrency;
   const { rate: exchangeRate, hasRate: hasExchangeRate } = resolveEntryRate(
     entryCurrency,

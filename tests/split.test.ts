@@ -1,4 +1,4 @@
-import { computeSplits } from "@/lib/utils";
+import { computeSplits, roundToCurrency, validateSplitsTotal } from "@/lib/utils";
 
 const sum = (splits: { amount: number }[]) =>
   Math.round(splits.reduce((acc, s) => acc + s.amount, 0) * 100) / 100;
@@ -194,5 +194,28 @@ describe("computeSplits - zero-decimal currencies (JPY)", () => {
       ok: false,
       error: "Split amounts (¥900) don't add up to total (¥1000)",
     });
+  });
+});
+
+describe("zero-decimal currencies", () => {
+  it("rounds a JPY amount to whole yen before splitting", () => {
+    expect(roundToCurrency(1000.5, "JPY")).toBe(1001);
+    expect(roundToCurrency(1000.5, "USD")).toBe(1000.5);
+  });
+
+  it("accepts a JPY split validated at the currency's precision", () => {
+    const result = computeSplits(
+      "equal",
+      roundToCurrency(1000.5, "JPY"),
+      ["a", "b", "c"],
+      {},
+      "JPY"
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const amounts = result.splits.map((s) => s.amount);
+    expect(amounts).toEqual([335, 333, 333]);
+    expect(validateSplitsTotal(1001, amounts, 0)).toBe(true);
   });
 });

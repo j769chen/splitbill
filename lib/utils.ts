@@ -48,6 +48,13 @@ export function convertSplitsToBase<T extends { amount: number }>(
   return result;
 }
 
+export function roundToCurrency(
+  amount: number,
+  currencyCode: CurrencyCode = DEFAULT_CURRENCY
+): number {
+  return roundToDecimals(amount, getCurrencyDecimals(currencyCode));
+}
+
 export function splitEqual(
   total: number,
   memberCount: number,
