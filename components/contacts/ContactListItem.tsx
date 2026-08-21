@@ -19,8 +19,15 @@ export function ContactListItem({
   onPress,
 }: ContactListItemProps) {
   const theme = useAppTheme();
-  const balanceColor = getBalanceColor(contact.balance, theme.colors);
-  const balanceLabel = formatCompactPeerBalance(contact.balance, currency);
+  const { balance } = contact;
+  const balanceColor =
+    balance === null
+      ? theme.colors.onSurfaceVariant
+      : getBalanceColor(balance, theme.colors);
+  const balanceLabel =
+    balance === null
+      ? "balance unavailable"
+      : formatCompactPeerBalance(balance, currency);
 
   return (
     <Card mode="elevated" onPress={onPress}>

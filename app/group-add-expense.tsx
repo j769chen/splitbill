@@ -6,7 +6,7 @@ import { useCreateExpense, useExpenses, useUpdateExpense } from "@/lib/queries/u
 import { useAuth } from "@/lib/auth";
 import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import { computeSplits, getErrorMessage } from "@/lib/utils";
-import { canConvert, getRate } from "@/lib/currency";
+import { resolveEntryRate } from "@/lib/currency";
 import { useExchangeRates } from "@/lib/exchange-rates";
 import { useSnackbar } from "@/lib/snackbar";
 import { FormScreen } from "@/components/FormScreen";
@@ -79,18 +79,12 @@ export default function AddExpense() {
   const effectivePaidBy = paidBy || user?.id || "";
   const totalAmount = parseFloat(amount) || 0;
   const isForeignCurrency = entryCurrency !== baseCurrency;
-  // When editing, reuse the rate the expense was booked at unless the user
-  // switches currency. Re-pricing at today's rate would silently move every
-  // member's balance on an unrelated edit (e.g. fixing the description).
-  const bookedRate =
-    isEdit && existingExpense?.currency === entryCurrency
-      ? existingExpense.exchange_rate
-      : undefined;
-  const hasExchangeRate =
-    bookedRate !== undefined || canConvert(entryCurrency, baseCurrency, rates);
-  const exchangeRate = !isForeignCurrency
-    ? 1
-    : (bookedRate ?? getRate(entryCurrency, baseCurrency, rates));
+  const { rate: exchangeRate, hasRate: hasExchangeRate } = resolveEntryRate(
+    entryCurrency,
+    baseCurrency,
+    rates,
+    isEdit ? existingExpense : undefined
+  );
   const convertedBase = Math.round(totalAmount * exchangeRate * 100) / 100;
 
   const memberName = (member: { user_id: string; profiles?: { full_name?: string | null } | null }) =>

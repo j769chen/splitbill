@@ -562,7 +562,9 @@ export interface ContactWithBalance {
   contact_user_id: string;
   full_name: string;
   avatar_url: string | null;
-  balance: number;
+  // null when at least one of the contact's currency contexts has no
+  // exchange rate, so the combined balance is genuinely unknown.
+  balance: number | null;
   is_accepted: boolean;
 }
 

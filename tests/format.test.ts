@@ -1,4 +1,5 @@
 import { convertSplitsToBase, formatCurrency } from "@/lib/utils";
+import { resolveEntryRate } from "@/lib/currency";
 import { canConvert } from "@/lib/currency";
 
 describe("formatCurrency", () => {
@@ -97,5 +98,48 @@ describe("canConvert", () => {
     expect(canConvert("EUR", "USD", { USD: 1, EUR: 0.9 })).toBe(true);
     expect(canConvert("EUR", "USD", { USD: 1 })).toBe(false);
     expect(canConvert("EUR", "USD", undefined)).toBe(false);
+  });
+});
+
+describe("resolveEntryRate", () => {
+  const rates = { USD: 1, EUR: 0.5 };
+
+  it("uses rate 1 when the entry currency is the base currency", () => {
+    expect(resolveEntryRate("USD", "USD", rates)).toEqual({
+      rate: 1,
+      hasRate: true,
+    });
+  });
+
+  it("uses the live rate when creating", () => {
+    expect(resolveEntryRate("EUR", "USD", rates)).toEqual({
+      rate: 2,
+      hasRate: true,
+    });
+  });
+
+  it("keeps the booked rate when editing in the same currency", () => {
+    expect(
+      resolveEntryRate("EUR", "USD", rates, {
+        currency: "EUR",
+        exchange_rate: 1.05,
+      })
+    ).toEqual({ rate: 1.05, hasRate: true });
+  });
+
+  it("uses the live rate when the currency changed during an edit", () => {
+    expect(
+      resolveEntryRate("EUR", "USD", rates, {
+        currency: "GBP",
+        exchange_rate: 1.4,
+      })
+    ).toEqual({ rate: 2, hasRate: true });
+  });
+
+  it("reports no rate when a live rate is needed but missing", () => {
+    expect(resolveEntryRate("SEK", "USD", rates)).toEqual({
+      rate: 1,
+      hasRate: false,
+    });
   });
 });

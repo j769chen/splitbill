@@ -94,3 +94,40 @@ export function convert(
 ): number {
   return amount * getRate(from, to, rates);
 }
+
+// Picks the rate an expense should be booked at. An edit keeps the rate it was
+// originally booked at unless the entry currency changed -- re-pricing at
+// today's rate would silently move every member's balance. `hasRate` is false
+// when a live rate is needed but unavailable.
+export function resolveEntryRate(
+  entryCurrency: CurrencyCode,
+  baseCurrency: CurrencyCode,
+  rates: ExchangeRates | undefined,
+  booked?: { currency: string; exchange_rate: number }
+): { rate: number; hasRate: boolean } {
+  if (entryCurrency === baseCurrency) return { rate: 1, hasRate: true };
+  if (booked && booked.currency === entryCurrency) {
+    return { rate: booked.exchange_rate, hasRate: true };
+  }
+  return {
+    rate: getRate(entryCurrency, baseCurrency, rates),
+    hasRate: canConvert(entryCurrency, baseCurrency, rates),
+  };
+}
+
+// Sums per-currency amounts into `to`, returning null when any part has no
+// usable rate. getRate falls back to 1 for a missing pair, so callers that
+// aggregate across currencies must check convertibility first -- otherwise an
+// unconverted EUR100 lands in a USD total as $100.
+export function sumConverted(
+  parts: { balance: number; currency: CurrencyCode }[],
+  to: CurrencyCode,
+  rates: ExchangeRates | undefined
+): number | null {
+  let total = 0;
+  for (const part of parts) {
+    if (!canConvert(part.currency, to, rates)) return null;
+    total += convert(part.balance, part.currency, to, rates);
+  }
+  return Math.round(total * 100) / 100;
+}

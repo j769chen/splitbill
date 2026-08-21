@@ -16,7 +16,7 @@ import type {
   SplitType,
 } from "../types";
 import { useAuth } from "../auth";
-import { convert } from "../currency";
+import { canConvert, convert, sumConverted } from "../currency";
 import { useDisplayCurrency } from "../display-currency";
 import { useExchangeRates } from "../exchange-rates";
 import { convertSplitsToBase, validateSplitsTotal } from "../utils";
@@ -169,14 +169,15 @@ export function useContacts() {
     const byContact = new Map<string, ContactWithBalance>();
     for (const row of query.data ?? []) {
       const existing = byContact.get(row.contact_user_id);
-      const converted = convert(
-        row.balance,
-        row.currency,
-        displayCurrency,
-        rates
-      );
+      const convertible = canConvert(row.currency, displayCurrency, rates);
+      const converted = convertible
+        ? convert(row.balance, row.currency, displayCurrency, rates)
+        : null;
       if (existing) {
-        existing.balance += converted;
+        existing.balance =
+          existing.balance === null || converted === null
+            ? null
+            : existing.balance + converted;
       } else {
         byContact.set(row.contact_user_id, {
           contact_user_id: row.contact_user_id,
@@ -189,7 +190,7 @@ export function useContacts() {
     }
     return Array.from(byContact.values()).map((c) => ({
       ...c,
-      balance: Math.round(c.balance * 100) / 100,
+      balance: c.balance === null ? null : Math.round(c.balance * 100) / 100,
     }));
   }, [query.data, rates, displayCurrency]);
 
@@ -221,15 +222,12 @@ export function useContactBalance(contactUserId: string) {
 
   // Combined balance: convert each per-currency context into the display
   // currency and sum.
-  const balance = useMemo(() => {
-    let total = 0;
-    for (const ctx of query.data ?? []) {
-      total += convert(ctx.balance, ctx.currency, displayCurrency, rates);
-    }
-    return Math.round(total * 100) / 100;
-  }, [query.data, rates, displayCurrency]);
+  const balance = useMemo(
+    () => sumConverted(query.data ?? [], displayCurrency, rates),
+    [query.data, rates, displayCurrency]
+  );
 
-  return { ...query, data: query.data ? balance : undefined };
+  return { ...query, data: query.data ? (balance ?? undefined) : undefined };
 }
 
 export function useContactPairBalance(contactUserId: string) {

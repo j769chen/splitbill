@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type { DebtEdge, GroupBalance } from "../types";
 import { useAuth } from "../auth";
-import { convert } from "../currency";
+import { canConvert, convert } from "../currency";
 import { useDisplayCurrency } from "../display-currency";
 import { useExchangeRates } from "../exchange-rates";
 
@@ -98,11 +98,13 @@ export function useUserTotalBalance() {
   });
 
   // Each context's net is in its own currency. Convert to the display currency,
-  // then fold positives into "owed" and negatives into "owing".
+  // then fold positives into "owed" and negatives into "owing". Undefined when
+  // any context has no rate -- the total is unknown, not zero.
   const data = useMemo(() => {
     let totalOwed = 0;
     let totalOwing = 0;
     for (const ctx of query.data ?? []) {
+      if (!canConvert(ctx.currency, displayCurrency, rates)) return undefined;
       const converted = convert(ctx.balance, ctx.currency, displayCurrency, rates);
       if (converted > 0.005) totalOwed += converted;
       else if (converted < -0.005) totalOwing += -converted;

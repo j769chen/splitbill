@@ -45,6 +45,7 @@ describe("useContacts", () => {
           contact_user_id: "user-2",
           full_name: "Bob",
           avatar_url: null,
+          currency: "USD",
           balance: "12.5",
           is_accepted: true,
         },
@@ -71,6 +72,40 @@ describe("useContacts", () => {
     ]);
   });
 
+  it("reports an unknown balance instead of an unconverted one", async () => {
+    // SEK has no rate in the test fixture, so the combined balance cannot be
+    // expressed in the display currency.
+    mockedSupabase.rpc.mockResolvedValue({
+      data: [
+        {
+          contact_user_id: "user-2",
+          full_name: "Bob",
+          avatar_url: null,
+          currency: "USD",
+          balance: "10",
+          is_accepted: true,
+        },
+        {
+          contact_user_id: "user-2",
+          full_name: "Bob",
+          avatar_url: null,
+          currency: "SEK",
+          balance: "100",
+          is_accepted: true,
+        },
+      ],
+      error: null,
+    });
+
+    const { result } = await renderHook(() => useContacts(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([
+      expect.objectContaining({ contact_user_id: "user-2", balance: null }),
+    ]);
+  });
 });
 
 describe("useContactBalance", () => {
