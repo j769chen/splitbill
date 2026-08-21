@@ -461,7 +461,7 @@ describe("useCreateContactExpense", () => {
 
 describe("useDeleteContactExpense", () => {
   it("deletes the contact expense by id", async () => {
-    const builder = queryBuilder({ data: null, error: null });
+    const builder = queryBuilder({ data: [{ id: "ce-1" }], error: null });
     mockedSupabase.from.mockReturnValue(builder);
 
     const { result } = await renderHook(() => useDeleteContactExpense(), {
@@ -477,6 +477,18 @@ describe("useDeleteContactExpense", () => {
     expect(builder.eq).toHaveBeenCalledWith("id", "ce-1");
   });
 
+  it("rejects when RLS filters the delete to no rows", async () => {
+    const builder = queryBuilder({ data: [], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeleteContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ expenseId: "ce-1", contactUserId: "user-2" })
+    ).rejects.toThrow("You can't delete this expense.");
+  });
 });
 
 describe("useUpdateContactExpense", () => {
@@ -641,7 +653,7 @@ describe("useUpdateContactPayment", () => {
 
 describe("useDeleteContactPayment", () => {
   it("deletes the contact payment by id", async () => {
-    const builder = queryBuilder({ data: null, error: null });
+    const builder = queryBuilder({ data: [{ id: "cp-1" }], error: null });
     mockedSupabase.from.mockReturnValue(builder);
 
     const { result } = await renderHook(() => useDeleteContactPayment(), {
@@ -657,4 +669,16 @@ describe("useDeleteContactPayment", () => {
     expect(builder.eq).toHaveBeenCalledWith("id", "cp-1");
   });
 
+  it("rejects when the delete removes no rows", async () => {
+    const builder = queryBuilder({ data: [], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeleteContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ paymentId: "cp-1", contactUserId: "user-2" })
+    ).rejects.toThrow("You can't delete this payment.");
+  });
 });

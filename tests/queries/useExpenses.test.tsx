@@ -285,7 +285,7 @@ describe("useUpdateExpense", () => {
 
 describe("useDeleteExpense", () => {
   it("deletes by expense id", async () => {
-    const builder = queryBuilder({ data: null, error: null });
+    const builder = queryBuilder({ data: [{ id: "exp-1" }], error: null });
     mockedSupabase.from.mockReturnValue(builder);
 
     const { result } = await renderHook(() => useDeleteExpense(), {
@@ -300,6 +300,19 @@ describe("useDeleteExpense", () => {
     expect(mockedSupabase.from).toHaveBeenCalledWith("expenses");
     expect(builder.delete).toHaveBeenCalled();
     expect(builder.eq).toHaveBeenCalledWith("id", "exp-1");
+  });
+
+  it("rejects when the delete removes no rows", async () => {
+    const builder = queryBuilder({ data: [], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeleteExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(result.current.mutateAsync({ expenseId: "exp-1", groupId: "g1" })).rejects.toThrow(
+      "You can't delete this expense."
+    );
   });
 
 });

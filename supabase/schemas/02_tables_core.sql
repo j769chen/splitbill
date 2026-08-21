@@ -103,3 +103,14 @@ alter table public.expenses enable row level security;
 alter table public.expense_splits enable row level security;
 alter table public.payments enable row level security;
 alter table public.group_simplify_debts_events enable row level security;
+
+-- Grants. Every other table's grants come from Supabase's default privileges on
+-- the public schema; this table was added later via a migration that granted
+-- them explicitly, so they must be declared here too or `supabase db diff`
+-- emits a revoke that would break the activity feed's reads.
+grant references, trigger, truncate on table public.group_simplify_debts_events
+  to anon, authenticated, service_role;
+-- Rows are written only by set_group_simplify_debts (SECURITY DEFINER), so no
+-- insert/update/delete grants are needed; the SELECT policy scopes reads.
+grant select on table public.group_simplify_debts_events
+  to anon, authenticated, service_role;

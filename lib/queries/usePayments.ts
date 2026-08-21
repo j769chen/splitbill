@@ -204,12 +204,16 @@ export function useDeletePayment() {
       paymentId: string;
       groupId: string;
     }) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("payments")
         .delete()
-        .eq("id", paymentId);
+        .eq("id", paymentId)
+        .select("id");
 
       if (error) throw error;
+      if (!data?.length) {
+        throw new Error("You can't delete this payment.");
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({

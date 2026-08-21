@@ -189,7 +189,7 @@ describe("useUpdatePayment", () => {
 
 describe("useDeletePayment", () => {
   it("deletes by payment id", async () => {
-    const builder = queryBuilder({ data: null, error: null });
+    const builder = queryBuilder({ data: [{ id: "p1" }], error: null });
     mockedSupabase.from.mockReturnValue(builder);
 
     const { result } = await renderHook(() => useDeletePayment(), {
@@ -203,5 +203,18 @@ describe("useDeletePayment", () => {
     expect(mockedSupabase.from).toHaveBeenCalledWith("payments");
     expect(builder.delete).toHaveBeenCalled();
     expect(builder.eq).toHaveBeenCalledWith("id", "p1");
+  });
+
+  it("rejects when the delete removes no rows", async () => {
+    const builder = queryBuilder({ data: [], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeletePayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(result.current.mutateAsync({ paymentId: "p1", groupId: "g1" })).rejects.toThrow(
+      "You can't delete this payment."
+    );
   });
 });

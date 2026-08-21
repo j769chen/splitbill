@@ -224,12 +224,16 @@ export function useDeleteExpense() {
       expenseId: string;
       groupId: string;
     }) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("expenses")
         .delete()
-        .eq("id", expenseId);
+        .eq("id", expenseId)
+        .select("id");
 
       if (error) throw error;
+      if (!data?.length) {
+        throw new Error("You can't delete this expense.");
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({

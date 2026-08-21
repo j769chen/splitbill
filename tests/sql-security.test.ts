@@ -106,6 +106,21 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/amount := v_transfer;/i);
   });
 
+  it("lets either participant delete a one-on-one expense", () => {
+    // The update RPC (SECURITY DEFINER) already allows either participant, and
+    // group expenses are member-deletable, so a payer-only delete policy made
+    // the non-payer's trash button a silent no-op.
+    const policies = readSchema("05_policies.sql");
+
+    expect(policies).toMatch(
+      /create policy "Participants can delete contact expenses"[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
+    );
+    expect(policies).toMatch(
+      /create policy "Participants can delete contact expense splits"[\s\S]*?using \(public\.is_contact_participant\(expense_id, auth\.uid\(\)\)\)/i
+    );
+    expect(policies).not.toMatch(/"Payer can delete contact expense/i);
+  });
+
   it("guards the send-contact-request RPC", () => {
     const functions = readSchema("04_functions.sql");
     const body = functionBody(functions, "send_contact_request");

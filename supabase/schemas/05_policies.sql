@@ -158,8 +158,9 @@ create policy "Participants can create contact expenses"
 create policy "Payer can update contact expenses"
   on public.contact_expenses for update using (auth.uid() = paid_by);
 
-create policy "Payer can delete contact expenses"
-  on public.contact_expenses for delete using (auth.uid() = paid_by);
+create policy "Participants can delete contact expenses"
+  on public.contact_expenses for delete
+  using (auth.uid() = user_lo or auth.uid() = user_hi);
 
 -- contact_expense_splits
 create policy "Participants can view contact expense splits"
@@ -176,11 +177,9 @@ create policy "Payer can update contact expense splits"
     select id from public.contact_expenses where paid_by = auth.uid()
   ));
 
-create policy "Payer can delete contact expense splits"
+create policy "Participants can delete contact expense splits"
   on public.contact_expense_splits for delete
-  using (expense_id in (
-    select id from public.contact_expenses where paid_by = auth.uid()
-  ));
+  using (public.is_contact_participant(expense_id, auth.uid()));
 
 -- contact_payments
 -- Either participant may view/record/edit/delete a one-on-one payment (mirrors
