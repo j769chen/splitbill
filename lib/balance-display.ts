@@ -20,28 +20,35 @@ export function hasSignificantBalance(balance: number): boolean {
   return getBalanceDirection(balance) !== "settled";
 }
 
+// Every consumer below answers the same three-way question about a balance, so
+// each one supplies one branch per direction and shares the dispatch.
+function byDirection<T>(
+  balance: number,
+  branches: Record<BalanceDirection, () => T>
+): T {
+  return branches[getBalanceDirection(balance)]();
+}
+
 export function getBalanceColor(
   balance: number,
   colors: BalanceColors
 ): string {
-  const direction = getBalanceDirection(balance);
-  if (direction === "owed") return colors.success;
-  if (direction === "owing") return colors.error;
-  return colors.onSurfaceVariant;
+  return byDirection(balance, {
+    owed: () => colors.success,
+    owing: () => colors.error,
+    settled: () => colors.onSurfaceVariant,
+  });
 }
 
 export function formatCompactPeerBalance(
   balance: number,
   currency?: string
 ): string {
-  const direction = getBalanceDirection(balance);
-  if (direction === "owed") {
-    return `owes you ${formatCurrency(balance, currency)}`;
-  }
-  if (direction === "owing") {
-    return `you owe ${formatCurrency(Math.abs(balance), currency)}`;
-  }
-  return "settled up";
+  return byDirection(balance, {
+    owed: () => `owes you ${formatCurrency(balance, currency)}`,
+    owing: () => `you owe ${formatCurrency(Math.abs(balance), currency)}`,
+    settled: () => "settled up",
+  });
 }
 
 export function formatSharedGroupBalance(
@@ -49,24 +56,22 @@ export function formatSharedGroupBalance(
   currency: string,
   contactName: string
 ): string {
-  const direction = getBalanceDirection(balance);
-  if (direction === "owed") {
-    return `${contactName} owes you ${formatCurrency(balance, currency)}`;
-  }
-  if (direction === "owing") {
-    return `You owe ${formatCurrency(Math.abs(balance), currency)}`;
-  }
-  return "Settled up";
+  return byDirection(balance, {
+    owed: () => `${contactName} owes you ${formatCurrency(balance, currency)}`,
+    owing: () => `You owe ${formatCurrency(Math.abs(balance), currency)}`,
+    settled: () => "Settled up",
+  });
 }
 
 export function formatContactSummaryLabel(
   balance: number,
   contactName: string
 ): string {
-  const direction = getBalanceDirection(balance);
-  if (direction === "owed") return `${contactName} owes you`;
-  if (direction === "owing") return `You owe ${contactName}`;
-  return "You're all settled up";
+  return byDirection(balance, {
+    owed: () => `${contactName} owes you`,
+    owing: () => `You owe ${contactName}`,
+    settled: () => "You're all settled up",
+  });
 }
 
 export function formatContactSettleLabel(
@@ -74,41 +79,37 @@ export function formatContactSettleLabel(
   currency: string,
   contactName: string
 ): string {
-  const direction = getBalanceDirection(balance);
-  if (direction === "owed") {
-    return `${contactName} owes you ${formatCurrency(balance, currency)}`;
-  }
-  if (direction === "owing") {
-    return `You owe ${contactName} ${formatCurrency(Math.abs(balance), currency)}`;
-  }
-  return `You're all settled up with ${contactName}`;
+  return byDirection(balance, {
+    owed: () => `${contactName} owes you ${formatCurrency(balance, currency)}`,
+    owing: () =>
+      `You owe ${contactName} ${formatCurrency(Math.abs(balance), currency)}`,
+    settled: () => `You're all settled up with ${contactName}`,
+  });
 }
 
 export function formatMemberOverallSummary(balance: number): string {
-  const direction = getBalanceDirection(balance);
-  if (direction === "owed") return "is owed overall";
-  if (direction === "owing") return "owes overall";
-  return "settled up";
+  return byDirection(balance, {
+    owed: () => "is owed overall",
+    owing: () => "owes overall",
+    settled: () => "settled up",
+  });
 }
 
 export function getOverallBalanceParts(
   net: number,
   currency: string
 ): { prefix: string; amount: string; suffix: string } {
-  const direction = getBalanceDirection(net);
-  if (direction === "owed") {
-    return {
+  return byDirection(net, {
+    owed: () => ({
       prefix: "You are owed ",
       amount: formatCurrency(net, currency),
       suffix: " overall",
-    };
-  }
-  if (direction === "owing") {
-    return {
+    }),
+    owing: () => ({
       prefix: "You owe ",
       amount: formatCurrency(Math.abs(net), currency),
       suffix: " overall",
-    };
-  }
-  return { prefix: "You are settled up!", amount: "", suffix: "" };
+    }),
+    settled: () => ({ prefix: "You are settled up!", amount: "", suffix: "" }),
+  });
 }

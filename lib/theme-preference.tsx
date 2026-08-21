@@ -1,6 +1,5 @@
 import React, {
   createContext,
-  useCallback,
   useContext,
   useMemo,
 } from "react";
@@ -42,16 +41,12 @@ export function ThemePreferenceProvider({
       deserialize: deserializeThemeMode,
     });
 
-  const setMode = useCallback((next: ThemeMode) => {
-    setModeState(next);
-  }, [setModeState]);
-
   const isDark =
     mode === "system" ? systemScheme === "dark" : mode === "dark";
   const theme = isDark ? darkTheme : lightTheme;
   const value = useMemo(
-    () => ({ mode, setMode, theme, isDark }),
-    [isDark, mode, setMode, theme]
+    () => ({ mode, setMode: setModeState, theme, isDark }),
+    [isDark, mode, setModeState, theme]
   );
 
   return (

@@ -4,6 +4,7 @@ import {
   formatContactSummaryLabel,
   formatMemberOverallSummary,
   formatSharedGroupBalance,
+  getBalanceColor,
   getBalanceDirection,
   getOverallBalanceParts,
   hasSignificantBalance,
@@ -60,5 +61,27 @@ describe("balance display helpers", () => {
       amount: "$12.00",
       suffix: " overall",
     });
+    expect(getOverallBalanceParts(-12, "USD")).toEqual({
+      prefix: "You owe ",
+      amount: "$12.00",
+      suffix: " overall",
+    });
+    expect(getOverallBalanceParts(0, "USD")).toEqual({
+      prefix: "You are settled up!",
+      amount: "",
+      suffix: "",
+    });
+  });
+
+  it("picks the accent colour per direction", () => {
+    const colors = {
+      success: "green",
+      error: "red",
+      onSurfaceVariant: "grey",
+    } as Parameters<typeof getBalanceColor>[1];
+
+    expect(getBalanceColor(12, colors)).toBe("green");
+    expect(getBalanceColor(-12, colors)).toBe("red");
+    expect(getBalanceColor(0, colors)).toBe("grey");
   });
 });

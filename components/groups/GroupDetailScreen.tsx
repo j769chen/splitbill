@@ -40,18 +40,17 @@ export function GroupDetailScreen({
   groupId: string;
   leaveFallbackRoute?: "/(tabs)/groups" | "/(tabs)/(home)" | "/(tabs)/activity";
 }) {
-  const id = groupId;
   const theme = useAppTheme();
   const { user } = useAuth();
-  const { data: group, refetch: refetchGroup } = useGroup(id!);
-  const { data: expenses, refetch: refetchExpenses } = useExpenses(id!);
-  const { data: payments, refetch: refetchPayments } = useGroupPayments(id!);
-  const { data: balances, refetch: refetchBalances } = useGroupBalances(id!);
+  const { data: group, refetch: refetchGroup } = useGroup(groupId);
+  const { data: expenses, refetch: refetchExpenses } = useExpenses(groupId);
+  const { data: payments, refetch: refetchPayments } = useGroupPayments(groupId);
+  const { data: balances, refetch: refetchBalances } = useGroupBalances(groupId);
   const simplify = group?.simplify_debts ?? true;
   const { data: rawDebts, refetch: refetchRawDebts } =
-    useGroupPairwiseBalances(id!, !simplify);
+    useGroupPairwiseBalances(groupId, !simplify);
   const { data: simplifiedDebts, refetch: refetchSimplifiedDebts } =
-    useGroupSimplifiedEdges(id!, simplify);
+    useGroupSimplifiedEdges(groupId, simplify);
   const deleteExpense = useDeleteExpense();
   const deletePayment = useDeletePayment();
   const leaveGroup = useLeaveGroup();
@@ -60,7 +59,7 @@ export function GroupDetailScreen({
   const [activeTab, setActiveTab] = useState<TabType>("activity");
   const [refreshing, setRefreshing] = useState(false);
 
-  useRealtimeSubscription(id);
+  useRealtimeSubscription(groupId);
 
   const handleLeaveGroup = () => {
     if (!balances) {
@@ -82,7 +81,7 @@ export function GroupDetailScreen({
       destructive: true,
       onConfirm: async () => {
         try {
-          await leaveGroup.mutateAsync(id!);
+          await leaveGroup.mutateAsync(groupId);
           if (router.canGoBack()) {
             router.back();
           } else {
@@ -125,7 +124,7 @@ export function GroupDetailScreen({
       destructive: true,
       onConfirm: () => {
         deleteExpense.mutate(
-          { expenseId, groupId: id! },
+          { expenseId, groupId },
           {
             onError: (error) =>
               showError(
@@ -148,7 +147,7 @@ export function GroupDetailScreen({
       destructive: true,
       onConfirm: () => {
         deletePayment.mutate(
-          { paymentId, groupId: id! },
+          { paymentId, groupId },
           {
             onError: (error) =>
               showError(
@@ -202,7 +201,7 @@ export function GroupDetailScreen({
               onSettings={() =>
                 router.push({
                   pathname: "/group-manage",
-                  params: { groupId: id },
+                  params: { groupId },
                 })
               }
               onLeave={handleLeaveGroup}
@@ -221,7 +220,7 @@ export function GroupDetailScreen({
           onAddMembers={() =>
             router.push({
               pathname: "/group-add-members",
-              params: { groupId: id },
+              params: { groupId },
             })
           }
         />
@@ -266,14 +265,14 @@ export function GroupDetailScreen({
               onEditExpense={(expenseId) =>
                 router.push({
                   pathname: "/group-add-expense",
-                  params: { groupId: id, expenseId },
+                  params: { groupId, expenseId },
                 })
               }
               onDeletePayment={handleDeletePayment}
               onEditPayment={(paymentId) =>
                 router.push({
                   pathname: "/group-edit-payment",
-                  params: { groupId: id, paymentId },
+                  params: { groupId, paymentId },
                 })
               }
             />
@@ -291,13 +290,13 @@ export function GroupDetailScreen({
           onPrimary={() =>
             router.push({
               pathname: "/group-add-expense",
-              params: { groupId: id },
+              params: { groupId },
             })
           }
           onSecondary={() =>
             router.push({
               pathname: "/group-settle-up",
-              params: { groupId: id },
+              params: { groupId },
             })
           }
         />
