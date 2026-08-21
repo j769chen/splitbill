@@ -56,9 +56,13 @@ export function GroupDetailScreen({
 
   useRealtimeSubscription(id);
 
-  const myBalance = balances?.find((b) => b.user_id === user?.id)?.balance ?? 0;
-
   const handleLeaveGroup = () => {
+    if (!balances) {
+      showInfo("Still checking your balance. Try again in a moment.");
+      return;
+    }
+    const myBalance =
+      balances.find((b) => b.user_id === user?.id)?.balance ?? 0;
     if (Math.abs(myBalance) >= 0.01) {
       showInfo(
         "You have an outstanding balance in this group. Settle up before leaving."

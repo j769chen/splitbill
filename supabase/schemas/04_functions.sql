@@ -145,6 +145,7 @@ declare
   v_other_count int;
   v_created_by uuid;
   v_new_owner uuid;
+  v_balance numeric(12, 2);
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -164,6 +165,18 @@ begin
   if v_other_count = 0 then
     delete from public.groups where id = p_group_id;
     return;
+  end if;
+
+  -- While other members remain, an outstanding balance must be settled first.
+  -- Enforced here as well as in the UI: the client guard reads a balance query
+  -- that may not have resolved yet, and leaving with debts drops the caller's
+  -- splits out of get_group_balances, silently moving everyone else's numbers.
+  select balance into v_balance
+  from public.get_group_balances(p_group_id)
+  where user_id = v_uid;
+
+  if abs(coalesce(v_balance, 0)) >= 0.01 then
+    raise exception 'Settle your outstanding balance before leaving this group';
   end if;
 
   select created_by into v_created_by from public.groups where id = p_group_id;

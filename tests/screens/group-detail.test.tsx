@@ -413,6 +413,21 @@ describe("GroupDetail screen", () => {
     expect(mockConfirm).not.toHaveBeenCalled();
   });
 
+  it("does not leave while the balance is still loading", async () => {
+    setup({ balances: undefined });
+    await renderWithPaper(<GroupDetail />);
+
+    await actAsync(async () => {
+      pressLeave();
+    });
+
+    expect(mockShowInfo).toHaveBeenCalledWith(
+      "Still checking your balance. Try again in a moment."
+    );
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockLeaveAsync).not.toHaveBeenCalled();
+  });
+
   it("confirms and leaves the group when settled, going back if possible", async () => {
     setup({ balances: [{ user_id: "u1", full_name: "Me", balance: 0 }] });
     await renderWithPaper(<GroupDetail />);

@@ -106,6 +106,17 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/amount := v_transfer;/i);
   });
 
+  it("blocks leaving a group with an outstanding balance server-side", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "leave_group");
+
+    expect(body).toMatch(/from public\.get_group_balances\(p_group_id\)/i);
+    expect(body).toMatch(/abs\(coalesce\(v_balance, 0\)\) >= 0\.01/i);
+    expect(body).toMatch(
+      /raise exception 'Settle your outstanding balance before leaving this group'/i
+    );
+  });
+
   it("lets either participant delete a one-on-one expense", () => {
     // The update RPC (SECURITY DEFINER) already allows either participant, and
     // group expenses are member-deletable, so a payer-only delete policy made
