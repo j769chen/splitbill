@@ -274,5 +274,68 @@ describe("AddExpense screen", () => {
       expect(mockMutateAsync).not.toHaveBeenCalled();
       await waitFor(() => expect(mockBack).toHaveBeenCalled());
     });
+
+    it("keeps the rate the expense was booked at instead of today's rate", async () => {
+      // Booked at 1.05 EUR->USD; the mocked live rate is 2.
+      (useExpenses as jest.Mock).mockReturnValue({
+        data: [
+          {
+            id: "exp-1",
+            description: "Old dinner",
+            amount: 30,
+            paid_by: "u1",
+            split_type: "equal",
+            currency: "EUR",
+            exchange_rate: 1.05,
+            expense_splits: [
+              { user_id: "u1", amount: 15 },
+              { user_id: "u2", amount: 15 },
+            ],
+          },
+        ],
+      });
+
+      await renderWithPaper(<AddExpense />);
+      await fireEvent.press(screen.getByText("Save Changes"));
+
+      await waitFor(() =>
+        expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1)
+      );
+      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: "EUR", exchangeRate: 1.05 })
+      );
+    });
+
+    it("uses the live rate when the user switches currency during an edit", async () => {
+      (useExpenses as jest.Mock).mockReturnValue({
+        data: [
+          {
+            id: "exp-1",
+            description: "Old dinner",
+            amount: 30,
+            paid_by: "u1",
+            split_type: "equal",
+            currency: "GBP",
+            exchange_rate: 1.4,
+            expense_splits: [
+              { user_id: "u1", amount: 15 },
+              { user_id: "u2", amount: 15 },
+            ],
+          },
+        ],
+      });
+
+      await renderWithPaper(<AddExpense />);
+      await fireEvent.press(screen.getByLabelText("Select currency"));
+      await fireEvent.press(screen.getByText("EUR · Euro"));
+      await fireEvent.press(screen.getByText("Save Changes"));
+
+      await waitFor(() =>
+        expect(mockUpdateMutateAsync).toHaveBeenCalledTimes(1)
+      );
+      expect(mockUpdateMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: "EUR", exchangeRate: 2 })
+      );
+    });
   });
 });
