@@ -88,6 +88,18 @@ describe("useRealtimeSubscription", () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: ["contact-group-breakdown"],
     });
+    // The Activity tab is assembled from five separate queries.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["activity"] });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["activity-payments"],
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contact-activity"] });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["contact-payments-activity"],
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["simplify-debts-activity"],
+    });
 
     // The last registration is for group_members.
     const membersHandler = mockOn.mock.calls[3][2] as () => void;
@@ -97,6 +109,7 @@ describe("useRealtimeSubscription", () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: ["group-pairwise-all", "g1"],
     });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["activity"] });
   });
 
   it("removes the channel on unmount", async () => {

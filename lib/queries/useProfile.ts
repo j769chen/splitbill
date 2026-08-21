@@ -23,10 +23,21 @@ export function useUpdateProfile() {
     },
     onSuccess: async () => {
       await refreshUser();
+      // The display name is denormalised into every list that joins profiles.
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       queryClient.invalidateQueries({ queryKey: ["group"] });
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-payments"] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+      queryClient.invalidateQueries({
+        queryKey: ["contact-payments-activity"],
+      });
     },
   });
 }

@@ -1,4 +1,5 @@
 import { renderHook } from "@testing-library/react-native";
+import { QueryClient } from "@tanstack/react-query";
 import { actAsync, createWrapper, queryBuilder } from "../helpers/testUtils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -73,5 +74,39 @@ describe("useUpdateProfile", () => {
     await expect(
       actAsync(() => result.current.mutateAsync({ fullName: "New Name" }))
     ).rejects.toThrow("auth down");
+  });
+
+  it("invalidates every list that denormalises the display name", async () => {
+    const builder = queryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+    mockedSupabase.auth.updateUser.mockResolvedValue({ data: {}, error: null });
+    const invalidateSpy = jest.spyOn(
+      QueryClient.prototype,
+      "invalidateQueries"
+    );
+
+    const { result } = await renderHook(() => useUpdateProfile(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() => result.current.mutateAsync({ fullName: "New Name" }));
+
+    for (const key of [
+      "groups",
+      "group",
+      "expenses",
+      "payments",
+      "balances",
+      "contacts",
+      "contact-expenses",
+      "contact-payments",
+      "activity",
+      "activity-payments",
+      "contact-activity",
+      "contact-payments-activity",
+    ]) {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: [key] });
+    }
+    invalidateSpy.mockRestore();
   });
 });

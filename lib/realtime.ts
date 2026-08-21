@@ -12,6 +12,28 @@ function invalidateContactQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ["contact-group-breakdown"] });
 }
 
+// The global Activity feed is assembled from five independent queries, and any
+// group-level write can show up in it.
+function invalidateActivityQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ["activity"] });
+  queryClient.invalidateQueries({ queryKey: ["activity-payments"] });
+  queryClient.invalidateQueries({ queryKey: ["contact-activity"] });
+  queryClient.invalidateQueries({ queryKey: ["contact-payments-activity"] });
+  queryClient.invalidateQueries({ queryKey: ["simplify-debts-activity"] });
+}
+
+// Everything a group-scoped write moves: the group's balances, the pairwise and
+// simplified edges derived from them, cross-group totals, the contact views and
+// the activity feed.
+function invalidateGroupQueries(queryClient: QueryClient, groupId: string) {
+  queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+  queryClient.invalidateQueries({ queryKey: ["group-pairwise-all", groupId] });
+  queryClient.invalidateQueries({ queryKey: ["group-simplified", groupId] });
+  queryClient.invalidateQueries({ queryKey: ["total-balance"] });
+  invalidateContactQueries(queryClient);
+  invalidateActivityQueries(queryClient);
+}
+
 // Keeps the contact-requests list + badge live for the signed-in user.
 //
 // We intentionally do NOT use a server-side `filter` here. Supabase Realtime
@@ -82,15 +104,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
-          queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
-          queryClient.invalidateQueries({
-            queryKey: ["group-pairwise-all", groupId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["group-simplified", groupId],
-          });
-          queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-          invalidateContactQueries(queryClient);
+          invalidateGroupQueries(queryClient, groupId);
         }
       )
       .on(
@@ -102,15 +116,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
-          queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
-          queryClient.invalidateQueries({
-            queryKey: ["group-pairwise-all", groupId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["group-simplified", groupId],
-          });
-          queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-          invalidateContactQueries(queryClient);
+          invalidateGroupQueries(queryClient, groupId);
         }
       )
       .on(
@@ -123,15 +129,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["payments", groupId] });
-          queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
-          queryClient.invalidateQueries({
-            queryKey: ["group-pairwise-all", groupId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["group-simplified", groupId],
-          });
-          queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-          invalidateContactQueries(queryClient);
+          invalidateGroupQueries(queryClient, groupId);
         }
       )
       .on(
@@ -145,15 +143,7 @@ export function useRealtimeSubscription(groupId: string | undefined) {
         () => {
           queryClient.invalidateQueries({ queryKey: ["group", groupId] });
           queryClient.invalidateQueries({ queryKey: ["groups"] });
-          queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
-          queryClient.invalidateQueries({
-            queryKey: ["group-pairwise-all", groupId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["group-simplified", groupId],
-          });
-          queryClient.invalidateQueries({ queryKey: ["total-balance"] });
-          invalidateContactQueries(queryClient);
+          invalidateGroupQueries(queryClient, groupId);
         }
       )
       .subscribe();
