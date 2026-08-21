@@ -1,0 +1,259 @@
+import { useState } from "react";
+import { router, Stack } from "expo-router";
+import { Button, TextInput } from "react-native-paper";
+import { useAuth } from "@/lib/auth";
+import { useHydrateOnce } from "@/lib/useHydrateOnce";
+import {
+  computeSplits,
+  getErrorMessage,
+  roundToCurrency,
+} from "@/lib/utils";
+import { resolveEntryRate } from "@/lib/currency";
+import { useExchangeRates } from "@/lib/exchange-rates";
+import { useSnackbar } from "@/lib/snackbar";
+import { FormScreen } from "@/components/FormScreen";
+import { ExpenseAmountCurrencyInput } from "@/components/groups/ExpenseAmountCurrencyInput";
+import { PaidByPicker } from "@/components/groups/PaidByPicker";
+import { SplitMembersSection } from "@/components/groups/SplitMembersSection";
+import { SplitTypeSelector } from "@/components/groups/SplitTypeSelector";
+import type { MemberWithProfile, SplitType } from "@/lib/types";
+
+// The expense being edited, as far as this form needs it.
+export type EditableExpense = {
+  description: string;
+  amount: number;
+  paid_by: string;
+  split_type: SplitType;
+  currency: string;
+  exchange_rate: number;
+  expense_splits?: { user_id: string; amount: number }[] | null;
+};
+
+export type ExpenseFormSubmission = {
+  paidBy: string;
+  amount: number;
+  description: string;
+  splitType: SplitType;
+  splits: { userId: string; amount: number }[];
+  currency: string;
+  exchangeRate: number;
+};
+
+type ExpenseFormScreenProps = {
+  // Who the expense can be split between, and how to name them.
+  members: MemberWithProfile[];
+  memberName: (member: MemberWithProfile) => string;
+  // The currency balances are kept in (a group's currency, or a pair's).
+  baseCurrency: string;
+  baseCurrencyLabel?: string;
+  // Present when editing; absent when creating.
+  existingExpense?: EditableExpense;
+  isEdit: boolean;
+  noMembersError: string;
+  isPending: boolean;
+  onSubmit: (submission: ExpenseFormSubmission) => Promise<unknown>;
+};
+
+export function ExpenseFormScreen({
+  members,
+  memberName,
+  baseCurrency,
+  baseCurrencyLabel,
+  existingExpense,
+  isEdit,
+  noMembersError,
+  isPending,
+  onSubmit,
+}: ExpenseFormScreenProps) {
+  const { user } = useAuth();
+  const { data: rates } = useExchangeRates();
+  const { showError } = useSnackbar();
+
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paidBy, setPaidBy] = useState(user?.id ?? "");
+  const [splitType, setSplitType] = useState<SplitType>("equal");
+  const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
+  const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
+  const [currency, setCurrency] = useState<string | null>(null);
+
+  const entryCurrency = currency ?? baseCurrency;
+
+  useHydrateOnce(isEdit && !!existingExpense && members.length > 0, () => {
+    if (!existingExpense) return;
+
+    setDescription(existingExpense.description);
+    setAmount(String(existingExpense.amount));
+    setPaidBy(existingExpense.paid_by);
+    setSplitType(existingExpense.split_type);
+    setCurrency(existingExpense.currency);
+
+    const splits = existingExpense.expense_splits ?? [];
+    const splitUserIds = splits.map((s) => s.user_id);
+    setExcludedMemberIds(
+      members.map((m) => m.user_id).filter((id) => !splitUserIds.includes(id))
+    );
+
+    const total = existingExpense.amount;
+    const custom: Record<string, string> = {};
+    if (existingExpense.split_type === "exact") {
+      for (const s of splits) custom[s.user_id] = s.amount.toFixed(2);
+    } else if (existingExpense.split_type === "percentage") {
+      for (const s of splits) {
+        custom[s.user_id] =
+          total > 0 ? ((s.amount / total) * 100).toFixed(2) : "";
+      }
+    }
+    setCustomSplits(custom);
+  });
+
+  const selectedMembers = members
+    .map((member) => member.user_id)
+    .filter((userId) => !excludedMemberIds.includes(userId));
+  const effectivePaidBy = paidBy || user?.id || "";
+  // Round to the entry currency's precision up front: a JPY amount of 1000.5
+  // cannot be split into whole yen, and the server compares the split total to
+  // round(p_amount, 2).
+  const totalAmount = roundToCurrency(parseFloat(amount) || 0, entryCurrency);
+  const isForeignCurrency = entryCurrency !== baseCurrency;
+  const { rate: exchangeRate, hasRate: hasExchangeRate } = resolveEntryRate(
+    entryCurrency,
+    baseCurrency,
+    rates,
+    isEdit ? existingExpense : undefined
+  );
+  const convertedBase = Math.round(totalAmount * exchangeRate * 100) / 100;
+
+  const toggleMember = (userId: string) => {
+    setExcludedMemberIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!description.trim()) {
+      showError("Please enter a description");
+      return;
+    }
+    if (!totalAmount || totalAmount <= 0) {
+      showError("Please enter a valid amount");
+      return;
+    }
+    if (selectedMembers.length === 0) {
+      showError(noMembersError);
+      return;
+    }
+    if (!effectivePaidBy) {
+      showError("Please select who paid");
+      return;
+    }
+    if (isForeignCurrency && !hasExchangeRate) {
+      showError(
+        "Exchange rates aren't available for this currency pair. Try again when rates are cached."
+      );
+      return;
+    }
+
+    const result = computeSplits(
+      splitType,
+      totalAmount,
+      selectedMembers,
+      customSplits,
+      entryCurrency
+    );
+    if (!result.ok) {
+      showError(result.error);
+      return;
+    }
+
+    try {
+      await onSubmit({
+        paidBy: effectivePaidBy,
+        amount: totalAmount,
+        description: description.trim(),
+        splitType,
+        splits: result.splits,
+        currency: entryCurrency,
+        exchangeRate,
+      });
+      router.back();
+    } catch (error) {
+      showError(
+        getErrorMessage(
+          error,
+          isEdit
+            ? "Couldn't save the expense. Please try again."
+            : "Couldn't add the expense. Please try again."
+        )
+      );
+    }
+  };
+
+  return (
+    <FormScreen
+      header={
+        <Stack.Screen
+          options={{ title: isEdit ? "Edit Expense" : "Add Expense" }}
+        />
+      }
+    >
+      <TextInput
+        mode="outlined"
+        label="Description"
+        placeholder="What was this expense for?"
+        value={description}
+        onChangeText={setDescription}
+        autoFocus
+      />
+
+      <ExpenseAmountCurrencyInput
+        amount={amount}
+        onAmountChange={setAmount}
+        entryCurrency={entryCurrency}
+        onCurrencyChange={setCurrency}
+        baseCurrency={baseCurrency}
+        totalAmount={totalAmount}
+        convertedBase={convertedBase}
+        isForeignCurrency={isForeignCurrency}
+        hasExchangeRate={hasExchangeRate}
+        baseCurrencyLabel={baseCurrencyLabel}
+      />
+
+      <PaidByPicker
+        members={members}
+        paidBy={effectivePaidBy}
+        onSelect={setPaidBy}
+        getMemberName={memberName}
+      />
+
+      <SplitTypeSelector value={splitType} onChange={setSplitType} />
+
+      <SplitMembersSection
+        members={members}
+        selectedMemberIds={selectedMembers}
+        splitType={splitType}
+        totalAmount={totalAmount}
+        customSplits={customSplits}
+        currencyCode={entryCurrency}
+        getMemberName={memberName}
+        onToggleMember={toggleMember}
+        onChangeCustom={(userId, val) =>
+          setCustomSplits((prev) => ({ ...prev, [userId]: val }))
+        }
+      />
+
+      <Button
+        mode="contained"
+        onPress={handleSubmit}
+        loading={isPending}
+        disabled={isPending}
+        contentStyle={{ paddingVertical: 6 }}
+        style={{ marginTop: 32, marginBottom: 32 }}
+      >
+        {isEdit ? "Save Changes" : "Add Expense"}
+      </Button>
+    </FormScreen>
+  );
+}

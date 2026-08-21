@@ -1,20 +1,13 @@
-import { useState } from "react";
-import { router, Stack, useLocalSearchParams } from "expo-router";
-import { Button, TextInput } from "react-native-paper";
+import { useLocalSearchParams } from "expo-router";
 import { useGroup } from "@/lib/queries/useGroups";
-import { useCreateExpense, useExpenses, useUpdateExpense } from "@/lib/queries/useExpenses";
+import {
+  useCreateExpense,
+  useExpenses,
+  useUpdateExpense,
+} from "@/lib/queries/useExpenses";
 import { useAuth } from "@/lib/auth";
-import { useHydrateOnce } from "@/lib/useHydrateOnce";
-import { computeSplits, getErrorMessage, roundToCurrency } from "@/lib/utils";
-import { resolveEntryRate } from "@/lib/currency";
-import { useExchangeRates } from "@/lib/exchange-rates";
-import { useSnackbar } from "@/lib/snackbar";
-import { FormScreen } from "@/components/FormScreen";
-import { ExpenseAmountCurrencyInput } from "@/components/groups/ExpenseAmountCurrencyInput";
-import { PaidByPicker } from "@/components/groups/PaidByPicker";
-import { SplitMembersSection } from "@/components/groups/SplitMembersSection";
-import { SplitTypeSelector } from "@/components/groups/SplitTypeSelector";
-import type { MemberWithProfile, SplitType } from "@/lib/types";
+import { ExpenseFormScreen } from "@/components/ExpenseFormScreen";
+import type { MemberWithProfile } from "@/lib/types";
 
 export default function AddExpense() {
   const { groupId, expenseId } = useLocalSearchParams<{
@@ -23,225 +16,34 @@ export default function AddExpense() {
   }>();
   const isEdit = !!expenseId;
   const { user } = useAuth();
-  const { data: group } = useGroup(groupId!);
-  const { data: expenses } = useExpenses(groupId!);
-  const { data: rates } = useExchangeRates();
+  const { data: group } = useGroup(groupId);
+  const { data: expenses } = useExpenses(groupId);
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
-  const { showError } = useSnackbar();
 
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [paidBy, setPaidBy] = useState(user?.id ?? "");
-  const [splitType, setSplitType] = useState<SplitType>("equal");
-  const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
-  const [excludedMemberIds, setExcludedMemberIds] = useState<string[]>([]);
-  const [currency, setCurrency] = useState<string | null>(null);
-
-  const baseCurrency = group?.currency ?? "USD";
-  const entryCurrency = currency ?? baseCurrency;
-  const members = group?.group_members ?? [];
   const existingExpense = isEdit
     ? expenses?.find((e) => e.id === expenseId)
     : undefined;
-
-  useHydrateOnce(isEdit && !!existingExpense && members.length > 0, () => {
-    if (!existingExpense) return;
-
-    setDescription(existingExpense.description);
-    setAmount(String(existingExpense.amount));
-    setPaidBy(existingExpense.paid_by);
-    setSplitType(existingExpense.split_type);
-    setCurrency(existingExpense.currency);
-
-    const splits = existingExpense.expense_splits ?? [];
-    const splitUserIds = splits.map((s) => s.user_id);
-    setExcludedMemberIds(
-      members.map((m) => m.user_id).filter((id) => !splitUserIds.includes(id))
-    );
-
-    const total = existingExpense.amount;
-    const custom: Record<string, string> = {};
-    if (existingExpense.split_type === "exact") {
-      for (const s of splits) custom[s.user_id] = s.amount.toFixed(2);
-    } else if (existingExpense.split_type === "percentage") {
-      for (const s of splits) {
-        custom[s.user_id] =
-          total > 0 ? ((s.amount / total) * 100).toFixed(2) : "";
-      }
-    }
-    setCustomSplits(custom);
-  });
-
-  const selectedMembers = members
-    .map((member) => member.user_id)
-    .filter((userId) => !excludedMemberIds.includes(userId));
-  const effectivePaidBy = paidBy || user?.id || "";
-  // Round to the entry currency's precision up front: a JPY amount of 1000.5
-  // cannot be split into whole yen, and the server compares the split total to
-  // round(p_amount, 2).
-  const totalAmount = roundToCurrency(parseFloat(amount) || 0, entryCurrency);
-  const isForeignCurrency = entryCurrency !== baseCurrency;
-  const { rate: exchangeRate, hasRate: hasExchangeRate } = resolveEntryRate(
-    entryCurrency,
-    baseCurrency,
-    rates,
-    isEdit ? existingExpense : undefined
-  );
-  const convertedBase = Math.round(totalAmount * exchangeRate * 100) / 100;
 
   const memberName = (member: MemberWithProfile) =>
     member.profiles?.full_name ??
     (member.user_id === user?.id ? "You" : "Unknown");
 
-  const toggleMember = (userId: string) => {
-    setExcludedMemberIds((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
-  const handleSubmit = async () => {
-    if (!description.trim()) {
-      showError("Please enter a description");
-      return;
-    }
-    if (!totalAmount || totalAmount <= 0) {
-      showError("Please enter a valid amount");
-      return;
-    }
-    if (selectedMembers.length === 0) {
-      showError("Please select at least one member");
-      return;
-    }
-    if (!effectivePaidBy) {
-      showError("Please select who paid");
-      return;
-    }
-    if (isForeignCurrency && !hasExchangeRate) {
-      showError(
-        "Exchange rates aren't available for this currency pair. Try again when rates are cached."
-      );
-      return;
-    }
-
-    const result = computeSplits(
-      splitType,
-      totalAmount,
-      selectedMembers,
-      customSplits,
-      entryCurrency
-    );
-    if (!result.ok) {
-      showError(result.error);
-      return;
-    }
-    const splits = result.splits;
-
-    try {
-      if (isEdit && expenseId) {
-        await updateExpense.mutateAsync({
-          expenseId,
-          groupId: groupId!,
-          paidBy: effectivePaidBy,
-          amount: totalAmount,
-          description: description.trim(),
-          splitType,
-          splits,
-          currency: entryCurrency,
-          exchangeRate,
-        });
-      } else {
-        await createExpense.mutateAsync({
-          groupId: groupId!,
-          paidBy: effectivePaidBy,
-          amount: totalAmount,
-          description: description.trim(),
-          splitType,
-          splits,
-          currency: entryCurrency,
-          exchangeRate,
-        });
-      }
-      router.back();
-    } catch (error) {
-      showError(
-        getErrorMessage(
-          error,
-          isEdit
-            ? "Couldn't save the expense. Please try again."
-            : "Couldn't add the expense. Please try again."
-        )
-      );
-    }
-  };
-
-  const isPending = isEdit ? updateExpense.isPending : createExpense.isPending;
-
   return (
-    <FormScreen
-      header={
-        <Stack.Screen
-          options={{ title: isEdit ? "Edit Expense" : "Add Expense" }}
-        />
+    <ExpenseFormScreen
+      members={group?.group_members ?? []}
+      memberName={memberName}
+      baseCurrency={group?.currency ?? "USD"}
+      baseCurrencyLabel="group currency"
+      existingExpense={existingExpense}
+      isEdit={isEdit}
+      noMembersError="Please select at least one member"
+      isPending={isEdit ? updateExpense.isPending : createExpense.isPending}
+      onSubmit={(submission) =>
+        isEdit && expenseId
+          ? updateExpense.mutateAsync({ expenseId, groupId, ...submission })
+          : createExpense.mutateAsync({ groupId, ...submission })
       }
-    >
-      <TextInput
-        mode="outlined"
-        label="Description"
-        placeholder="What was this expense for?"
-        value={description}
-        onChangeText={setDescription}
-        autoFocus
-      />
-
-      <ExpenseAmountCurrencyInput
-        amount={amount}
-        onAmountChange={setAmount}
-        entryCurrency={entryCurrency}
-        onCurrencyChange={setCurrency}
-        baseCurrency={baseCurrency}
-        totalAmount={totalAmount}
-        convertedBase={convertedBase}
-        isForeignCurrency={isForeignCurrency}
-        hasExchangeRate={hasExchangeRate}
-        baseCurrencyLabel="group currency"
-      />
-
-      <PaidByPicker
-        members={members}
-        paidBy={effectivePaidBy}
-        onSelect={setPaidBy}
-        getMemberName={memberName}
-      />
-
-      <SplitTypeSelector value={splitType} onChange={setSplitType} />
-
-      <SplitMembersSection
-        members={members}
-        selectedMemberIds={selectedMembers}
-        splitType={splitType}
-        totalAmount={totalAmount}
-        customSplits={customSplits}
-        currencyCode={entryCurrency}
-        getMemberName={memberName}
-        onToggleMember={toggleMember}
-        onChangeCustom={(userId, val) =>
-          setCustomSplits((prev) => ({ ...prev, [userId]: val }))
-        }
-      />
-
-      <Button
-        mode="contained"
-        onPress={handleSubmit}
-        loading={isPending}
-        disabled={isPending}
-        contentStyle={{ paddingVertical: 6 }}
-        style={{ marginTop: 32, marginBottom: 32 }}
-      >
-        {isEdit ? "Save Changes" : "Add Expense"}
-      </Button>
-    </FormScreen>
+    />
   );
 }
