@@ -5,13 +5,17 @@ import {
   useContacts,
   useContactBalance,
   useContactCurrency,
-  useContactExpenses,
   useContactGroupBreakdown,
-  useContactPayments,
-  useDeleteContactExpense,
-  useDeleteContactPayment,
   useSetContactCurrency,
 } from "@/lib/queries/useContacts";
+import {
+  useContactExpenses,
+  useDeleteContactExpense,
+} from "@/lib/queries/useContactExpenses";
+import {
+  useContactPayments,
+  useDeleteContactPayment,
+} from "@/lib/queries/useContactPayments";
 import { useAuth } from "@/lib/auth";
 import {
   formatContactSummaryLabel,

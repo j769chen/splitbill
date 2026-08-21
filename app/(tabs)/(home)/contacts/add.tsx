@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import { Button, Text, TextInput } from "react-native-paper";
-import { useSendContactRequest } from "@/lib/queries/useContacts";
+import {
+  useSendContactRequest,
+} from "@/lib/queries/useContactRequests";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/auth";

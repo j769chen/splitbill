@@ -1,65 +1,83 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type {
-  ActivityExpense,
-  ExpenseWithSplits,
+  ActivityContactExpense,
+  ContactExpenseWithSplits,
   SplitType,
 } from "../types";
 import { useAuth } from "../auth";
 import { getCurrencyDecimals } from "../currency";
-import { invalidateGroupQueries } from "./invalidate";
 import { buildSplitsPayload, validateSplitsTotal } from "../utils";
+import { invalidateContactPairQueries } from "./invalidate";
+import { sortPair } from "./contact-pair";
 
-const ACTIVITY_LIMIT = 50;
-
-export function useRecentActivity() {
+export function useRecentContactActivity() {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["activity", user?.id],
+    queryKey: ["contact-activity", user?.id],
     queryFn: async () => {
-      // The RPC applies the "caller is involved" predicate before the row cap.
-      // Selecting the 50 most recent expenses and filtering on the client
-      // pushed the caller's own items out of the feed in busy groups.
-      const { data, error } = await supabase.rpc("get_recent_activity", {
-        p_limit: ACTIVITY_LIMIT,
-      });
+      const { data, error } = await supabase
+        .from("contact_expenses")
+        .select(
+          `
+          id,
+          description,
+          amount,
+          currency,
+          date,
+          paid_by,
+          user_lo,
+          user_hi,
+          payer:profiles!contact_expenses_paid_by_fkey (*),
+          user_lo_profile:profiles!contact_expenses_user_lo_fkey (*),
+          user_hi_profile:profiles!contact_expenses_user_hi_fkey (*),
+          expense_splits:contact_expense_splits (user_id, amount)
+        `
+        )
+        .order("date", { ascending: false })
+        .limit(50);
 
       if (error) throw error;
-      return (data ?? []) as unknown as ActivityExpense[];
+      return data as unknown as ActivityContactExpense[];
     },
     enabled: !!user,
   });
 }
 
-export function useExpenses(groupId: string) {
+export function useContactExpenses(contactUserId: string) {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ["expenses", groupId],
+    queryKey: ["contact-expenses", user?.id, contactUserId],
     queryFn: async () => {
+      const [lo, hi] = sortPair(user!.id, contactUserId);
+
       const { data, error } = await supabase
-        .from("expenses")
+        .from("contact_expenses")
         .select(
           `
           *,
-          payer:profiles!expenses_paid_by_fkey (*),
-          expense_splits (
+          payer:profiles!contact_expenses_paid_by_fkey (*),
+          expense_splits:contact_expense_splits (
             *,
             profiles (*)
           )
         `
         )
-        .eq("group_id", groupId)
+        .eq("user_lo", lo)
+        .eq("user_hi", hi)
         .order("date", { ascending: false });
 
       if (error) throw error;
-      return data as unknown as ExpenseWithSplits[];
+      return data as unknown as ContactExpenseWithSplits[];
     },
-    enabled: !!groupId,
+    enabled: !!user && !!contactUserId,
   });
 }
 
-interface CreateExpenseInput {
-  groupId: string;
+interface CreateContactExpenseInput {
+  contactUserId: string;
   paidBy: string;
   amount: number;
   description: string;
@@ -71,11 +89,12 @@ interface CreateExpenseInput {
   exchangeRate?: number;
 }
 
-export function useCreateExpense() {
+export function useCreateContactExpense() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (input: CreateExpenseInput) => {
+    mutationFn: async (input: CreateContactExpenseInput) => {
       const splitAmounts = input.splits.map((s) => s.amount);
       const decimals = getCurrencyDecimals(input.currency ?? "USD");
       if (!validateSplitsTotal(input.amount, splitAmounts, decimals)) {
@@ -83,10 +102,10 @@ export function useCreateExpense() {
       }
 
       const rate = input.exchangeRate ?? 1;
-      const { data: expense, error: expenseError } = await supabase.rpc(
-        "create_expense_with_splits",
+      const { data: expense, error } = await supabase.rpc(
+        "create_contact_expense_with_splits",
         {
-          p_group_id: input.groupId,
+          p_contact_user_id: input.contactUserId,
           p_paid_by: input.paidBy,
           p_amount: input.amount,
           p_description: input.description,
@@ -99,24 +118,29 @@ export function useCreateExpense() {
         }
       );
 
-      if (expenseError) throw expenseError;
+      if (error) throw error;
       return expense;
     },
     onSuccess: (_, variables) => {
-      invalidateGroupQueries(queryClient, variables.groupId);
+      invalidateContactPairQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }
 
-interface UpdateExpenseInput extends CreateExpenseInput {
+interface UpdateContactExpenseInput extends CreateContactExpenseInput {
   expenseId: string;
 }
 
-export function useUpdateExpense() {
+export function useUpdateContactExpense() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (input: UpdateExpenseInput) => {
+    mutationFn: async (input: UpdateContactExpenseInput) => {
       const splitAmounts = input.splits.map((s) => s.amount);
       const decimals = getCurrencyDecimals(input.currency ?? "USD");
       if (!validateSplitsTotal(input.amount, splitAmounts, decimals)) {
@@ -124,8 +148,8 @@ export function useUpdateExpense() {
       }
 
       const rate = input.exchangeRate ?? 1;
-      const { data: expense, error: expenseError } = await supabase.rpc(
-        "update_expense_with_splits",
+      const { data: expense, error } = await supabase.rpc(
+        "update_contact_expense_with_splits",
         {
           p_expense_id: input.expenseId,
           p_paid_by: input.paidBy,
@@ -140,28 +164,35 @@ export function useUpdateExpense() {
         }
       );
 
-      if (expenseError) throw expenseError;
+      if (error) throw error;
       return expense;
     },
     onSuccess: (_, variables) => {
-      invalidateGroupQueries(queryClient, variables.groupId);
+      invalidateContactPairQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }
 
-export function useDeleteExpense() {
+export function useDeleteContactExpense() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
       expenseId,
-      groupId,
     }: {
       expenseId: string;
-      groupId: string;
+      contactUserId: string;
     }) => {
+      // .select() so a delete filtered out by RLS comes back as zero rows
+      // rather than a silent success that invalidates the cache and leaves the
+      // expense on screen.
       const { data, error } = await supabase
-        .from("expenses")
+        .from("contact_expenses")
         .delete()
         .eq("id", expenseId)
         .select("id");
@@ -172,7 +203,11 @@ export function useDeleteExpense() {
       }
     },
     onSuccess: (_, variables) => {
-      invalidateGroupQueries(queryClient, variables.groupId);
+      invalidateContactPairQueries(
+        queryClient,
+        user?.id,
+        variables.contactUserId
+      );
     },
   });
 }

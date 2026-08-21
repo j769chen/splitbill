@@ -22,6 +22,8 @@ jest.mock("@/lib/queries/useContacts", () => ({
   useContactBalance: jest.fn(),
   useContactCurrency: jest.fn(),
   useContactPairBalance: jest.fn(),
+}));
+jest.mock("@/lib/queries/useContactPayments", () => ({
   useContactPayments: jest.fn(),
   useCreateContactPayment: jest.fn(),
   useUpdateContactPayment: jest.fn(),
@@ -35,10 +37,12 @@ import {
   useContactBalance,
   useContactCurrency,
   useContactPairBalance,
+} from "@/lib/queries/useContacts";
+import {
   useContactPayments,
   useCreateContactPayment,
   useUpdateContactPayment,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactPayments";
 import { useSnackbar } from "@/lib/snackbar";
 
 beforeEach(() => {

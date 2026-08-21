@@ -10,13 +10,20 @@ jest.mock("@/lib/queries/useBalances", () => ({
 jest.mock("@/lib/queries/useGroups", () => ({ useGroups: jest.fn() }));
 jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
+}));
+jest.mock("@/lib/queries/useContactRequests", () => ({
   useContactRequests: jest.fn(),
 }));
 
 import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
-import { useContacts, useContactRequests } from "@/lib/queries/useContacts";
+import {
+  useContacts,
+} from "@/lib/queries/useContacts";
+import {
+  useContactRequests,
+} from "@/lib/queries/useContactRequests";
 
 beforeEach(() => {
   jest.clearAllMocks();

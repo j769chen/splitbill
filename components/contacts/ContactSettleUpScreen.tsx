@@ -4,10 +4,12 @@ import {
   useContacts,
   useContactCurrency,
   useContactPairBalance,
+} from "@/lib/queries/useContacts";
+import {
   useContactPayments,
   useCreateContactPayment,
   useUpdateContactPayment,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactPayments";
 import { useAuth } from "@/lib/auth";
 import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import {

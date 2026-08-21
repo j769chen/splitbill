@@ -14,8 +14,10 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
-  useContactExpenses: jest.fn(),
   useContactCurrency: jest.fn(),
+}));
+jest.mock("@/lib/queries/useContactExpenses", () => ({
+  useContactExpenses: jest.fn(),
   useCreateContactExpense: jest.fn(),
   useUpdateContactExpense: jest.fn(),
 }));
@@ -25,11 +27,13 @@ import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
 import {
   useContacts,
-  useContactExpenses,
   useContactCurrency,
+} from "@/lib/queries/useContacts";
+import {
+  useContactExpenses,
   useCreateContactExpense,
   useUpdateContactExpense,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactExpenses";
 import { useSnackbar } from "@/lib/snackbar";
 
 beforeEach(() => {

@@ -4,7 +4,7 @@ import {
   useContactRequests,
   useRespondContactRequest,
   useCancelContactRequest,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactRequests";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
 import { getErrorMessage } from "@/lib/utils";

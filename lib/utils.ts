@@ -66,6 +66,21 @@ export function roundToCurrency(
   return roundToDecimals(amount, getCurrencyDecimals(currencyCode));
 }
 
+// Builds the RPC split payload, converting each split into the group/pair base
+// currency at the given rate so the server can store base_amount per split.
+export function buildSplitsPayload(
+  splits: { userId: string; amount: number }[],
+  amount: number,
+  rate: number
+): { userId: string; amount: number; baseAmount: number }[] {
+  const baseTotal = Math.round(amount * rate * 100) / 100;
+  return convertSplitsToBase(splits, rate, baseTotal).map((s) => ({
+    userId: s.userId,
+    amount: s.amount,
+    baseAmount: s.baseAmount,
+  }));
+}
+
 export function splitEqual(
   total: number,
   memberCount: number,

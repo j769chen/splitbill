@@ -3,7 +3,12 @@ import { Badge, Button, IconButton, Text } from "react-native-paper";
 import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
-import { useContacts, useContactRequests } from "@/lib/queries/useContacts";
+import {
+  useContacts,
+} from "@/lib/queries/useContacts";
+import {
+  useContactRequests,
+} from "@/lib/queries/useContactRequests";
 import { getBalanceColor, getOverallBalanceParts } from "@/lib/balance-display";
 import { useDisplayCurrency } from "@/lib/display-currency";
 import { useAppTheme } from "@/lib/theme";

@@ -1,0 +1,208 @@
+import { renderHook, waitFor } from "@testing-library/react-native";
+import { actAsync, createWrapper, queryBuilder } from "../helpers/testUtils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
+
+import {
+  useContactExpenses,
+  useCreateContactExpense,
+  useUpdateContactExpense,
+  useDeleteContactExpense,
+} from "@/lib/queries/useContactExpenses";
+
+jest.mock("@/lib/supabase", () => ({
+  supabase: { from: jest.fn(), rpc: jest.fn() },
+}));
+jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
+
+const mockedSupabase = supabase as unknown as {
+  from: jest.Mock;
+  rpc: jest.Mock;
+};
+const mockedUseAuth = useAuth as unknown as jest.Mock;
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockedUseAuth.mockReturnValue({ user: { id: "user-1", email: "me@x.com" } });
+});
+
+describe("useContactExpenses", () => {
+  it("queries the normalized participant pair ordered by date", async () => {
+    const rows = [{ id: "ce-1" }];
+    const builder = queryBuilder({ data: rows, error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useContactExpenses("user-2"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_expenses");
+    expect(builder.eq).toHaveBeenCalledWith("user_lo", "user-1");
+    expect(builder.eq).toHaveBeenCalledWith("user_hi", "user-2");
+    expect(builder.order).toHaveBeenCalledWith("date", { ascending: false });
+    expect(result.current.data).toEqual(rows);
+  });
+
+  it("sorts the pair regardless of which id is larger", async () => {
+    mockedUseAuth.mockReturnValue({ user: { id: "user-9" } });
+    const builder = queryBuilder({ data: [], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useContactExpenses("user-2"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(builder.eq).toHaveBeenCalledWith("user_lo", "user-2");
+    expect(builder.eq).toHaveBeenCalledWith("user_hi", "user-9");
+  });
+});
+
+describe("useCreateContactExpense", () => {
+  it("rejects when split amounts do not add up to the total", async () => {
+    const { result } = await renderHook(() => useCreateContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          contactUserId: "user-2",
+          paidBy: "user-1",
+          amount: 10,
+          description: "Lunch",
+          splitType: "equal",
+          splits: [
+            { userId: "user-1", amount: 4 },
+            { userId: "user-2", amount: 4 },
+          ],
+        })
+      )
+    ).rejects.toThrow("Split amounts must add up to the expense total");
+
+    expect(mockedSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("calls create_contact_expense_with_splits with mapped params", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "ce-1" }, error: null });
+
+    const { result } = await renderHook(() => useCreateContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    const created = await actAsync(() =>
+      result.current.mutateAsync({
+        contactUserId: "user-2",
+        paidBy: "user-1",
+        amount: 10,
+        description: "Lunch",
+        category: "food",
+        splitType: "equal",
+        splits: [
+          { userId: "user-1", amount: 5 },
+          { userId: "user-2", amount: 5 },
+        ],
+      })
+    );
+
+    expect(created).toEqual({ id: "ce-1" });
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "create_contact_expense_with_splits",
+      {
+        p_contact_user_id: "user-2",
+        p_paid_by: "user-1",
+        p_amount: 10,
+        p_description: "Lunch",
+        p_category: "food",
+        p_split_type: "equal",
+        p_splits: [
+          { userId: "user-1", amount: 5, baseAmount: 5 },
+          { userId: "user-2", amount: 5, baseAmount: 5 },
+        ],
+        p_date: null,
+        p_currency: "USD",
+        p_exchange_rate: 1,
+      }
+    );
+  });
+
+});
+
+describe("useUpdateContactExpense", () => {
+
+  it("calls update_contact_expense_with_splits with mapped params", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "ce-1" }, error: null });
+
+    const { result } = await renderHook(() => useUpdateContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    const updated = await actAsync(() =>
+      result.current.mutateAsync({
+        expenseId: "ce-1",
+        contactUserId: "user-2",
+        paidBy: "user-2",
+        amount: 10,
+        description: "Dinner",
+        splitType: "equal",
+        splits: [
+          { userId: "user-1", amount: 5 },
+          { userId: "user-2", amount: 5 },
+        ],
+      })
+    );
+
+    expect(updated).toEqual({ id: "ce-1" });
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "update_contact_expense_with_splits",
+      {
+        p_expense_id: "ce-1",
+        p_paid_by: "user-2",
+        p_amount: 10,
+        p_description: "Dinner",
+        p_category: null,
+        p_split_type: "equal",
+        p_splits: [
+          { userId: "user-1", amount: 5, baseAmount: 5 },
+          { userId: "user-2", amount: 5, baseAmount: 5 },
+        ],
+        p_date: null,
+        p_currency: "USD",
+        p_exchange_rate: 1,
+      }
+    );
+  });
+});
+
+describe("useDeleteContactExpense", () => {
+  it("deletes the contact expense by id", async () => {
+    const builder = queryBuilder({ data: [{ id: "ce-1" }], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeleteContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({ expenseId: "ce-1", contactUserId: "user-2" })
+    );
+
+    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_expenses");
+    expect(builder.delete).toHaveBeenCalled();
+    expect(builder.eq).toHaveBeenCalledWith("id", "ce-1");
+  });
+
+  it("rejects when RLS filters the delete to no rows", async () => {
+    const builder = queryBuilder({ data: [], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useDeleteContactExpense(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      result.current.mutateAsync({ expenseId: "ce-1", contactUserId: "user-2" })
+    ).rejects.toThrow("You can't delete this expense.");
+  });
+});

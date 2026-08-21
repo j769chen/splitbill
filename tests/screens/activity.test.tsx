@@ -12,8 +12,10 @@ jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useExpenses", () => ({ useRecentActivity: jest.fn() }));
 jest.mock("@/lib/queries/usePayments", () => ({ useRecentPayments: jest.fn() }));
-jest.mock("@/lib/queries/useContacts", () => ({
+jest.mock("@/lib/queries/useContactExpenses", () => ({
   useRecentContactActivity: jest.fn(),
+}));
+jest.mock("@/lib/queries/useContactPayments", () => ({
   useRecentContactPayments: jest.fn(),
 }));
 jest.mock("@/lib/queries/useGroups", () => ({
@@ -26,8 +28,10 @@ import { useRecentActivity } from "@/lib/queries/useExpenses";
 import { useRecentPayments } from "@/lib/queries/usePayments";
 import {
   useRecentContactActivity,
+} from "@/lib/queries/useContactExpenses";
+import {
   useRecentContactPayments,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactPayments";
 import { useRecentGroupSettingChanges } from "@/lib/queries/useGroups";
 
 function setActivity(overrides?: { data?: unknown; isLoading?: boolean }) {

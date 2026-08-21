@@ -26,11 +26,15 @@ jest.mock("@/lib/queries/useContacts", () => ({
   useContacts: jest.fn(),
   useContactBalance: jest.fn(),
   useContactCurrency: jest.fn(),
-  useContactExpenses: jest.fn(),
-  useContactPayments: jest.fn(),
   useContactGroupBreakdown: jest.fn(),
   useSetContactCurrency: jest.fn(),
+}));
+jest.mock("@/lib/queries/useContactExpenses", () => ({
+  useContactExpenses: jest.fn(),
   useDeleteContactExpense: jest.fn(),
+}));
+jest.mock("@/lib/queries/useContactPayments", () => ({
+  useContactPayments: jest.fn(),
   useDeleteContactPayment: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
@@ -42,13 +46,17 @@ import {
   useContacts,
   useContactBalance,
   useContactCurrency,
-  useContactExpenses,
-  useContactPayments,
   useContactGroupBreakdown,
   useSetContactCurrency,
-  useDeleteContactExpense,
-  useDeleteContactPayment,
 } from "@/lib/queries/useContacts";
+import {
+  useContactExpenses,
+  useDeleteContactExpense,
+} from "@/lib/queries/useContactExpenses";
+import {
+  useContactPayments,
+  useDeleteContactPayment,
+} from "@/lib/queries/useContactPayments";
 import { useSnackbar } from "@/lib/snackbar";
 import { useConfirm } from "@/lib/confirm";
 

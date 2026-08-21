@@ -8,7 +8,7 @@ const mockRefetch = jest.fn().mockResolvedValue(undefined);
 const mockShowError = jest.fn();
 const mockShowSuccess = jest.fn();
 
-jest.mock("@/lib/queries/useContacts", () => ({
+jest.mock("@/lib/queries/useContactRequests", () => ({
   useContactRequests: jest.fn(),
   useRespondContactRequest: jest.fn(),
   useCancelContactRequest: jest.fn(),
@@ -19,7 +19,7 @@ import {
   useContactRequests,
   useRespondContactRequest,
   useCancelContactRequest,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactRequests";
 import { useSnackbar } from "@/lib/snackbar";
 
 const incomingFixture = {

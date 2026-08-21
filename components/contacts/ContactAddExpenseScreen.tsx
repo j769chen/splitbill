@@ -4,10 +4,12 @@ import { Button, TextInput } from "react-native-paper";
 import {
   useContacts,
   useContactCurrency,
+} from "@/lib/queries/useContacts";
+import {
   useContactExpenses,
   useCreateContactExpense,
   useUpdateContactExpense,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactExpenses";
 import { useAuth } from "@/lib/auth";
 import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import { computeSplits, getErrorMessage, roundToCurrency } from "@/lib/utils";

@@ -3,8 +3,10 @@ import { useRecentActivity } from "@/lib/queries/useExpenses";
 import { useRecentPayments } from "@/lib/queries/usePayments";
 import {
   useRecentContactActivity,
+} from "@/lib/queries/useContactExpenses";
+import {
   useRecentContactPayments,
-} from "@/lib/queries/useContacts";
+} from "@/lib/queries/useContactPayments";
 import { useRecentGroupSettingChanges } from "@/lib/queries/useGroups";
 import { useAuth } from "@/lib/auth";
 import { useAppTheme } from "@/lib/theme";

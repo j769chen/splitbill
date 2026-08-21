@@ -9,14 +9,16 @@ const mockShowSuccess = jest.fn();
 
 jest.mock("expo-router", () => ({ router: { back: jest.fn() } }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
-jest.mock("@/lib/queries/useContacts", () => ({
+jest.mock("@/lib/queries/useContactRequests", () => ({
   useSendContactRequest: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
 import { router } from "expo-router";
 import { useAuth } from "@/lib/auth";
-import { useSendContactRequest } from "@/lib/queries/useContacts";
+import {
+  useSendContactRequest,
+} from "@/lib/queries/useContactRequests";
 import { useSnackbar } from "@/lib/snackbar";
 
 const EMAIL_PLACEHOLDER = "friend@example.com";
