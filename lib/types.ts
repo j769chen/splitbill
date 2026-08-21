@@ -639,3 +639,76 @@ export interface ContactRequest {
     avatar_url: string | null;
   };
 }
+
+// A member as the expense/payment forms need them: the id plus whatever display
+// name the joined profile carries.
+export interface MemberWithProfile {
+  user_id: string;
+  profiles?: { full_name?: string | null } | null;
+}
+
+// Flattened read shapes for the global Activity feed. Each mirrors the columns
+// its query selects, not a full table row.
+export interface ActivityExpense {
+  id: string;
+  description: string;
+  amount: number;
+  currency: string;
+  date: string;
+  paid_by: string;
+  group_id: string;
+  payer: Profile | null;
+  groups: { name: string } | null;
+  expense_splits: { user_id: string; amount: number }[];
+}
+
+export interface ActivityPayment {
+  id: string;
+  amount: number;
+  currency: string;
+  created_at: string;
+  paid_by: string;
+  paid_to: string;
+  group_id: string;
+  note: string | null;
+  payer: Profile | null;
+  payee: Profile | null;
+  groups: { name: string } | null;
+}
+
+export interface ActivityContactExpense {
+  id: string;
+  description: string;
+  amount: number;
+  currency: string;
+  date: string;
+  paid_by: string;
+  user_lo: string;
+  user_hi: string;
+  payer: Profile | null;
+  user_lo_profile: Profile | null;
+  user_hi_profile: Profile | null;
+  expense_splits: { user_id: string; amount: number }[];
+}
+
+export interface ActivityContactPayment {
+  id: string;
+  amount: number;
+  currency: string;
+  created_at: string;
+  paid_by: string;
+  paid_to: string;
+  note: string | null;
+  payer: Profile | null;
+  payee: Profile | null;
+}
+
+export interface ActivitySimplifyDebtsEvent {
+  id: string;
+  group_id: string;
+  actor_id: string;
+  enabled: boolean;
+  created_at: string;
+  actor: Profile | null;
+  groups: { name: string } | null;
+}

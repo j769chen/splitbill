@@ -1,17 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
-import type { GroupWithMembers, Profile } from "../types";
+import type {
+  ActivitySimplifyDebtsEvent,
+  GroupWithMembers,
+} from "../types";
 import { useAuth } from "../auth";
-
-export interface ActivitySimplifyDebtsEvent {
-  id: string;
-  group_id: string;
-  actor_id: string;
-  enabled: boolean;
-  created_at: string;
-  actor: Profile | null;
-  groups: { name: string } | null;
-}
 
 export function useGroups() {
   const { user } = useAuth();

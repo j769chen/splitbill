@@ -2,17 +2,13 @@ import { useState } from "react";
 import { View } from "react-native";
 import { Menu, Text, TextInput, TouchableRipple } from "react-native-paper";
 import { useAppTheme } from "@/lib/theme";
-
-export type PaidByMember = {
-  user_id: string;
-  profiles?: { full_name?: string | null } | null;
-};
+import type { MemberWithProfile } from "@/lib/types";
 
 type PaidByPickerProps = {
-  members: PaidByMember[];
+  members: MemberWithProfile[];
   paidBy: string;
   onSelect: (userId: string) => void;
-  getMemberName: (member: PaidByMember) => string;
+  getMemberName: (member: MemberWithProfile) => string;
   label?: string;
 };
 

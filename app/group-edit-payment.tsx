@@ -8,6 +8,7 @@ import { useHydrateOnce } from "@/lib/useHydrateOnce";
 import { getErrorMessage } from "@/lib/utils";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
+import type { MemberWithProfile } from "@/lib/types";
 import { FormScreen } from "@/components/FormScreen";
 import { PaymentAmountNoteFields } from "@/components/PaymentAmountNoteFields";
 import { PaidByPicker } from "@/components/groups/PaidByPicker";
@@ -40,10 +41,7 @@ export default function EditPayment() {
     setNote(payment.note ?? "");
   });
 
-  const memberName = (member: {
-    user_id: string;
-    profiles?: { full_name?: string | null } | null;
-  }) =>
+  const memberName = (member: MemberWithProfile) =>
     member.profiles?.full_name ??
     (member.user_id === user?.id ? "You" : "Unknown");
 

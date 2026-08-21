@@ -1,21 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
-import type { PaymentWithProfiles, Profile } from "../types";
+import type {
+  ActivityPayment,
+  PaymentWithProfiles,
+} from "../types";
 import { useAuth } from "../auth";
-
-export interface ActivityPayment {
-  id: string;
-  amount: number;
-  currency: string;
-  created_at: string;
-  paid_by: string;
-  paid_to: string;
-  group_id: string;
-  note: string | null;
-  payer: Profile | null;
-  payee: Profile | null;
-  groups: { name: string } | null;
-}
 
 export function useRecentPayments() {
   const { user } = useAuth();

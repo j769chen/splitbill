@@ -14,7 +14,7 @@ import { ExpenseAmountCurrencyInput } from "@/components/groups/ExpenseAmountCur
 import { PaidByPicker } from "@/components/groups/PaidByPicker";
 import { SplitMembersSection } from "@/components/groups/SplitMembersSection";
 import { SplitTypeSelector } from "@/components/groups/SplitTypeSelector";
-import type { SplitType } from "@/lib/types";
+import type { MemberWithProfile, SplitType } from "@/lib/types";
 
 export default function AddExpense() {
   const { groupId, expenseId } = useLocalSearchParams<{
@@ -90,7 +90,7 @@ export default function AddExpense() {
   );
   const convertedBase = Math.round(totalAmount * exchangeRate * 100) / 100;
 
-  const memberName = (member: { user_id: string; profiles?: { full_name?: string | null } | null }) =>
+  const memberName = (member: MemberWithProfile) =>
     member.profiles?.full_name ??
     (member.user_id === user?.id ? "You" : "Unknown");
 

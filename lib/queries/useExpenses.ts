@@ -1,24 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
-import type { ExpenseWithSplits, Profile, SplitType } from "../types";
+import type {
+  ActivityExpense,
+  ExpenseWithSplits,
+  SplitType,
+} from "../types";
 import { useAuth } from "../auth";
 import { getCurrencyDecimals } from "../currency";
 import { convertSplitsToBase, validateSplitsTotal } from "../utils";
 
 const ACTIVITY_LIMIT = 50;
-
-export interface ActivityExpense {
-  id: string;
-  description: string;
-  amount: number;
-  currency: string;
-  date: string;
-  paid_by: string;
-  group_id: string;
-  payer: Profile | null;
-  groups: { name: string } | null;
-  expense_splits: { user_id: string; amount: number }[];
-}
 
 // Builds the RPC split payload, converting each split into the group/pair base
 // currency at the given rate so the server can store base_amount per split.

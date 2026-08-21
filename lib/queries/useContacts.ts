@@ -7,6 +7,8 @@ import {
 } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type {
+  ActivityContactExpense,
+  ActivityContactPayment,
   ContactExpenseWithSplits,
   ContactGroupBreakdown,
   ContactPaymentWithProfiles,
@@ -43,21 +45,6 @@ function buildSplitsPayload(
   }));
 }
 
-export interface ActivityContactExpense {
-  id: string;
-  description: string;
-  amount: number;
-  currency: string;
-  date: string;
-  paid_by: string;
-  user_lo: string;
-  user_hi: string;
-  payer: Profile | null;
-  user_lo_profile: Profile | null;
-  user_hi_profile: Profile | null;
-  expense_splits: { user_id: string; amount: number }[];
-}
-
 export function useRecentContactActivity() {
   const { user } = useAuth();
 
@@ -90,18 +77,6 @@ export function useRecentContactActivity() {
     },
     enabled: !!user,
   });
-}
-
-export interface ActivityContactPayment {
-  id: string;
-  amount: number;
-  currency: string;
-  created_at: string;
-  paid_by: string;
-  paid_to: string;
-  note: string | null;
-  payer: Profile | null;
-  payee: Profile | null;
 }
 
 export function useRecentContactPayments() {

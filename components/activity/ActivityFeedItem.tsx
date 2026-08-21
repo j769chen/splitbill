@@ -2,17 +2,13 @@ import { View } from "react-native";
 import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Card, IconButton, Text } from "react-native-paper";
-import {
-  type ActivityExpense,
-} from "@/lib/queries/useExpenses";
-import {
-  type ActivityPayment,
-} from "@/lib/queries/usePayments";
-import {
-  type ActivityContactExpense,
-  type ActivityContactPayment,
-} from "@/lib/queries/useContacts";
-import { type ActivitySimplifyDebtsEvent } from "@/lib/queries/useGroups";
+import type {
+  ActivityContactExpense,
+  ActivityContactPayment,
+  ActivityExpense,
+  ActivityPayment,
+  ActivitySimplifyDebtsEvent,
+} from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
 

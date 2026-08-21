@@ -4,17 +4,17 @@ import { useAppTheme } from "@/lib/theme";
 import { getCurrencyDecimals } from "@/lib/currency";
 import { splitEqual } from "@/lib/utils";
 import type { SplitType } from "@/lib/types";
-import type { PaidByMember } from "./PaidByPicker";
+import type { MemberWithProfile } from "@/lib/types";
 import { MemberSplitRow } from "./MemberSplitRow";
 
 type SplitMembersSectionProps = {
-  members: PaidByMember[];
+  members: MemberWithProfile[];
   selectedMemberIds: string[];
   splitType: SplitType;
   totalAmount: number;
   customSplits: Record<string, string>;
   currencyCode: string;
-  getMemberName: (member: PaidByMember) => string;
+  getMemberName: (member: MemberWithProfile) => string;
   onToggleMember: (userId: string) => void;
   onChangeCustom: (userId: string, value: string) => void;
 };
