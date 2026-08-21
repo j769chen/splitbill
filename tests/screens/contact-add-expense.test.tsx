@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { renderWithPaper } from "../helpers/testUtils";
-import AddContactExpense from "@/app/(tabs)/(home)/contacts/add-expense";
+import { ContactAddExpenseScreen as AddContactExpense } from "@/components/contacts/ContactAddExpenseScreen";
 
 const mockBack = jest.fn();
 const mockMutateAsync = jest.fn();

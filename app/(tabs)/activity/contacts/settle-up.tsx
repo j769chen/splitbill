@@ -1,1 +1,5 @@
-export { default } from "@/app/(tabs)/(home)/contacts/settle-up";
+import { ContactSettleUpScreen } from "@/components/contacts/ContactSettleUpScreen";
+
+export default function ActivityContactSettleUp() {
+  return <ContactSettleUpScreen />;
+}

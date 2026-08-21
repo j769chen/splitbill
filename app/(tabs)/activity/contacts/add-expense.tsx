@@ -1,1 +1,5 @@
-export { default } from "@/app/(tabs)/(home)/contacts/add-expense";
+import { ContactAddExpenseScreen } from "@/components/contacts/ContactAddExpenseScreen";
+
+export default function ActivityContactAddExpense() {
+  return <ContactAddExpenseScreen />;
+}
