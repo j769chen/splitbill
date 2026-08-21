@@ -1,7 +1,8 @@
-import { View } from "react-native";
 import { router } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Card, IconButton, Text } from "react-native-paper";
+import {
+  ActivityRow,
+  type ActivityRowTrailing,
+} from "@/components/activity/ActivityRow";
 import type {
   ActivityContactExpense,
   ActivityContactPayment,
@@ -9,6 +10,7 @@ import type {
   ActivityFeedItem,
   ActivityPayment,
   ActivitySimplifyDebtsEvent,
+  Profile,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useAppTheme } from "@/lib/theme";
@@ -95,6 +97,28 @@ function getExpenseSummary(
   };
 }
 
+function expenseTrailing(
+  summary: ReturnType<typeof getExpenseSummary>,
+  currency: string
+): ActivityRowTrailing {
+  return summary.isInvolved
+    ? {
+        kind: "summary",
+        label: summary.label,
+        text: formatCurrency(summary.amount, currency),
+        color: summary.color,
+      }
+    : { kind: "muted", text: "Not involved" };
+}
+
+function payerLabel(
+  paidBy: string,
+  currentUserId: string | undefined,
+  payer: Profile | null
+): string {
+  return paidBy === currentUserId ? "You" : (payer?.full_name ?? "Someone");
+}
+
 function ExpenseRow({
   item,
   currentUserId,
@@ -103,81 +127,25 @@ function ExpenseRow({
   currentUserId?: string;
 }) {
   const theme = useAppTheme();
-  const payerName =
-    item.paid_by === currentUserId
-      ? "You"
-      : item.payer?.full_name ?? "Someone";
   const summary = getExpenseSummary(item, currentUserId, theme);
 
-  const openGroup = () => router.push(`/activity/group/${item.group_id}`);
-  const editExpense = () =>
-    router.push({
-      pathname: "/group-add-expense",
-      params: { groupId: item.group_id, expenseId: item.id },
-    });
-
   return (
-    <Card mode="elevated" style={{ marginBottom: 12 }} onPress={openGroup}>
-      <Card.Content>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-            <MaterialCommunityIcons
-              name="receipt"
-              size={22}
-              color={theme.colors.onSurfaceVariant}
-              style={{ marginRight: 10 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                {item.description}
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
-              >
-                {payerName} paid {formatCurrency(item.amount, item.currency)} in{" "}
-                {item.groups?.name ?? "a group"}
-              </Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            {summary.isInvolved ? (
-              <View style={{ alignItems: "flex-end" }}>
-                <Text variant="labelSmall" style={{ color: summary.color }}>
-                  {summary.label}
-                </Text>
-                <Text
-                  variant="titleMedium"
-                  style={{ fontWeight: "bold", color: summary.color }}
-                >
-                  {formatCurrency(summary.amount, item.currency)}
-                </Text>
-              </View>
-            ) : (
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
-              >
-                Not involved
-              </Text>
-            )}
-            <IconButton
-              icon="pencil-outline"
-              size={18}
-              accessibilityLabel="Edit expense"
-              onPress={editExpense}
-              style={{ margin: 0, marginLeft: 4 }}
-            />
-          </View>
-        </View>
-        <Text
-          variant="labelSmall"
-          style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-        >
-          {new Date(item.date).toLocaleDateString()}
-        </Text>
-      </Card.Content>
-    </Card>
+    <ActivityRow
+      icon="receipt"
+      title={item.description}
+      subtitle={`${payerLabel(item.paid_by, currentUserId, item.payer)} paid ${formatCurrency(item.amount, item.currency)} in ${item.groups?.name ?? "a group"}`}
+      date={item.date}
+      onPress={() => router.push(`/activity/group/${item.group_id}`)}
+      trailing={expenseTrailing(summary, item.currency)}
+      edit={{
+        label: "Edit expense",
+        onPress: () =>
+          router.push({
+            pathname: "/group-add-expense",
+            params: { groupId: item.group_id, expenseId: item.id },
+          }),
+      }}
+    />
   );
 }
 
@@ -189,99 +157,42 @@ function ContactExpenseRow({
   currentUserId?: string;
 }) {
   const theme = useAppTheme();
-  const payerName =
-    item.paid_by === currentUserId
-      ? "You"
-      : item.payer?.full_name ?? "Someone";
+  const summary = getExpenseSummary(item, currentUserId, theme);
   const otherProfile =
-    item.paid_by === item.user_lo
-      ? item.user_hi_profile
-      : item.user_lo_profile;
+    item.paid_by === item.user_lo ? item.user_hi_profile : item.user_lo_profile;
   const otherName =
     otherProfile?.id === currentUserId
       ? "you"
-      : otherProfile?.full_name ?? "someone";
-  const summary = getExpenseSummary(item, currentUserId, theme);
-
+      : (otherProfile?.full_name ?? "someone");
   const contactUserId =
     item.user_lo === currentUserId ? item.user_hi : item.user_lo;
   const contactProfile =
     item.user_lo === currentUserId
       ? item.user_hi_profile
       : item.user_lo_profile;
-  const openContact = () =>
-    router.push({
-      pathname: "/activity/contacts/[id]",
-      params: { id: contactUserId, name: contactProfile?.full_name ?? "" },
-    });
-  const editExpense = () =>
-    router.push({
-      pathname: "/activity/contacts/add-expense",
-      params: { contactUserId, expenseId: item.id },
-    });
 
   return (
-    <Card mode="elevated" style={{ marginBottom: 12 }} onPress={openContact}>
-      <Card.Content>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-            <MaterialCommunityIcons
-              name="account-cash"
-              size={22}
-              color={theme.colors.onSurfaceVariant}
-              style={{ marginRight: 10 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-                {item.description}
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
-              >
-                {payerName} paid {formatCurrency(item.amount, item.currency)} ·
-                with {otherName}
-              </Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            {summary.isInvolved ? (
-              <View style={{ alignItems: "flex-end" }}>
-                <Text variant="labelSmall" style={{ color: summary.color }}>
-                  {summary.label}
-                </Text>
-                <Text
-                  variant="titleMedium"
-                  style={{ fontWeight: "bold", color: summary.color }}
-                >
-                  {formatCurrency(summary.amount, item.currency)}
-                </Text>
-              </View>
-            ) : (
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant }}
-              >
-                Not involved
-              </Text>
-            )}
-            <IconButton
-              icon="pencil-outline"
-              size={18}
-              accessibilityLabel="Edit expense"
-              onPress={editExpense}
-              style={{ margin: 0, marginLeft: 4 }}
-            />
-          </View>
-        </View>
-        <Text
-          variant="labelSmall"
-          style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-        >
-          {new Date(item.date).toLocaleDateString()}
-        </Text>
-      </Card.Content>
-    </Card>
+    <ActivityRow
+      icon="account-cash"
+      title={item.description}
+      subtitle={`${payerLabel(item.paid_by, currentUserId, item.payer)} paid ${formatCurrency(item.amount, item.currency)} \u00b7 with ${otherName}`}
+      date={item.date}
+      onPress={() =>
+        router.push({
+          pathname: "/activity/contacts/[id]",
+          params: { id: contactUserId, name: contactProfile?.full_name ?? "" },
+        })
+      }
+      trailing={expenseTrailing(summary, item.currency)}
+      edit={{
+        label: "Edit expense",
+        onPress: () =>
+          router.push({
+            pathname: "/activity/contacts/add-expense",
+            params: { contactUserId, expenseId: item.id },
+          }),
+      }}
+    />
   );
 }
 
@@ -292,92 +203,33 @@ function PaymentRow({
   item: ActivityPayment;
   currentUserId?: string;
 }) {
-  const theme = useAppTheme();
-  const payerName =
-    item.paid_by === currentUserId
-      ? "You"
-      : item.payer?.full_name ?? "Someone";
   const payeeName =
     item.paid_to === currentUserId
       ? "you"
-      : item.payee?.full_name ?? "someone";
-
-  const openGroup = () => router.push(`/activity/group/${item.group_id}`);
-  const editPayment = () =>
-    router.push({
-      pathname: "/group-edit-payment",
-      params: { groupId: item.group_id, paymentId: item.id },
-    });
+      : (item.payee?.full_name ?? "someone");
 
   return (
-    <Card
-      mode="contained"
-      style={{
-        marginBottom: 12,
-        backgroundColor: theme.colors.secondaryContainer,
+    <ActivityRow
+      tone="secondary"
+      icon="cash-fast"
+      title={`${payerLabel(item.paid_by, currentUserId, item.payer)} paid ${payeeName}`}
+      subtitle={`in ${item.groups?.name ?? "a group"}`}
+      note={item.note}
+      date={item.created_at}
+      onPress={() => router.push(`/activity/group/${item.group_id}`)}
+      trailing={{
+        kind: "amount",
+        text: formatCurrency(item.amount, item.currency),
       }}
-      onPress={openGroup}
-    >
-      <Card.Content>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-            <MaterialCommunityIcons
-              name="cash-fast"
-              size={22}
-              color={theme.colors.onSecondaryContainer}
-              style={{ marginRight: 10 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text
-                variant="titleMedium"
-                style={{
-                  fontWeight: "600",
-                  color: theme.colors.onSecondaryContainer,
-                }}
-              >
-                {payerName} paid {payeeName}
-              </Text>
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSecondaryContainer }}
-              >
-                in {item.groups?.name ?? "a group"}
-              </Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              variant="titleMedium"
-              style={{ fontWeight: "bold", color: theme.colors.onSecondaryContainer }}
-            >
-              {formatCurrency(item.amount, item.currency)}
-            </Text>
-            <IconButton
-              icon="pencil-outline"
-              size={18}
-              iconColor={theme.colors.onSecondaryContainer}
-              accessibilityLabel="Edit payment"
-              onPress={editPayment}
-              style={{ margin: 0, marginLeft: 4 }}
-            />
-          </View>
-        </View>
-        {item.note ? (
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSecondaryContainer, marginTop: 8 }}
-          >
-            {item.note}
-          </Text>
-        ) : null}
-        <Text
-          variant="labelSmall"
-          style={{ color: theme.colors.onSecondaryContainer, marginTop: 8 }}
-        >
-          {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-      </Card.Content>
-    </Card>
+      edit={{
+        label: "Edit payment",
+        onPress: () =>
+          router.push({
+            pathname: "/group-edit-payment",
+            params: { groupId: item.group_id, paymentId: item.id },
+          }),
+      }}
+    />
   );
 }
 
@@ -388,93 +240,40 @@ function ContactPaymentRow({
   item: ActivityContactPayment;
   currentUserId?: string;
 }) {
-  const theme = useAppTheme();
-  const payerName =
-    item.paid_by === currentUserId
-      ? "You"
-      : item.payer?.full_name ?? "Someone";
   const payeeName =
     item.paid_to === currentUserId
       ? "you"
-      : item.payee?.full_name ?? "someone";
-
+      : (item.payee?.full_name ?? "someone");
   const isPayer = item.paid_by === currentUserId;
   const contactUserId = isPayer ? item.paid_to : item.paid_by;
   const contactProfile = isPayer ? item.payee : item.payer;
-  const openContact = () =>
-    router.push({
-      pathname: "/activity/contacts/[id]",
-      params: { id: contactUserId, name: contactProfile?.full_name ?? "" },
-    });
-  const editPayment = () =>
-    router.push({
-      pathname: "/activity/contacts/settle-up",
-      params: { contactUserId, paymentId: item.id },
-    });
 
   return (
-    <Card
-      mode="contained"
-      style={{
-        marginBottom: 12,
-        backgroundColor: theme.colors.secondaryContainer,
+    <ActivityRow
+      tone="secondary"
+      icon="cash-fast"
+      title={`${payerLabel(item.paid_by, currentUserId, item.payer)} paid ${payeeName}`}
+      note={item.note}
+      date={item.created_at}
+      onPress={() =>
+        router.push({
+          pathname: "/activity/contacts/[id]",
+          params: { id: contactUserId, name: contactProfile?.full_name ?? "" },
+        })
+      }
+      trailing={{
+        kind: "amount",
+        text: formatCurrency(item.amount, item.currency),
       }}
-      onPress={openContact}
-    >
-      <Card.Content>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-            <MaterialCommunityIcons
-              name="cash-fast"
-              size={22}
-              color={theme.colors.onSecondaryContainer}
-              style={{ marginRight: 10 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text
-                variant="titleMedium"
-                style={{
-                  fontWeight: "600",
-                  color: theme.colors.onSecondaryContainer,
-                }}
-              >
-                {payerName} paid {payeeName}
-              </Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              variant="titleMedium"
-              style={{ fontWeight: "bold", color: theme.colors.onSecondaryContainer }}
-            >
-              {formatCurrency(item.amount, item.currency)}
-            </Text>
-            <IconButton
-              icon="pencil-outline"
-              size={18}
-              iconColor={theme.colors.onSecondaryContainer}
-              accessibilityLabel="Edit payment"
-              onPress={editPayment}
-              style={{ margin: 0, marginLeft: 4 }}
-            />
-          </View>
-        </View>
-        {item.note ? (
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSecondaryContainer, marginTop: 8 }}
-          >
-            {item.note}
-          </Text>
-        ) : null}
-        <Text
-          variant="labelSmall"
-          style={{ color: theme.colors.onSecondaryContainer, marginTop: 8 }}
-        >
-          {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-      </Card.Content>
-    </Card>
+      edit={{
+        label: "Edit payment",
+        onPress: () =>
+          router.push({
+            pathname: "/activity/contacts/settle-up",
+            params: { contactUserId, paymentId: item.id },
+          }),
+      }}
+    />
   );
 }
 
@@ -485,47 +284,18 @@ function SimplifyDebtsRow({
   item: ActivitySimplifyDebtsEvent;
   currentUserId?: string;
 }) {
-  const theme = useAppTheme();
   const actorName =
     item.actor_id === currentUserId
       ? "You"
-      : item.actor?.full_name ?? "Someone";
-  const action = item.enabled ? "turned on" : "turned off";
-  const groupName = item.groups?.name ?? "a group";
+      : (item.actor?.full_name ?? "Someone");
 
   return (
-    <Card
-      mode="elevated"
-      style={{ marginBottom: 12 }}
+    <ActivityRow
+      icon="call-split"
+      title={`${actorName} ${item.enabled ? "turned on" : "turned off"} simplify debts`}
+      subtitle={`in ${item.groups?.name ?? "a group"}`}
+      date={item.created_at}
       onPress={() => router.push(`/activity/group/${item.group_id}`)}
-    >
-      <Card.Content>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <MaterialCommunityIcons
-            name="call-split"
-            size={22}
-            color={theme.colors.onSurfaceVariant}
-            style={{ marginRight: 10 }}
-          />
-          <View style={{ flex: 1 }}>
-            <Text variant="titleMedium" style={{ fontWeight: "600" }}>
-              {actorName} {action} simplify debts
-            </Text>
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              in {groupName}
-            </Text>
-          </View>
-        </View>
-        <Text
-          variant="labelSmall"
-          style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-        >
-          {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-      </Card.Content>
-    </Card>
+    />
   );
 }
