@@ -88,6 +88,15 @@ describe("SettleUp screen", () => {
     ).toBeTruthy();
   });
 
+  it("does not claim settled up while the debts are loading", async () => {
+    setSimplifiedEdges(undefined);
+    await renderWithPaper(<SettleUp />);
+
+    expect(
+      screen.queryByText("You're all settled up in this group!")
+    ).toBeNull();
+  });
+
   it("records a payment for the selected debt with the auto-filled amount", async () => {
     await renderWithPaper(<SettleUp />);
 

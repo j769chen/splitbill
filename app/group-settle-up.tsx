@@ -16,6 +16,7 @@ import { FormScreen } from "@/components/FormScreen";
 import { PaymentAmountNoteFields } from "@/components/PaymentAmountNoteFields";
 import { DebtCard } from "@/components/groups/DebtCard";
 import { EmptyState } from "@/components/EmptyState";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import type { DebtEdge } from "@/lib/types";
 
 const debtKey = (debt: DebtEdge) => `${debt.from}:${debt.to}`;
@@ -27,8 +28,8 @@ export default function SettleUp() {
   const { data: group } = useGroup(groupId!);
   const groupCurrency = group?.currency ?? "USD";
   const simplify = group?.simplify_debts ?? true;
-  const { data: rawDebts } = useGroupPairwiseBalances(groupId!, !simplify);
-  const { data: simplifiedDebts } = useGroupSimplifiedEdges(groupId!, simplify);
+  const rawDebtsQuery = useGroupPairwiseBalances(groupId!, !simplify);
+  const simplifiedDebtsQuery = useGroupSimplifiedEdges(groupId!, simplify);
   const createPayment = useCreatePayment();
   const { showError, showSuccess } = useSnackbar();
 
@@ -36,7 +37,11 @@ export default function SettleUp() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 
-  const debts = simplify ? (simplifiedDebts ?? []) : (rawDebts ?? []);
+  // Which query is active depends on the group's simplify_debts flag, so the
+  // group itself must have loaded before an empty debt list means "settled".
+  const activeDebts = simplify ? simplifiedDebtsQuery.data : rawDebtsQuery.data;
+  const isLoadingDebts = !group || activeDebts === undefined;
+  const debts = activeDebts ?? [];
   const userDebts = debts.filter(
     (d) => d.from === user?.id || d.to === user?.id
   );
@@ -79,6 +84,10 @@ export default function SettleUp() {
       );
     }
   };
+
+  if (isLoadingDebts) {
+    return <LoadingScreen />;
+  }
 
   return (
     <FormScreen>

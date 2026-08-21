@@ -384,6 +384,15 @@ describe("GroupDetail screen", () => {
     expect(screen.getByText("All settled up!")).toBeTruthy();
   });
 
+  it("does not claim all-settled while the balances are loading", async () => {
+    setup({ balances: undefined, simplifiedEdges: [] });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent.press(screen.getByText("Balances"));
+
+    expect(screen.queryByText("All settled up!")).toBeNull();
+  });
+
   it("navigates to add-expense and settle-up with the group id", async () => {
     await renderWithPaper(<GroupDetail />);
 

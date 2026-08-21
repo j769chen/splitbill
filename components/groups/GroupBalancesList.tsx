@@ -1,4 +1,5 @@
 import { View } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
 import type { GroupBalance } from "@/lib/types";
 import { EmptyState } from "@/components/EmptyState";
 import { MemberBalanceCard } from "./MemberBalanceCard";
@@ -22,7 +23,17 @@ export function GroupBalancesList({
   getBreakdown,
   getAccentColor,
 }: GroupBalancesListProps) {
-  if (!balances || balances.length === 0) {
+  // Undefined means the balances query hasn't resolved; only an empty array
+  // means everyone is settled.
+  if (!balances) {
+    return (
+      <View style={{ paddingVertical: 32 }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (balances.length === 0) {
     return <EmptyState icon="check-circle-outline" title="All settled up!" />;
   }
 
