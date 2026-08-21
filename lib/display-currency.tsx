@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo } from "react";
+import React, { createContext, useContext, useMemo } from "react";
 import {
   DEFAULT_CURRENCY,
   isSupportedCurrency,
@@ -35,16 +35,9 @@ export function DisplayCurrencyProvider({
     deserialize: deserializeCurrency,
   });
 
-  const setCurrency = useCallback(
-    (next: CurrencyCode) => {
-      setCurrencyState(next);
-    },
-    [setCurrencyState]
-  );
-
   const value = useMemo(
-    () => ({ currency, setCurrency, loading }),
-    [currency, setCurrency, loading]
+    () => ({ currency, setCurrency: setCurrencyState, loading }),
+    [currency, setCurrencyState, loading]
   );
 
   return (
@@ -54,14 +47,12 @@ export function DisplayCurrencyProvider({
   );
 }
 
-const FALLBACK_VALUE: DisplayCurrencyValue = {
-  currency: DEFAULT_CURRENCY,
-  setCurrency: () => {},
-  loading: false,
-};
-
-// Falls back to the default currency when no provider is mounted (e.g. in unit
-// tests that render a component in isolation) rather than throwing.
 export function useDisplayCurrency(): DisplayCurrencyValue {
-  return useContext(DisplayCurrencyContext) ?? FALLBACK_VALUE;
+  const ctx = useContext(DisplayCurrencyContext);
+  if (!ctx) {
+    throw new Error(
+      "useDisplayCurrency must be used within a DisplayCurrencyProvider"
+    );
+  }
+  return ctx;
 }

@@ -7,6 +7,7 @@ import {
   notifyManager,
 } from "@tanstack/react-query";
 import { lightTheme } from "@/lib/theme";
+import { DisplayCurrencyProvider } from "@/lib/display-currency";
 
 // Flush React Query notifications synchronously so observer state updates
 // happen inside the awaited render/act scope, avoiding act(...) warnings.
@@ -25,17 +26,30 @@ export async function actAsync<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Renders a screen wrapped in PaperProvider (with the app's light theme) so
- * react-native-paper components and useAppTheme resolve correctly. render() is
+ * Wraps a tree in the app's cross-cutting providers. Tests use the real
+ * providers rather than mocks so provider-ordering mistakes surface here (see
+ * testing.md Rule 6).
+ */
+function AppProviders({ children }: { children: ReactNode }) {
+  return (
+    <PaperProvider theme={lightTheme}>
+      <DisplayCurrencyProvider>{children}</DisplayCurrencyProvider>
+    </PaperProvider>
+  );
+}
+
+/**
+ * Renders a screen wrapped in the app's providers so react-native-paper
+ * components, useAppTheme and useDisplayCurrency resolve correctly. render() is
  * async in RNTL v14, so callers must await this.
  */
 export async function renderWithPaper(ui: ReactElement) {
-  const view = await render(<PaperProvider theme={lightTheme}>{ui}</PaperProvider>);
+  const view = await render(<AppProviders>{ui}</AppProviders>);
   return {
     ...view,
-    // Re-wrap on rerender; the bare RNTL rerender would drop PaperProvider.
+    // Re-wrap on rerender; the bare RNTL rerender would drop the providers.
     rerender: (next: ReactElement) =>
-      view.rerender(<PaperProvider theme={lightTheme}>{next}</PaperProvider>),
+      view.rerender(<AppProviders>{next}</AppProviders>),
   };
 }
 
@@ -56,7 +70,9 @@ export function createWrapper() {
   });
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <DisplayCurrencyProvider>{children}</DisplayCurrencyProvider>
+      </QueryClientProvider>
     );
   };
 }
