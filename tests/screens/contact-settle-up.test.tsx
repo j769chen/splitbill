@@ -54,7 +54,10 @@ beforeEach(() => {
   });
   (useContactBalance as jest.Mock).mockReturnValue({ data: 15 });
   (useContactCurrency as jest.Mock).mockReturnValue({ data: "USD" });
-  (useContactPairBalance as jest.Mock).mockReturnValue({ data: 15 });
+  (useContactPairBalance as jest.Mock).mockReturnValue({
+    data: 15,
+    isSuccess: true,
+  });
   (useContactPayments as jest.Mock).mockReturnValue({ data: [] });
   (useCreateContactPayment as jest.Mock).mockReturnValue({
     mutateAsync: mockCreateAsync,
@@ -94,6 +97,42 @@ describe("ContactSettleUp screen (create)", () => {
       currency: "USD",
     });
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+  });
+
+  it("does not prefill from a zero default while the balance is loading", async () => {
+    (useContactPairBalance as jest.Mock).mockReturnValue({
+      data: undefined,
+      isSuccess: false,
+    });
+
+    await renderWithPaper(<ContactSettleUp />);
+
+    expect(screen.getByText("Loading balance\u2026")).toBeTruthy();
+    expect(screen.queryByDisplayValue("0.00")).toBeNull();
+  });
+
+  it("prefills once the balance arrives after the first render", async () => {
+    (useContactPairBalance as jest.Mock).mockReturnValue({
+      data: undefined,
+      isSuccess: false,
+    });
+    const view = await renderWithPaper(<ContactSettleUp />);
+
+    (useContactPairBalance as jest.Mock).mockReturnValue({
+      data: 15,
+      isSuccess: true,
+    });
+    view.rerender(<ContactSettleUp />);
+
+    await waitFor(() =>
+      expect(screen.getByDisplayValue("15.00")).toBeTruthy()
+    );
+    await fireEvent.press(screen.getByText("Record Payment"));
+
+    await waitFor(() => expect(mockCreateAsync).toHaveBeenCalledTimes(1));
+    expect(mockCreateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ paidBy: "user-2", paidTo: "user-1" })
+    );
   });
 
   it("rejects an invalid amount", async () => {

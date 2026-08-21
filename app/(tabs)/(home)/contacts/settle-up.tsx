@@ -32,7 +32,8 @@ export default function ContactSettleUp() {
   const isEdit = !!paymentId;
   const { user } = useAuth();
   const { data: contacts } = useContacts();
-  const { data: pairBalance = 0 } = useContactPairBalance(contactUserId!);
+  const pairBalanceQuery = useContactPairBalance(contactUserId!);
+  const pairBalance = pairBalanceQuery.data ?? 0;
   const { data: pairCurrency = "USD" } = useContactCurrency(contactUserId!);
   const { data: payments } = useContactPayments(contactUserId!);
   const createPayment = useCreateContactPayment();
@@ -51,26 +52,32 @@ export default function ContactSettleUp() {
     ? payments?.find((p) => p.id === paymentId)
     : undefined;
 
-  useHydrateOnce(isEdit ? !!existingPayment : true, () => {
-    if (isEdit) {
-      if (!existingPayment) return;
-      setDirection(
-        existingPayment.paid_by === user?.id ? "you_paid" : "they_paid"
-      );
-      setAmount(existingPayment.amount.toFixed(2));
-      setNote(existingPayment.note ?? "");
-      return;
-    }
+  // In create mode the prefill is derived from the pair balance, so it must
+  // wait for that query -- hydrating against the default 0 forced the
+  // direction to "you_paid" and booked settlements backwards.
+  useHydrateOnce(
+    isEdit ? !!existingPayment : pairBalanceQuery.isSuccess,
+    () => {
+      if (isEdit) {
+        if (!existingPayment) return;
+        setDirection(
+          existingPayment.paid_by === user?.id ? "you_paid" : "they_paid"
+        );
+        setAmount(existingPayment.amount.toFixed(2));
+        setNote(existingPayment.note ?? "");
+        return;
+      }
 
-    // Create mode: default direction + amount from the current balance.
-    // balance > 0 => contact owes you => they pay you to settle.
-    setDirection(
-      getBalanceDirection(pairBalance) === "owed" ? "they_paid" : "you_paid"
-    );
-    if (hasSignificantBalance(pairBalance)) {
-      setAmount(Math.abs(pairBalance).toFixed(2));
+      // Create mode: default direction + amount from the current balance.
+      // balance > 0 => contact owes you => they pay you to settle.
+      setDirection(
+        getBalanceDirection(pairBalance) === "owed" ? "they_paid" : "you_paid"
+      );
+      if (hasSignificantBalance(pairBalance)) {
+        setAmount(Math.abs(pairBalance).toFixed(2));
+      }
     }
-  });
+  );
 
   const handleSubmit = async () => {
     const totalAmount = parseFloat(amount) || 0;
@@ -119,11 +126,9 @@ export default function ContactSettleUp() {
 
   const isPending = isEdit ? updatePayment.isPending : createPayment.isPending;
 
-  const balanceLabel = formatContactSettleLabel(
-    pairBalance,
-    pairCurrency,
-    contactName
-  );
+  const balanceLabel = pairBalanceQuery.isSuccess
+    ? formatContactSettleLabel(pairBalance, pairCurrency, contactName)
+    : "Loading balance\u2026";
 
   return (
     <FormScreen
