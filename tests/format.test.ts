@@ -68,6 +68,24 @@ describe("convertSplitsToBase", () => {
     expect(result[0].baseAmount).toBeCloseTo(3.34, 2);
     expect(result[1].baseAmount).toBeCloseTo(3.33, 2);
   });
+
+  it("never pushes a zero split negative when absorbing the remainder", () => {
+    const rate = 2.5339634927829984;
+    const result = convertSplitsToBase(
+      [
+        { userId: "a", amount: 0 },
+        { userId: "b", amount: 65.88 },
+        { userId: "c", amount: 78.09 },
+      ],
+      rate,
+      Math.round((0 + 65.88 + 78.09) * rate * 100) / 100
+    );
+
+    expect(result[0].baseAmount).toBe(0);
+    expect(result.every((s) => s.baseAmount >= 0)).toBe(true);
+    const total = result.reduce((sum, s) => sum + s.baseAmount, 0);
+    expect(Math.round(total * 100) / 100).toBe(364.81);
+  });
 });
 
 describe("canConvert", () => {

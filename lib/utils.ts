@@ -22,8 +22,10 @@ export function formatCurrency(
 }
 
 // Converts each split into a base-currency amount using `rate` and assigns any
-// rounding remainder to the first split so the base amounts sum exactly to
-// `baseTotal` (mirrors the remainder handling in splitEqual).
+// rounding remainder to the largest split so the base amounts sum exactly to
+// `baseTotal`. The largest split is used because a negative remainder must not
+// push a share below zero -- `expense_splits.base_amount` is constrained to
+// be non-negative, and a zero share must stay zero.
 export function convertSplitsToBase<T extends { amount: number }>(
   splits: T[],
   rate: number,
@@ -35,10 +37,14 @@ export function convertSplitsToBase<T extends { amount: number }>(
   }));
   const sum = result.reduce((acc, s) => acc + s.baseAmount, 0);
   const remainder = Math.round((baseTotal - sum) * 100) / 100;
-  if (remainder !== 0 && result.length > 0) {
-    result[0].baseAmount =
-      Math.round((result[0].baseAmount + remainder) * 100) / 100;
+  if (remainder === 0 || result.length === 0) return result;
+
+  let target = 0;
+  for (let i = 1; i < result.length; i++) {
+    if (result[i].baseAmount > result[target].baseAmount) target = i;
   }
+  result[target].baseAmount =
+    Math.round((result[target].baseAmount + remainder) * 100) / 100;
   return result;
 }
 
