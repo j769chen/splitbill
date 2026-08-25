@@ -40,7 +40,6 @@ export type ExpenseFormSubmission = {
 };
 
 type ExpenseFormScreenProps = {
-  // Who the expense can be split between, and how to name them.
   members: MemberWithProfile[];
   memberName: (member: MemberWithProfile) => string;
   // The currency balances are kept in (a group's currency, or a pair's).
