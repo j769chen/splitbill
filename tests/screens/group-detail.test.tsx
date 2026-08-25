@@ -6,7 +6,24 @@ const mockPush = jest.fn();
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockCanGoBack = jest.fn();
-const mockScreenHolder: { options: any } = { options: null };
+// Captures whatever Stack.Screen was handed, so a test can assert the
+// header options the screen set.
+type HeaderElement = {
+  props: { onLeave: () => void; onSettings: () => void };
+};
+type ScreenOptions = { title?: string; headerRight: () => HeaderElement };
+const mockScreenHolder: { options: ScreenOptions | null } = {
+  options: null,
+};
+
+// Reading through a null options means Stack.Screen never rendered, which is a
+// test-setup bug rather than something to assert around.
+function screenOptions(): ScreenOptions {
+  if (!mockScreenHolder.options) {
+    throw new Error("Stack.Screen did not render");
+  }
+  return mockScreenHolder.options;
+}
 
 const mockDeleteMutate = jest.fn();
 const mockDeletePaymentMutate = jest.fn();
@@ -28,7 +45,7 @@ jest.mock("expo-router", () => ({
   },
   useLocalSearchParams: () => ({ id: "g1" }),
   Stack: {
-    Screen: (props: any) => {
+    Screen: (props: { options: ScreenOptions }) => {
       mockScreenHolder.options = props.options;
       return null;
     },
@@ -165,13 +182,11 @@ beforeEach(() => {
 });
 
 function pressLeave() {
-  const el = mockScreenHolder.options.headerRight();
-  el.props.onLeave();
+  screenOptions().headerRight().props.onLeave();
 }
 
 function pressSettings() {
-  const el = mockScreenHolder.options.headerRight();
-  el.props.onSettings();
+  screenOptions().headerRight().props.onSettings();
 }
 
 describe("GroupDetail screen", () => {

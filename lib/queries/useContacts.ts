@@ -10,7 +10,6 @@ import { canConvert, convert, sumConverted } from "../currency";
 import { useDisplayCurrency } from "../display-currency";
 import { useExchangeRates } from "../exchange-rates";
 import { invalidateContactPairQueries } from "./invalidate";
-import { sortPair } from "./contact-pair";
 
 
 

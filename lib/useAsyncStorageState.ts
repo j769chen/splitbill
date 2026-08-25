@@ -29,6 +29,8 @@ export function useAsyncStorageState<T>({
         try {
           setValueState(deserialize ? deserialize(raw) : (raw as T));
         } catch {
+          // Malformed stored value: keep the initial value rather than
+          // crashing the screen that reads it.
         }
       })
       .finally(() => {

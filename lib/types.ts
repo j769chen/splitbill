@@ -61,7 +61,7 @@ export interface Database {
           group_id: string;
           user_id: string;
         };
-        Update: {};
+        Update: Record<string, never>;
         Relationships: [];
       };
       expenses: {
@@ -172,7 +172,7 @@ export interface Database {
           owner_id: string;
           contact_user_id: string;
         };
-        Update: {};
+        Update: Record<string, never>;
         Relationships: [];
       };
       contact_expenses: {
@@ -336,7 +336,7 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: {};
+    Views: Record<string, never>;
     Functions: {
       get_group_balances: {
         Args: { p_group_id: string };
@@ -555,7 +555,7 @@ export interface Database {
     Enums: {
       split_type: SplitType;
     };
-    CompositeTypes: {};
+    CompositeTypes: Record<string, never>;
   };
 }
 

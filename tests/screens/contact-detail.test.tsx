@@ -8,14 +8,28 @@ const mockDeleteMutate = jest.fn();
 const mockDeletePaymentMutate = jest.fn();
 const mockShowError = jest.fn();
 const mockConfirm = jest.fn();
-const mockScreenHolder: { options: any } = { options: null };
+// Captures whatever Stack.Screen was handed, so a test can assert the
+// header options the screen set.
+type ScreenOptions = { title?: string };
+const mockScreenHolder: { options: ScreenOptions | null } = {
+  options: null,
+};
+
+// Reading through a null options means Stack.Screen never rendered, which is a
+// test-setup bug rather than something to assert around.
+function screenOptions(): ScreenOptions {
+  if (!mockScreenHolder.options) {
+    throw new Error("Stack.Screen did not render");
+  }
+  return mockScreenHolder.options;
+}
 const mockParams: { id: string; name?: string } = { id: "user-2" };
 
 jest.mock("expo-router", () => ({
   router: { push: jest.fn() },
   useLocalSearchParams: () => mockParams,
   Stack: {
-    Screen: (props: any) => {
+    Screen: (props: { options: ScreenOptions }) => {
       mockScreenHolder.options = props.options;
       return null;
     },
@@ -142,7 +156,7 @@ describe("ContactDetail screen", () => {
   it("sets the screen title to the contact name", async () => {
     await renderWithPaper(<ContactDetail />);
 
-    expect(mockScreenHolder.options.title).toBe("Bob");
+    expect(screenOptions().title).toBe("Bob");
   });
 
   it("uses the name param for the title before the contacts list loads", async () => {
@@ -150,21 +164,21 @@ describe("ContactDetail screen", () => {
     (useContacts as jest.Mock).mockReturnValue({ data: undefined });
     await renderWithPaper(<ContactDetail />);
 
-    expect(mockScreenHolder.options.title).toBe("Bob");
+    expect(screenOptions().title).toBe("Bob");
   });
 
   it("falls back to 'Contact' when there is no loaded contact or name param", async () => {
     (useContacts as jest.Mock).mockReturnValue({ data: undefined });
     await renderWithPaper(<ContactDetail />);
 
-    expect(mockScreenHolder.options.title).toBe("Contact");
+    expect(screenOptions().title).toBe("Contact");
   });
 
   it("prefers the loaded contact name over the name param", async () => {
     mockParams.name = "Stale Name";
     await renderWithPaper(<ContactDetail />);
 
-    expect(mockScreenHolder.options.title).toBe("Bob");
+    expect(screenOptions().title).toBe("Bob");
   });
 
   it("shows the contact owes you when balance is positive", async () => {

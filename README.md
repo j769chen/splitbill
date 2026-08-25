@@ -85,3 +85,13 @@ lib/                  # Core logic
 supabase/
   migrations/         # SQL migration files
 ```
+
+## Checks
+
+```bash
+npm run lint        # eslint
+npx tsc --noEmit    # type-check
+npm test            # jest
+```
+
+All three run in CI, and the tests also run in a pre-commit hook.
