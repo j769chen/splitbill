@@ -19,25 +19,12 @@ export function useSendContactRequest() {
 
   return useMutation({
     mutationFn: async (email: string) => {
-      const normalized = email.trim().toLowerCase();
-
-      const { data: matches, error: lookupError } = await supabase.rpc(
-        "get_user_ids_by_email",
-        { emails: [normalized] }
-      );
-      if (lookupError) throw lookupError;
-
-      const match = matches?.[0];
-      if (!match) {
-        throw new Error(`No SplitBill account found for ${normalized}`);
-      }
-
+      // The RPC resolves the address itself and raises when no account matches,
+      // so the client never sees a user id for an arbitrary email.
       const { error } = await supabase.rpc("send_contact_request", {
-        p_recipient_user_id: match.id,
+        p_recipient_email: email.trim().toLowerCase(),
       });
       if (error) throw new Error(error.message);
-
-      return match.id;
     },
     onSuccess: () => {
       invalidateContactRequestQueries(queryClient);

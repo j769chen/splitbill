@@ -353,19 +353,22 @@ export interface Database {
           currency: string;
         }[];
       };
-      get_user_ids_by_email: {
-        Args: { emails: string[] };
+      check_emails_registered: {
+        Args: { p_emails: string[] };
         Returns: {
-          id: string;
           email: string;
         }[];
       };
+      check_group_member_email: {
+        Args: { p_group_id: string; p_email: string };
+        Returns: "ok" | "not_registered" | "already_member";
+      };
       create_group_with_members: {
-        Args: { p_name: string; p_member_ids: string[]; p_currency?: string };
+        Args: { p_name: string; p_member_emails: string[]; p_currency?: string };
         Returns: Database["public"]["Tables"]["groups"]["Row"];
       };
       add_group_members: {
-        Args: { p_group_id: string; p_member_ids: string[] };
+        Args: { p_group_id: string; p_member_emails: string[] };
         Returns: void;
       };
       rename_group: {
@@ -442,7 +445,7 @@ export interface Database {
         Returns: void;
       };
       send_contact_request: {
-        Args: { p_recipient_user_id: string };
+        Args: { p_recipient_email: string };
         Returns: void;
       };
       respond_contact_request: {
@@ -550,6 +553,68 @@ export interface Database {
           balance: number;
           currency: string;
         }[];
+      };
+      update_profile: {
+        Args: { p_full_name: string; p_avatar_url?: string | null };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+      create_payment: {
+        Args: {
+          p_group_id: string;
+          p_paid_by: string;
+          p_paid_to: string;
+          p_amount: number;
+          p_note?: string | null;
+          p_currency?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["payments"]["Row"];
+      };
+      update_payment: {
+        Args: {
+          p_payment_id: string;
+          p_paid_by: string;
+          p_paid_to: string;
+          p_amount: number;
+          p_note?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["payments"]["Row"];
+      };
+      delete_payment: {
+        Args: { p_payment_id: string };
+        Returns: void;
+      };
+      delete_expense: {
+        Args: { p_expense_id: string };
+        Returns: void;
+      };
+      create_contact_payment: {
+        Args: {
+          p_contact_user_id: string;
+          p_paid_by: string;
+          p_paid_to: string;
+          p_amount: number;
+          p_note?: string | null;
+          p_currency?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["contact_payments"]["Row"];
+      };
+      update_contact_payment: {
+        Args: {
+          p_payment_id: string;
+          p_paid_by: string;
+          p_paid_to: string;
+          p_amount: number;
+          p_note?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["contact_payments"]["Row"];
+      };
+      delete_contact_payment: {
+        Args: { p_payment_id: string };
+        Returns: void;
+      };
+      delete_contact_expense: {
+        Args: { p_expense_id: string };
+        Returns: void;
       };
     };
     Enums: {

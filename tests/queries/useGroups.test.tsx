@@ -8,7 +8,7 @@ import {
   useGroup,
   useCreateGroup,
   useCheckEmailExists,
-  useLookupUserByEmail,
+  useCheckGroupMemberEmail,
   useLeaveGroup,
   useAddGroupMembers,
   useRenameGroup,
@@ -140,16 +140,11 @@ describe("useLeaveGroup", () => {
 });
 
 describe("useCreateGroup", () => {
-  it("dedupes emails, excludes the creator, and calls the RPC with invitee ids", async () => {
-    mockedSupabase.rpc
-      .mockResolvedValueOnce({
-        data: [
-          { id: "u2", email: "a@x.com" },
-          { id: "u2", email: "a@x.com" },
-        ],
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: { id: "g1" }, error: null });
+  it("passes the invited emails straight to create_group_with_members", async () => {
+    mockedSupabase.rpc.mockResolvedValueOnce({
+      data: { id: "g1" },
+      error: null,
+    });
 
     const { result } = await renderHook(() => useCreateGroup(), {
       wrapper: createWrapper(),
@@ -158,24 +153,29 @@ describe("useCreateGroup", () => {
     await actAsync(() =>
       result.current.mutateAsync({
         name: "Trip",
-        memberEmails: ["a@x.com", "me@x.com", " A@X.com "],
+        memberEmails: ["a@x.com", " A@X.com "],
+        currency: "EUR",
       })
     );
 
-    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(
-      1,
-      "get_user_ids_by_email",
-      { emails: ["a@x.com"] }
-    );
-    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(
-      2,
+    // Normalising, deduping and resolving the addresses is the RPC's job now,
+    // so the hook makes a single call and never handles a user id.
+    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
       "create_group_with_members",
-      { p_name: "Trip", p_member_ids: ["u2"], p_currency: "USD" }
+      {
+        p_name: "Trip",
+        p_member_emails: ["a@x.com", " A@X.com "],
+        p_currency: "EUR",
+      }
     );
   });
 
-  it("skips the email lookup when no members are invited", async () => {
-    mockedSupabase.rpc.mockResolvedValueOnce({ data: { id: "g1" }, error: null });
+  it("defaults the currency to USD", async () => {
+    mockedSupabase.rpc.mockResolvedValueOnce({
+      data: { id: "g1" },
+      error: null,
+    });
 
     const { result } = await renderHook(() => useCreateGroup(), {
       wrapper: createWrapper(),
@@ -185,15 +185,17 @@ describe("useCreateGroup", () => {
       result.current.mutateAsync({ name: "Solo", memberEmails: [] })
     );
 
-    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
     expect(mockedSupabase.rpc).toHaveBeenCalledWith(
       "create_group_with_members",
-      { p_name: "Solo", p_member_ids: [], p_currency: "USD" }
+      { p_name: "Solo", p_member_emails: [], p_currency: "USD" }
     );
   });
 
-  it("throws when an invited email has no account and does not create the group", async () => {
-    mockedSupabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+  it("surfaces the RPC error when an invited email has no account", async () => {
+    mockedSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "No SplitBill account found for: ghost@x.com" },
+    });
 
     const { result } = await renderHook(() => useCreateGroup(), {
       wrapper: createWrapper(),
@@ -207,19 +209,12 @@ describe("useCreateGroup", () => {
         })
       )
     ).rejects.toThrow("No SplitBill account found for: ghost@x.com");
-
-    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("useAddGroupMembers", () => {
-  it("resolves emails and calls add_group_members with member ids", async () => {
-    mockedSupabase.rpc
-      .mockResolvedValueOnce({
-        data: [{ id: "u2", email: "a@x.com" }],
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: null, error: null });
+  it("passes the invited emails straight to add_group_members", async () => {
+    mockedSupabase.rpc.mockResolvedValueOnce({ data: null, error: null });
 
     const { result } = await renderHook(() => useAddGroupMembers(), {
       wrapper: createWrapper(),
@@ -228,37 +223,22 @@ describe("useAddGroupMembers", () => {
     await actAsync(() =>
       result.current.mutateAsync({
         groupId: "g1",
-        memberEmails: ["a@x.com", "me@x.com", " A@X.com "],
+        memberEmails: ["a@x.com"],
       })
     );
 
-    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(
-      1,
-      "get_user_ids_by_email",
-      { emails: ["a@x.com"] }
-    );
-    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(2, "add_group_members", {
+    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("add_group_members", {
       p_group_id: "g1",
-      p_member_ids: ["u2"],
+      p_member_emails: ["a@x.com"],
     });
   });
 
-  it("throws when no emails resolve to invitees", async () => {
-    const { result } = await renderHook(() => useAddGroupMembers(), {
-      wrapper: createWrapper(),
+  it("surfaces the RPC error when an invited email has no account", async () => {
+    mockedSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "No SplitBill account found for: ghost@x.com" },
     });
-
-    await expect(
-      actAsync(() =>
-        result.current.mutateAsync({ groupId: "g1", memberEmails: ["me@x.com"] })
-      )
-    ).rejects.toThrow("Add at least one other person's email");
-
-    expect(mockedSupabase.rpc).not.toHaveBeenCalled();
-  });
-
-  it("throws when an invited email has no account", async () => {
-    mockedSupabase.rpc.mockResolvedValueOnce({ data: [], error: null });
 
     const { result } = await renderHook(() => useAddGroupMembers(), {
       wrapper: createWrapper(),
@@ -272,14 +252,12 @@ describe("useAddGroupMembers", () => {
         })
       )
     ).rejects.toThrow("No SplitBill account found for: ghost@x.com");
-
-    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("blocks an email that resolves to an existing group member", async () => {
+  it("surfaces the RPC error when someone is already in the group", async () => {
     mockedSupabase.rpc.mockResolvedValueOnce({
-      data: [{ id: "u2", email: "bob@x.com" }],
-      error: null,
+      data: null,
+      error: { message: "Already in this group: bob@x.com" },
     });
 
     const { result } = await renderHook(() => useAddGroupMembers(), {
@@ -291,46 +269,9 @@ describe("useAddGroupMembers", () => {
         result.current.mutateAsync({
           groupId: "g1",
           memberEmails: ["bob@x.com"],
-          existingMemberIds: ["u1", "u2"],
         })
       )
     ).rejects.toThrow("Already in this group: bob@x.com");
-
-    // Only the email lookup runs; the add RPC is never reached.
-    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
-    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_user_ids_by_email", {
-      emails: ["bob@x.com"],
-    });
-  });
-
-  it("invalidates simplified-edge and contact surfaces after adding members", async () => {
-    mockedSupabase.rpc
-      .mockResolvedValueOnce({
-        data: [{ id: "u2", email: "a@x.com" }],
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: null, error: null });
-    const invalidateSpy = jest.spyOn(
-      QueryClient.prototype,
-      "invalidateQueries"
-    );
-
-    const { result } = await renderHook(() => useAddGroupMembers(), {
-      wrapper: createWrapper(),
-    });
-
-    await actAsync(() =>
-      result.current.mutateAsync({ groupId: "g1", memberEmails: ["a@x.com"] })
-    );
-
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["group-simplified", "g1"],
-    });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["contacts"] });
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["contact-group-breakdown"],
-    });
-    invalidateSpy.mockRestore();
   });
 });
 
@@ -376,7 +317,7 @@ describe("useRenameGroup", () => {
 describe("useCheckEmailExists", () => {
   it("returns true when the email resolves to an account", async () => {
     mockedSupabase.rpc.mockResolvedValue({
-      data: [{ id: "u2", email: "a@x.com" }],
+      data: [{ email: "a@x.com" }],
       error: null,
     });
 
@@ -386,6 +327,10 @@ describe("useCheckEmailExists", () => {
 
     const exists = await actAsync(() => result.current.mutateAsync("a@x.com"));
     expect(exists).toBe(true);
+    // The lookup returns matched addresses only -- never a user id.
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("check_emails_registered", {
+      p_emails: ["a@x.com"],
+    });
   });
 
   it("returns false when the email has no account", async () => {
@@ -402,34 +347,42 @@ describe("useCheckEmailExists", () => {
   });
 });
 
-describe("useLookupUserByEmail", () => {
-  it("returns the matched account row for an email", async () => {
+describe("useCheckGroupMemberEmail", () => {
+  it.each(["ok", "not_registered", "already_member"] as const)(
+    "returns %s straight from the RPC",
+    async (status) => {
+      mockedSupabase.rpc.mockResolvedValue({ data: status, error: null });
+
+      const { result } = await renderHook(() => useCheckGroupMemberEmail(), {
+        wrapper: createWrapper(),
+      });
+
+      const got = await actAsync(() =>
+        result.current.mutateAsync({ groupId: "g1", email: "a@x.com" })
+      );
+
+      expect(got).toBe(status);
+      expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+        "check_group_member_email",
+        { p_group_id: "g1", p_email: "a@x.com" }
+      );
+    }
+  );
+
+  it("throws when the caller is not in the group", async () => {
     mockedSupabase.rpc.mockResolvedValue({
-      data: [{ id: "u2", email: "a@x.com" }],
-      error: null,
+      data: null,
+      error: { message: "You are not a member of this group" },
     });
 
-    const { result } = await renderHook(() => useLookupUserByEmail(), {
+    const { result } = await renderHook(() => useCheckGroupMemberEmail(), {
       wrapper: createWrapper(),
     });
 
-    const profile = await actAsync(() => result.current.mutateAsync("a@x.com"));
-    expect(profile).toEqual({ id: "u2", email: "a@x.com" });
-    expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_user_ids_by_email", {
-      emails: ["a@x.com"],
-    });
-  });
-
-  it("returns null when the email has no account", async () => {
-    mockedSupabase.rpc.mockResolvedValue({ data: [], error: null });
-
-    const { result } = await renderHook(() => useLookupUserByEmail(), {
-      wrapper: createWrapper(),
-    });
-
-    const profile = await actAsync(() =>
-      result.current.mutateAsync("ghost@x.com")
-    );
-    expect(profile).toBeNull();
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({ groupId: "g1", email: "a@x.com" })
+      )
+    ).rejects.toThrow("You are not a member of this group");
   });
 });

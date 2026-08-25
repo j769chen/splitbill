@@ -4,8 +4,10 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
@@ -31,9 +33,12 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const signedInUserId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      signedInUserId.current = session?.user?.id;
       setSession(session);
       setLoading(false);
     });
@@ -41,11 +46,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Drop every cached query when the signed-in account changes. Most query
+      // keys carry the user id, but the group-scoped ones do not, so without
+      // this the next person to sign in on the device reads the previous
+      // account's groups, balances and expenses until each query refetches.
+      if (session?.user?.id !== signedInUserId.current) {
+        signedInUserId.current = session?.user?.id;
+        queryClient.clear();
+      }
       setSession(session);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
   const signUp = useCallback(
     async (email: string, password: string, fullName: string) => {
