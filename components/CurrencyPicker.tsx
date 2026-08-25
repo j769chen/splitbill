@@ -11,8 +11,6 @@ type CurrencyPickerProps = {
   disabled?: boolean;
 };
 
-// A compact dropdown for selecting a currency code, backed by the supported
-// CURRENCIES list. Renders the code + symbol on the trigger button.
 export function CurrencyPicker({
   value,
   onChange,
