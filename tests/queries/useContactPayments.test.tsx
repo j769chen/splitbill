@@ -48,9 +48,8 @@ describe("useContactPayments", () => {
 });
 
 describe("useCreateContactPayment", () => {
-  it("inserts a payment with the sorted participant pair", async () => {
-    const builder = queryBuilder({ data: { id: "cp-1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("records a payment through the RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "cp1" }, error: null });
 
     const { result } = await renderHook(() => useCreateContactPayment(), {
       wrapper: createWrapper(),
@@ -61,57 +60,50 @@ describe("useCreateContactPayment", () => {
         contactUserId: "user-2",
         paidBy: "user-1",
         paidTo: "user-2",
-        amount: 15,
-        note: "venmo",
+        amount: 20,
       })
     );
 
-    expect(created).toEqual({ id: "cp-1" });
-    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
-    expect(builder.insert).toHaveBeenCalledWith({
-      paid_by: "user-1",
-      paid_to: "user-2",
-      user_lo: "user-1",
-      user_hi: "user-2",
-      amount: 15,
-      note: "venmo",
-      currency: "USD",
-      exchange_rate: 1,
-      base_amount: 15,
+    expect(created).toEqual({ id: "cp1" });
+    // Sorting the pair, checking the contact is accepted, and deriving the
+    // currency all happen server-side now.
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("create_contact_payment", {
+      p_contact_user_id: "user-2",
+      p_paid_by: "user-1",
+      p_paid_to: "user-2",
+      p_amount: 20,
+      p_note: null,
+      p_currency: null,
     });
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
   });
 
-  it("normalizes the pair regardless of direction", async () => {
-    const builder = queryBuilder({ data: { id: "cp-1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("rejects a payment with someone who is not an accepted contact", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You can only record payments with accepted contacts" },
+    });
 
     const { result } = await renderHook(() => useCreateContactPayment(), {
       wrapper: createWrapper(),
     });
 
-    await actAsync(() =>
-      result.current.mutateAsync({
-        contactUserId: "user-2",
-        paidBy: "user-2",
-        paidTo: "user-1",
-        amount: 15,
-      })
-    );
-
-    expect(builder.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_lo: "user-1",
-        user_hi: "user-2",
-        note: null,
-      })
-    );
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          contactUserId: "user-9",
+          paidBy: "user-1",
+          paidTo: "user-9",
+          amount: 20,
+        })
+      )
+    ).rejects.toThrow("You can only record payments with accepted contacts");
   });
 });
 
 describe("useUpdateContactPayment", () => {
-  it("updates the payment direction, amount, and note by id", async () => {
-    const builder = queryBuilder({ data: { id: "cp-1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("edits the payment through the RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "cp1" }, error: null });
 
     const { result } = await renderHook(() => useUpdateContactPayment(), {
       wrapper: createWrapper(),
@@ -119,55 +111,81 @@ describe("useUpdateContactPayment", () => {
 
     await actAsync(() =>
       result.current.mutateAsync({
-        paymentId: "cp-1",
+        paymentId: "cp1",
         contactUserId: "user-2",
         paidBy: "user-2",
         paidTo: "user-1",
-        amount: 8,
+        amount: 12,
         note: "cash",
       })
     );
 
-    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
-    expect(builder.update).toHaveBeenCalledWith({
-      paid_by: "user-2",
-      paid_to: "user-1",
-      amount: 8,
-      note: "cash",
-      base_amount: 8,
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("update_contact_payment", {
+      p_payment_id: "cp1",
+      p_paid_by: "user-2",
+      p_paid_to: "user-1",
+      p_amount: 12,
+      p_note: "cash",
     });
-    expect(builder.eq).toHaveBeenCalledWith("id", "cp-1");
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects an edit from someone outside the pair", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You are not a participant in this payment" },
+    });
+
+    const { result } = await renderHook(() => useUpdateContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          paymentId: "cp1",
+          contactUserId: "user-2",
+          paidBy: "user-2",
+          paidTo: "user-1",
+          amount: 12,
+        })
+      )
+    ).rejects.toThrow("You are not a participant in this payment");
   });
 });
 
 describe("useDeleteContactPayment", () => {
-  it("deletes the contact payment by id", async () => {
-    const builder = queryBuilder({ data: [{ id: "cp-1" }], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("deletes the contact payment through the RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
 
     const { result } = await renderHook(() => useDeleteContactPayment(), {
       wrapper: createWrapper(),
     });
 
     await actAsync(() =>
-      result.current.mutateAsync({ paymentId: "cp-1", contactUserId: "user-2" })
+      result.current.mutateAsync({ paymentId: "cp1", contactUserId: "user-2" })
     );
 
-    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
-    expect(builder.delete).toHaveBeenCalled();
-    expect(builder.eq).toHaveBeenCalledWith("id", "cp-1");
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("delete_contact_payment", {
+      p_payment_id: "cp1",
+    });
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
   });
 
-  it("rejects when the delete removes no rows", async () => {
-    const builder = queryBuilder({ data: [], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("rejects when the RPC refuses the delete", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You are not a participant in this payment" },
+    });
 
     const { result } = await renderHook(() => useDeleteContactPayment(), {
       wrapper: createWrapper(),
     });
 
     await expect(
-      result.current.mutateAsync({ paymentId: "cp-1", contactUserId: "user-2" })
-    ).rejects.toThrow("You can't delete this payment.");
+      actAsync(() =>
+        result.current.mutateAsync({ paymentId: "cp1", contactUserId: "user-2" })
+      )
+    ).rejects.toThrow("You are not a participant in this payment");
   });
 });

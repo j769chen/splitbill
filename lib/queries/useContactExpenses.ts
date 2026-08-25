@@ -188,19 +188,10 @@ export function useDeleteContactExpense() {
       expenseId: string;
       contactUserId: string;
     }) => {
-      // .select() so a delete filtered out by RLS comes back as zero rows
-      // rather than a silent success that invalidates the cache and leaves the
-      // expense on screen.
-      const { data, error } = await supabase
-        .from("contact_expenses")
-        .delete()
-        .eq("id", expenseId)
-        .select("id");
-
-      if (error) throw error;
-      if (!data?.length) {
-        throw new Error("You can't delete this expense.");
-      }
+      const { error } = await supabase.rpc("delete_contact_expense", {
+        p_expense_id: expenseId,
+      });
+      if (error) throw new Error(error.message);
     },
     onSuccess: (_, variables) => {
       invalidateContactPairQueries(

@@ -286,9 +286,8 @@ describe("useUpdateExpense", () => {
 });
 
 describe("useDeleteExpense", () => {
-  it("deletes by expense id", async () => {
-    const builder = queryBuilder({ data: [{ id: "exp-1" }], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("deletes through the RPC by expense id", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
 
     const { result } = await renderHook(() => useDeleteExpense(), {
       wrapper: createWrapper(),
@@ -298,23 +297,26 @@ describe("useDeleteExpense", () => {
       result.current.mutateAsync({ expenseId: "exp-1", groupId: "g1" })
     );
 
-    expect(result.current.isSuccess).toBe(true);
-    expect(mockedSupabase.from).toHaveBeenCalledWith("expenses");
-    expect(builder.delete).toHaveBeenCalled();
-    expect(builder.eq).toHaveBeenCalledWith("id", "exp-1");
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("delete_expense", {
+      p_expense_id: "exp-1",
+    });
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
   });
 
-  it("rejects when the delete removes no rows", async () => {
-    const builder = queryBuilder({ data: [], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("rejects when the RPC refuses the delete", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You are not a member of this group" },
+    });
 
     const { result } = await renderHook(() => useDeleteExpense(), {
       wrapper: createWrapper(),
     });
 
-    await expect(result.current.mutateAsync({ expenseId: "exp-1", groupId: "g1" })).rejects.toThrow(
-      "You can't delete this expense."
-    );
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({ expenseId: "exp-1", groupId: "g1" })
+      )
+    ).rejects.toThrow("You are not a member of this group");
   });
-
 });

@@ -176,33 +176,37 @@ describe("useUpdateContactExpense", () => {
 });
 
 describe("useDeleteContactExpense", () => {
-  it("deletes the contact expense by id", async () => {
-    const builder = queryBuilder({ data: [{ id: "ce-1" }], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("deletes the contact expense through the RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
 
     const { result } = await renderHook(() => useDeleteContactExpense(), {
       wrapper: createWrapper(),
     });
 
     await actAsync(() =>
-      result.current.mutateAsync({ expenseId: "ce-1", contactUserId: "user-2" })
+      result.current.mutateAsync({ expenseId: "ce1", contactUserId: "user-2" })
     );
 
-    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_expenses");
-    expect(builder.delete).toHaveBeenCalled();
-    expect(builder.eq).toHaveBeenCalledWith("id", "ce-1");
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("delete_contact_expense", {
+      p_expense_id: "ce1",
+    });
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
   });
 
-  it("rejects when RLS filters the delete to no rows", async () => {
-    const builder = queryBuilder({ data: [], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("rejects when the RPC refuses the delete", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You are not a participant in this expense" },
+    });
 
     const { result } = await renderHook(() => useDeleteContactExpense(), {
       wrapper: createWrapper(),
     });
 
     await expect(
-      result.current.mutateAsync({ expenseId: "ce-1", contactUserId: "user-2" })
-    ).rejects.toThrow("You can't delete this expense.");
+      actAsync(() =>
+        result.current.mutateAsync({ expenseId: "ce1", contactUserId: "user-2" })
+      )
+    ).rejects.toThrow("You are not a participant in this expense");
   });
 });
