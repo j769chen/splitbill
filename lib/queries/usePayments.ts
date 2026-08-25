@@ -77,24 +77,19 @@ export function useCreatePayment() {
 
   return useMutation({
     mutationFn: async (input: CreatePaymentInput) => {
-      // Settle-up payments are recorded in the group's base currency, so the
-      // base amount equals the amount at a rate of 1.
-      const { data, error } = await supabase
-        .from("payments")
-        .insert({
-          group_id: input.groupId,
-          paid_by: input.paidBy,
-          paid_to: input.paidTo,
-          amount: input.amount,
-          note: input.note ?? null,
-          currency: input.currency ?? "USD",
-          exchange_rate: 1,
-          base_amount: input.amount,
-        })
-        .select()
-        .single();
+      // Settle-up is recorded in the group's base currency at a rate of 1; the
+      // RPC derives currency and base_amount from the group rather than
+      // trusting them from here.
+      const { data, error } = await supabase.rpc("create_payment", {
+        p_group_id: input.groupId,
+        p_paid_by: input.paidBy,
+        p_paid_to: input.paidTo,
+        p_amount: input.amount,
+        p_note: input.note ?? null,
+        p_currency: input.currency ?? null,
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return data;
     },
     onSuccess: (_, variables) => {
@@ -110,7 +105,6 @@ interface UpdatePaymentInput {
   paidTo: string;
   amount: number;
   note?: string;
-  currency?: string;
 }
 
 export function useUpdatePayment() {
@@ -118,26 +112,17 @@ export function useUpdatePayment() {
 
   return useMutation({
     mutationFn: async (input: UpdatePaymentInput) => {
-      const { data, error } = await supabase
-        .from("payments")
-        .update({
-          paid_by: input.paidBy,
-          paid_to: input.paidTo,
-          amount: input.amount,
-          note: input.note ?? null,
-          ...(input.currency
-            ? {
-                currency: input.currency,
-                exchange_rate: 1,
-                base_amount: input.amount,
-              }
-            : { base_amount: input.amount }),
-        })
-        .eq("id", input.paymentId)
-        .select()
-        .single();
+      // base_amount is recomputed server-side from the rate the payment was
+      // booked at, so an edit cannot leave the converted amount out of step.
+      const { data, error } = await supabase.rpc("update_payment", {
+        p_payment_id: input.paymentId,
+        p_paid_by: input.paidBy,
+        p_paid_to: input.paidTo,
+        p_amount: input.amount,
+        p_note: input.note ?? null,
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return data;
     },
     onSuccess: (_, variables) => {
@@ -156,16 +141,10 @@ export function useDeletePayment() {
       paymentId: string;
       groupId: string;
     }) => {
-      const { data, error } = await supabase
-        .from("payments")
-        .delete()
-        .eq("id", paymentId)
-        .select("id");
-
-      if (error) throw error;
-      if (!data?.length) {
-        throw new Error("You can't delete this payment.");
-      }
+      const { error } = await supabase.rpc("delete_payment", {
+        p_payment_id: paymentId,
+      });
+      if (error) throw new Error(error.message);
     },
     onSuccess: (_, variables) => {
       invalidateGroupQueries(queryClient, variables.groupId);

@@ -152,18 +152,15 @@ describe("SQL security guards", () => {
   });
 
   it("lets either participant delete a one-on-one expense", () => {
-    // The update RPC (SECURITY DEFINER) already allows either participant, and
-    // group expenses are member-deletable, so a payer-only delete policy made
-    // the non-payer's trash button a silent no-op.
-    const policies = readSchema("05_policies.sql");
+    // The update RPC already allows either participant, and group expenses are
+    // member-deletable, so a payer-only delete made the non-payer's trash
+    // button a silent no-op.
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "delete_contact_expense");
 
-    expect(policies).toMatch(
-      /create policy "Participants can delete contact expenses"[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
-    );
-    expect(policies).toMatch(
-      /create policy "Participants can delete contact expense splits"[\s\S]*?using \(public\.is_contact_participant\(expense_id, auth\.uid\(\)\)\)/i
-    );
-    expect(policies).not.toMatch(/"Payer can delete contact expense/i);
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/v_uid <> v_lo and v_uid <> v_hi/i);
+    expect(body).toMatch(/You are not a participant in this expense/i);
   });
 
   it("guards the send-contact-request RPC", () => {
@@ -172,9 +169,15 @@ describe("SQL security guards", () => {
 
     expect(body).toMatch(/v_uid uuid := auth\.uid\(\)/i);
     expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    // Takes an email and resolves it server-side, so the client never handles
+    // a user id for an address it just typed.
+    expect(body).toMatch(/lower\(au\.email\) = v_email/i);
+    expect(body).toMatch(/No SplitBill account found for/i);
     // Cannot request yourself, and cannot duplicate an existing contact.
-    expect(body).toMatch(/p_recipient_user_id = v_uid/i);
-    expect(body).toMatch(/owner_id = v_uid and contact_user_id = p_recipient_user_id/i);
+    expect(body).toMatch(/v_recipient = v_uid/i);
+    expect(body).toMatch(
+      /owner_id = v_uid and contact_user_id = v_recipient/i
+    );
   });
 
   it("restricts responding to requests addressed to the caller", () => {
@@ -246,8 +249,10 @@ describe("SQL security guards", () => {
     expect(body).toMatch(
       /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
     );
-    // Re-adding an existing member is rejected rather than silently skipped.
-    expect(body).toMatch(/User is already a member of this group/i);
+    // Re-adding an existing member is rejected rather than silently skipped,
+    // and unknown addresses are named back to the caller.
+    expect(body).toMatch(/Already in this group/i);
+    expect(body).toMatch(/No SplitBill account found for/i);
   });
 
   it("restricts renaming to members and rejects blank names", () => {
@@ -261,20 +266,37 @@ describe("SQL security guards", () => {
     expect(body).toMatch(/btrim\(coalesce\(p_name, ''\)\) = ''/i);
   });
 
-  it("caps email lookup batches to limit account enumeration", () => {
-    const fullSetup = readMigration("000_full_setup.sql");
+  it("caps email lookup batches and withholds user ids", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "check_emails_registered");
 
-    expect(functionBody(fullSetup, "get_user_ids_by_email")).toMatch(
-      /array_length\(emails,\s*1\)\s*>\s*20/i
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/array_length\(p_emails,\s*1\),\s*0\)\s*>\s*20/i);
+    // Returning the matched addresses only. Handing back a uuid per address
+    // turned this into an email -> user-id directory, so the signature itself
+    // has to stay free of an id column.
+    expect(body).toMatch(/select lower\(au\.email\)::text/i);
+    expect(functions).toMatch(
+      /function public\.check_emails_registered\(p_emails text\[\]\)\s*returns table \(email text\)/i
     );
   });
 
-  it("keeps the declarative schema source capping the email lookup RPC", () => {
+  it("only answers group-membership probes for groups the caller is in", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "check_group_member_email");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(
+      /IF NOT public\.is_group_member\(p_group_id,\s*v_uid\) THEN/i
+    );
+    expect(body).toMatch(/return 'not_registered'/i);
+    expect(body).toMatch(/return 'already_member'/i);
+  });
+
+  it("no longer exposes the id-returning email lookup", () => {
     const functions = readSchema("04_functions.sql");
 
-    expect(functionBody(functions, "get_user_ids_by_email")).toMatch(
-      /array_length\(emails,\s*1\)\s*>\s*20/i
-    );
+    expect(functions).not.toMatch(/function public\.get_user_ids_by_email/i);
   });
 
   it("authorizes group expense edits to any member and re-validates splits", () => {
@@ -319,28 +341,133 @@ describe("SQL security guards", () => {
     );
   });
 
-  it("only lets group members update payments and keeps payer/payee in-group", () => {
-    const policies = readSchema("05_policies.sql");
+  it("only lets a party to a payment record or edit it", () => {
+    const functions = readSchema("04_functions.sql");
+    const create = functionBody(functions, "create_payment");
+    const update = functionBody(functions, "update_payment");
 
-    expect(policies).toMatch(
-      /create policy "Members can update payments"[\s\S]*?on public\.payments for update[\s\S]*?using \(public\.is_group_member\(group_id,\s*auth\.uid\(\)\)\)[\s\S]*?is_group_member\(group_id,\s*paid_by\)[\s\S]*?is_group_member\(group_id,\s*paid_to\)/i
+    for (const body of [create, update]) {
+      expect(body).toMatch(/raise exception 'Not authenticated'/i);
+      expect(body).toMatch(/Both people must be group members/i);
+      expect(body).toMatch(/Payment amount must be greater than zero/i);
+    }
+
+    // Recording and editing now agree: a member who is on neither side of the
+    // payment cannot create one or rewrite one between two other people.
+    expect(create).toMatch(/v_uid <> p_paid_by and v_uid <> p_paid_to/i);
+    expect(update).toMatch(
+      /v_uid <> v_existing\.paid_by and v_uid <> v_existing\.paid_to/i
+    );
+    expect(update).toMatch(/v_uid <> p_paid_by and v_uid <> p_paid_to/i);
+
+    // Currency and base_amount are derived, never taken from the caller.
+    expect(create).toMatch(/select g\.currency into v_currency/i);
+    expect(update).toMatch(
+      /base_amount = round\(v_amount \* v_existing\.exchange_rate, 2\)/i
     );
   });
 
   it("restricts contact_payments access to the two participants", () => {
     const policies = readSchema("05_policies.sql");
+    const functions = readSchema("04_functions.sql");
 
     expect(policies).toMatch(
       /create policy "Participants can view contact payments"[\s\S]*?on public\.contact_payments for select[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
     );
-    expect(policies).toMatch(
-      /create policy "Participants can create contact payments"[\s\S]*?on public\.contact_payments for insert[\s\S]*?paid_by = user_lo or paid_by = user_hi[\s\S]*?paid_to = user_lo or paid_to = user_hi/i
+
+    const create = functionBody(functions, "create_contact_payment");
+    expect(create).toMatch(
+      /You can only record payments with accepted contacts/i
     );
+    expect(create).toMatch(/A payment must be between you and the contact/i);
+
+    const update = functionBody(functions, "update_contact_payment");
+    expect(update).toMatch(/v_uid <> v_existing\.user_lo and v_uid <> v_existing\.user_hi/i);
+
+    const del = functionBody(functions, "delete_contact_payment");
+    expect(del).toMatch(/v_uid <> v_lo and v_uid <> v_hi/i);
+  });
+
+  it("leaves no write policy on any table", () => {
+    // RLS cannot express "these splits add up to the expense total", so every
+    // write goes through a SECURITY DEFINER RPC and the tables carry SELECT
+    // policies only. A write policy reappearing here means a client can reach
+    // a table directly again and skip the RPC's validation.
+    const policies = readSchema("05_policies.sql");
+    const commands = [...policies.matchAll(/for (select|insert|update|delete)/gi)]
+      .map((m) => m[1].toLowerCase());
+
+    expect(commands.length).toBeGreaterThan(0);
+    expect([...new Set(commands)]).toEqual(["select"]);
+  });
+
+  it("grants clients read access only", () => {
+    const core = readSchema("02_tables_core.sql");
+    const contacts = readSchema("03_tables_contacts.sql");
+
+    for (const schema of [core, contacts]) {
+      // Every client-facing grant is a SELECT, and the remainder of Supabase's
+      // default `all` (including TRUNCATE, which RLS does not mediate) is
+      // revoked rather than left in place.
+      const clientGrants = [
+        ...schema.matchAll(/grant ([a-z, ]+?) on table[\s\S]*?to ([a-z, ]+);/gi),
+      ].filter(([, , roles]) => /anon|authenticated/.test(roles));
+
+      expect(clientGrants.length).toBeGreaterThan(0);
+      for (const [, privileges] of clientGrants) {
+        expect(privileges.trim()).toBe("select");
+      }
+
+      expect(schema).toMatch(
+        /revoke insert, update, delete, truncate, references, trigger on table[\s\S]*?from anon, authenticated;/i
+      );
+    }
+  });
+
+  it("scopes profile visibility to shared context", () => {
+    const policies = readSchema("05_policies.sql");
+    const functions = readSchema("04_functions.sql");
+
+    // Previously `using (true)`: every signed-in account could read the whole
+    // user directory.
     expect(policies).toMatch(
-      /create policy "Participants can update contact payments"[\s\S]*?on public\.contact_payments for update/i
+      /create policy "Users can view profiles they share context with"[\s\S]*?on public\.profiles for select using \(public\.can_view_profile\(id\)\)/i
     );
-    expect(policies).toMatch(
-      /create policy "Participants can delete contact payments"[\s\S]*?on public\.contact_payments for delete[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
-    );
+    expect(policies).not.toMatch(/for select using \(true\)/i);
+
+    const body = functionBody(functions, "can_view_profile");
+    expect(body).toMatch(/p_profile_id = auth\.uid\(\)/i);
+    expect(body).toMatch(/from public\.group_members mine/i);
+    expect(body).toMatch(/from public\.contacts c/i);
+    expect(body).toMatch(/from public\.contact_requests cr/i);
+  });
+
+  it("scopes the profile update RPC to the caller and rejects a blank name", () => {
+    const functions = readSchema("04_functions.sql");
+    const body = functionBody(functions, "update_profile");
+
+    expect(body).toMatch(/raise exception 'Not authenticated'/i);
+    expect(body).toMatch(/btrim\(coalesce\(p_full_name, ''\)\) = ''/i);
+    expect(body).toMatch(/where id = v_uid/i);
+  });
+
+  it("guards every delete RPC on membership or participation", () => {
+    const functions = readSchema("04_functions.sql");
+
+    const groupScoped = ["delete_expense", "delete_payment"];
+    for (const name of groupScoped) {
+      const body = functionBody(functions, name);
+      expect(body).toMatch(/raise exception 'Not authenticated'/i);
+      expect(body).toMatch(
+        /IF NOT public\.is_group_member\(v_group_id,\s*v_uid\) THEN/i
+      );
+    }
+
+    const pairScoped = ["delete_contact_expense", "delete_contact_payment"];
+    for (const name of pairScoped) {
+      const body = functionBody(functions, name);
+      expect(body).toMatch(/raise exception 'Not authenticated'/i);
+      expect(body).toMatch(/v_uid <> v_lo and v_uid <> v_hi/i);
+    }
   });
 });

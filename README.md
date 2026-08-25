@@ -36,13 +36,25 @@ npm install
 
 ### 2. Set up Supabase
 
+The database is defined declaratively in `supabase/schemas/`; migrations under
+`supabase/migrations/` are generated from it. See
+[`supabase/schemas/README.md`](supabase/schemas/README.md) for the full
+workflow.
+
 1. Create a new project at [supabase.com](https://supabase.com)
-2. Run the SQL migrations in order from `supabase/migrations/`:
-   - `001_create_tables.sql` - Creates all tables and triggers
-   - `002_rls_policies.sql` - Sets up Row Level Security
-   - `003_balance_function.sql` - Creates balance calculation functions
-   - Continue through the remaining numbered migrations to apply fixes and hardening.
-3. Enable Realtime for the `expenses`, `expense_splits`, `payments`, and `group_members` tables
+2. Link the CLI and apply the migration history:
+
+```bash
+supabase link --project-ref <your-project-ref>
+supabase db push
+```
+
+To run against a local stack instead, `supabase db reset` builds the whole
+database (schema, policies, grants and seed data) from scratch.
+
+Realtime is enabled for `expenses`, `expense_splits`, `payments`,
+`group_members` and `contact_requests` by the migrations, so there is nothing
+to toggle in the dashboard.
 
 ### 3. Configure environment
 
@@ -71,9 +83,11 @@ Then press `i` for iOS simulator, `a` for Android emulator, or scan the QR code 
 app/                  # Expo Router file-based routes
   (auth)/             # Sign-in / Sign-up screens
   (tabs)/             # Main tab navigator
-    groups/           # Group list, detail, create, add expense, settle up
-    activity.tsx      # Activity feed
+    (home)/           # Dashboard, contact detail, contact expenses
+    groups/           # Group list and detail
+    activity/         # Activity feed
     account/          # Profile, edit profile, notifications, help & support
+  group-*.tsx         # Group action screens, presented as modals over the tabs
 components/           # Reusable UI components
 lib/                  # Core logic
   supabase.ts         # Supabase client
@@ -83,8 +97,25 @@ lib/                  # Core logic
   utils.ts            # Utility functions
   realtime.ts         # Realtime subscriptions
 supabase/
-  migrations/         # SQL migration files
+  schemas/            # Declarative schema (source of truth)
+  migrations/         # Generated migration history
 ```
+
+## Database access model
+
+Clients read through Row Level Security and write **only** through
+`SECURITY DEFINER` RPCs. `anon` and `authenticated` hold `SELECT` and nothing
+else, and every table carries SELECT policies only.
+
+This is deliberate. RLS can express "you are a member of this group" but not
+"these split amounts add up to the expense total", so an open INSERT policy on
+`expense_splits` would let a client PostgREST call skip every validation the
+RPCs perform and write a ledger that does not balance. Keeping writes behind
+functions puts the invariants in one place.
+
+Adding a write path means adding an RPC in `supabase/schemas/04_functions.sql`,
+not a policy in `05_policies.sql`. `tests/sql-security.test.ts` fails if a
+non-SELECT policy or a non-SELECT client grant reappears.
 
 ## Checks
 

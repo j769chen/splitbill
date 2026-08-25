@@ -4,7 +4,7 @@ import { Button, Text } from "react-native-paper";
 import { useGroup } from "@/lib/queries/useGroups";
 import {
   useAddGroupMembers,
-  useLookupUserByEmail,
+  useCheckGroupMemberEmail,
 } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 import { useAppTheme } from "@/lib/theme";
@@ -23,11 +23,10 @@ export default function AddGroupMembers() {
   const [memberEmails, setMemberEmails] = useState<string[]>([]);
 
   const addMembers = useAddGroupMembers();
-  const lookupUserByEmail = useLookupUserByEmail();
+  const checkGroupMemberEmail = useCheckGroupMemberEmail();
   const { showError, showSuccess } = useSnackbar();
 
   const memberCount = group?.group_members?.length ?? 0;
-  const existingMemberIds = (group?.group_members ?? []).map((m) => m.user_id);
 
   const validatePendingEmail = async (): Promise<string | null> => {
     const email = emailInput.trim().toLowerCase();
@@ -45,12 +44,17 @@ export default function AddGroupMembers() {
       return null;
     }
     try {
-      const profile = await lookupUserByEmail.mutateAsync(email);
-      if (!profile) {
+      // Membership is checked server-side: the lookup no longer returns a user
+      // id to compare against the loaded member list.
+      const status = await checkGroupMemberEmail.mutateAsync({
+        groupId: groupId!,
+        email,
+      });
+      if (status === "not_registered") {
         showError(`No SplitBill account found for ${email}`);
         return null;
       }
-      if (existingMemberIds.includes(profile.id)) {
+      if (status === "already_member") {
         showError("This person is already a member of the group");
         return null;
       }
@@ -89,7 +93,6 @@ export default function AddGroupMembers() {
       await addMembers.mutateAsync({
         groupId: groupId!,
         memberEmails: finalEmails,
-        existingMemberIds,
       });
       showSuccess(finalEmails.length > 1 ? "Members added" : "Member added");
       router.back();
@@ -121,7 +124,7 @@ export default function AddGroupMembers() {
           onAdd={addEmail}
           onRemove={removeEmail}
           emails={memberEmails}
-          isPending={lookupUserByEmail.isPending}
+          isPending={checkGroupMemberEmail.isPending}
         />
 
       <Button

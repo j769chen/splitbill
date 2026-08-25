@@ -107,3 +107,33 @@ alter table public.contact_expense_splits enable row level security;
 alter table public.contact_payments enable row level security;
 alter table public.contact_requests enable row level security;
 alter table public.contact_pair_settings enable row level security;
+
+-- Grants. See the note in 02_tables_core.sql: read under RLS, write only
+-- through the SECURITY DEFINER RPCs.
+grant select on table
+  public.contacts,
+  public.contact_expenses,
+  public.contact_expense_splits,
+  public.contact_payments,
+  public.contact_requests,
+  public.contact_pair_settings
+  to anon, authenticated;
+
+grant all on table
+  public.contacts,
+  public.contact_expenses,
+  public.contact_expense_splits,
+  public.contact_payments,
+  public.contact_requests,
+  public.contact_pair_settings
+  to service_role;
+
+-- See the note in 02_tables_core.sql.
+revoke insert, update, delete, truncate, references, trigger on table
+  public.contacts,
+  public.contact_expenses,
+  public.contact_expense_splits,
+  public.contact_payments,
+  public.contact_requests,
+  public.contact_pair_settings
+  from anon, authenticated;

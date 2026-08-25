@@ -27,39 +27,28 @@ beforeEach(() => {
 });
 
 describe("useSendContactRequest", () => {
-  it("resolves the email then calls send_contact_request with the matched id", async () => {
-    mockedSupabase.rpc
-      .mockResolvedValueOnce({
-        data: [{ id: "user-2", email: "bob@x.com" }],
-        error: null,
-      })
-      .mockResolvedValueOnce({ data: null, error: null });
+  it("sends the normalised email straight to the RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
 
     const { result } = await renderHook(() => useSendContactRequest(), {
       wrapper: createWrapper(),
     });
 
-    const id = await actAsync(() => result.current.mutateAsync("  Bob@X.com "));
+    await actAsync(() => result.current.mutateAsync("  Bob@X.com "));
 
-    expect(id).toBe("user-2");
-    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(1, "get_user_ids_by_email", {
-      emails: ["bob@x.com"],
-    });
-    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(2, "send_contact_request", {
-      p_recipient_user_id: "user-2",
+    // The RPC resolves the address itself, so there is no lookup round trip
+    // and the client never receives the recipient's user id.
+    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("send_contact_request", {
+      p_recipient_email: "bob@x.com",
     });
   });
 
   it("surfaces the already-a-contact error raised by the RPC", async () => {
-    mockedSupabase.rpc
-      .mockResolvedValueOnce({
-        data: [{ id: "user-2", email: "bob@x.com" }],
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: null,
-        error: { message: "This person is already a contact" },
-      });
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "This person is already a contact" },
+    });
 
     const { result } = await renderHook(() => useSendContactRequest(), {
       wrapper: createWrapper(),
@@ -68,14 +57,13 @@ describe("useSendContactRequest", () => {
     await expect(
       actAsync(() => result.current.mutateAsync("bob@x.com"))
     ).rejects.toThrow("This person is already a contact");
-
-    expect(mockedSupabase.rpc).toHaveBeenNthCalledWith(2, "send_contact_request", {
-      p_recipient_user_id: "user-2",
-    });
   });
 
-  it("throws and skips send_contact_request when no account is found", async () => {
-    mockedSupabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+  it("surfaces the no-account error raised by the RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "No SplitBill account found for ghost@x.com" },
+    });
 
     const { result } = await renderHook(() => useSendContactRequest(), {
       wrapper: createWrapper(),
@@ -84,8 +72,6 @@ describe("useSendContactRequest", () => {
     await expect(
       actAsync(() => result.current.mutateAsync("ghost@x.com"))
     ).rejects.toThrow("No SplitBill account found for ghost@x.com");
-
-    expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
   });
 });
 

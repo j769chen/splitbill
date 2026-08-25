@@ -16,7 +16,7 @@ jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 jest.mock("@/lib/queries/useGroups", () => ({
   useGroup: jest.fn(),
   useAddGroupMembers: jest.fn(),
-  useLookupUserByEmail: jest.fn(),
+  useCheckGroupMemberEmail: jest.fn(),
 }));
 jest.mock("@/lib/snackbar", () => ({ useSnackbar: jest.fn() }));
 
@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import {
   useGroup,
   useAddGroupMembers,
-  useLookupUserByEmail,
+  useCheckGroupMemberEmail,
 } from "@/lib/queries/useGroups";
 import { useSnackbar } from "@/lib/snackbar";
 
@@ -45,7 +45,7 @@ async function addEmail(email: string) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockAddAsync.mockResolvedValue(undefined);
-  mockLookupAsync.mockResolvedValue({ id: "u2", email: "bob@x.com" });
+  mockLookupAsync.mockResolvedValue("ok");
   (router as unknown as { back: jest.Mock }).back = mockBack;
   (useAuth as jest.Mock).mockReturnValue({ user: { email: "me@x.com" } });
   (useGroup as jest.Mock).mockReturnValue({
@@ -59,7 +59,7 @@ beforeEach(() => {
     mutateAsync: mockAddAsync,
     isPending: false,
   });
-  (useLookupUserByEmail as jest.Mock).mockReturnValue({
+  (useCheckGroupMemberEmail as jest.Mock).mockReturnValue({
     mutateAsync: mockLookupAsync,
     isPending: false,
   });
@@ -82,7 +82,6 @@ describe("AddGroupMembers screen", () => {
       expect(mockAddAsync).toHaveBeenCalledWith({
         groupId: "g1",
         memberEmails: ["bob@x.com"],
-        existingMemberIds: ["u1"],
       })
     );
     expect(mockShowSuccess).toHaveBeenCalledWith("Member added");
@@ -99,7 +98,7 @@ describe("AddGroupMembers screen", () => {
   });
 
   it("blocks adding someone already in the group from the plus button", async () => {
-    mockLookupAsync.mockResolvedValue({ id: "u1", email: "bob@x.com" });
+    mockLookupAsync.mockResolvedValue("already_member");
     await renderWithPaper(<AddGroupMembers />);
 
     await addEmail("bob@x.com");
@@ -110,6 +109,21 @@ describe("AddGroupMembers screen", () => {
       )
     );
     expect(screen.queryByText("bob@x.com")).toBeNull();
+    expect(mockAddAsync).not.toHaveBeenCalled();
+  });
+
+  it("blocks an email with no SplitBill account", async () => {
+    mockLookupAsync.mockResolvedValue("not_registered");
+    await renderWithPaper(<AddGroupMembers />);
+
+    await addEmail("ghost@x.com");
+
+    await waitFor(() =>
+      expect(mockShowError).toHaveBeenCalledWith(
+        "No SplitBill account found for ghost@x.com"
+      )
+    );
+    expect(screen.queryByText("ghost@x.com")).toBeNull();
     expect(mockAddAsync).not.toHaveBeenCalled();
   });
 
