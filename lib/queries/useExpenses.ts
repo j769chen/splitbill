@@ -155,7 +155,6 @@ export function useDeleteExpense() {
   return useMutation({
     mutationFn: async ({
       expenseId,
-      groupId,
     }: {
       expenseId: string;
       groupId: string;

@@ -1,6 +1,5 @@
 import { View, ScrollView, RefreshControl } from "react-native";
 import { Badge, Button, IconButton, Text } from "react-native-paper";
-import { useAuth } from "@/lib/auth";
 import { useUserTotalBalance } from "@/lib/queries/useBalances";
 import { useGroups } from "@/lib/queries/useGroups";
 import {
@@ -21,7 +20,6 @@ import { useState, useCallback } from "react";
 
 export default function Dashboard() {
   const theme = useAppTheme();
-  const { user } = useAuth();
   const { currency: displayCurrency } = useDisplayCurrency();
   const { data: balance, refetch: refetchBalance } = useUserTotalBalance();
   const { data: groups, refetch: refetchGroups } = useGroups();

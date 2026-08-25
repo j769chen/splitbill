@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "./supabase";
 import {
   invalidateContactQueries,

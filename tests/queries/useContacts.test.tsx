@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { actAsync, createWrapper, queryBuilder } from "../helpers/testUtils";
+import { createWrapper } from "../helpers/testUtils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import {
