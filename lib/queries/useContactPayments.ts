@@ -82,25 +82,18 @@ export function useCreateContactPayment() {
 
   return useMutation({
     mutationFn: async (input: CreateContactPaymentInput) => {
-      const [lo, hi] = sortPair(input.paidBy, input.paidTo);
+      // The RPC sorts the participant pair, checks the two are accepted
+      // contacts, and derives currency and base_amount from the pair setting.
+      const { data, error } = await supabase.rpc("create_contact_payment", {
+        p_contact_user_id: input.contactUserId,
+        p_paid_by: input.paidBy,
+        p_paid_to: input.paidTo,
+        p_amount: input.amount,
+        p_note: input.note ?? null,
+        p_currency: input.currency ?? null,
+      });
 
-      const { data, error } = await supabase
-        .from("contact_payments")
-        .insert({
-          paid_by: input.paidBy,
-          paid_to: input.paidTo,
-          user_lo: lo,
-          user_hi: hi,
-          amount: input.amount,
-          note: input.note ?? null,
-          currency: input.currency ?? "USD",
-          exchange_rate: 1,
-          base_amount: input.amount,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return data;
     },
     onSuccess: (_, variables) => {
@@ -123,26 +116,16 @@ export function useUpdateContactPayment() {
 
   return useMutation({
     mutationFn: async (input: UpdateContactPaymentInput) => {
-      const { data, error } = await supabase
-        .from("contact_payments")
-        .update({
-          paid_by: input.paidBy,
-          paid_to: input.paidTo,
-          amount: input.amount,
-          note: input.note ?? null,
-          ...(input.currency
-            ? {
-                currency: input.currency,
-                exchange_rate: 1,
-                base_amount: input.amount,
-              }
-            : { base_amount: input.amount }),
-        })
-        .eq("id", input.paymentId)
-        .select()
-        .single();
+      // base_amount is recomputed server-side from the booked rate.
+      const { data, error } = await supabase.rpc("update_contact_payment", {
+        p_payment_id: input.paymentId,
+        p_paid_by: input.paidBy,
+        p_paid_to: input.paidTo,
+        p_amount: input.amount,
+        p_note: input.note ?? null,
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       return data;
     },
     onSuccess: (_, variables) => {
@@ -166,16 +149,10 @@ export function useDeleteContactPayment() {
       paymentId: string;
       contactUserId: string;
     }) => {
-      const { data, error } = await supabase
-        .from("contact_payments")
-        .delete()
-        .eq("id", paymentId)
-        .select("id");
-
-      if (error) throw error;
-      if (!data?.length) {
-        throw new Error("You can't delete this payment.");
-      }
+      const { error } = await supabase.rpc("delete_contact_payment", {
+        p_payment_id: paymentId,
+      });
+      if (error) throw new Error(error.message);
     },
     onSuccess: (_, variables) => {
       invalidateContactPairQueries(

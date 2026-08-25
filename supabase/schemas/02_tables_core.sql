@@ -104,13 +104,46 @@ alter table public.expense_splits enable row level security;
 alter table public.payments enable row level security;
 alter table public.group_simplify_debts_events enable row level security;
 
--- Grants. Every other table's grants come from Supabase's default privileges on
--- the public schema; this table was added later via a migration that granted
--- them explicitly, so they must be declared here too or `supabase db diff`
--- emits a revoke that would break the activity feed's reads.
-grant references, trigger, truncate on table public.group_simplify_debts_events
-  to anon, authenticated, service_role;
--- Rows are written only by set_group_simplify_debts (SECURITY DEFINER), so no
--- insert/update/delete grants are needed; the SELECT policy scopes reads.
-grant select on table public.group_simplify_debts_events
-  to anon, authenticated, service_role;
+-- Grants.
+--
+-- Least privilege, matching the policies in 05_policies.sql: clients read under
+-- RLS and write only through the SECURITY DEFINER RPCs, so anon/authenticated
+-- get SELECT and nothing else.
+--
+-- These have to be declared here rather than left to Supabase's default
+-- privileges. The baseline migration creates the tables with no grants of its
+-- own, so without this block a fresh `supabase db reset` yields a database the
+-- app cannot even read from, and local and remote drift apart.
+grant select on table
+  public.profiles,
+  public.groups,
+  public.group_members,
+  public.expenses,
+  public.expense_splits,
+  public.payments,
+  public.group_simplify_debts_events
+  to anon, authenticated;
+
+grant all on table
+  public.profiles,
+  public.groups,
+  public.group_members,
+  public.expenses,
+  public.expense_splits,
+  public.payments,
+  public.group_simplify_debts_events
+  to service_role;
+
+-- Supabase's default privileges hand anon/authenticated the remainder of `all`
+-- (references/trigger/truncate) on anything created in this schema. A client
+-- needs none of them, and TRUNCATE in particular is not mediated by RLS, so
+-- strip them back to the SELECT above.
+revoke insert, update, delete, truncate, references, trigger on table
+  public.profiles,
+  public.groups,
+  public.group_members,
+  public.expenses,
+  public.expense_splits,
+  public.payments,
+  public.group_simplify_debts_events
+  from anon, authenticated;

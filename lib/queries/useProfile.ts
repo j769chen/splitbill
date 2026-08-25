@@ -4,17 +4,14 @@ import { useAuth } from "../auth";
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
 
   return useMutation({
     mutationFn: async ({ fullName }: { fullName: string }) => {
-      const uid = user!.id;
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ full_name: fullName })
-        .eq("id", uid);
-      if (profileError) throw profileError;
+      const { error: profileError } = await supabase.rpc("update_profile", {
+        p_full_name: fullName,
+      });
+      if (profileError) throw new Error(profileError.message);
 
       const { error: authError } = await supabase.auth.updateUser({
         data: { full_name: fullName },

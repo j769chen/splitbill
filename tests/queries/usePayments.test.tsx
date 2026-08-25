@@ -10,10 +10,13 @@ import {
 } from "@/lib/queries/usePayments";
 
 jest.mock("@/lib/supabase", () => ({
-  supabase: { from: jest.fn() },
+  supabase: { from: jest.fn(), rpc: jest.fn() },
 }));
 
-const mockedSupabase = supabase as unknown as { from: jest.Mock };
+const mockedSupabase = supabase as unknown as {
+  from: jest.Mock;
+  rpc: jest.Mock;
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -71,9 +74,8 @@ describe("useGroupPayments", () => {
 });
 
 describe("useCreatePayment", () => {
-  it("inserts a payment with mapped fields and a null note default", async () => {
-    const builder = queryBuilder({ data: { id: "p1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("records a payment through the RPC with a null note default", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "p1" }, error: null });
 
     const { result } = await renderHook(() => useCreatePayment(), {
       wrapper: createWrapper(),
@@ -89,22 +91,24 @@ describe("useCreatePayment", () => {
     );
 
     expect(created).toEqual({ id: "p1" });
-    expect(mockedSupabase.from).toHaveBeenCalledWith("payments");
-    expect(builder.insert).toHaveBeenCalledWith({
-      group_id: "g1",
-      paid_by: "u1",
-      paid_to: "u2",
-      amount: 5,
-      note: null,
-      currency: "USD",
-      exchange_rate: 1,
-      base_amount: 5,
+    // Currency and base_amount are derived server-side from the group, so the
+    // client no longer sends them.
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("create_payment", {
+      p_group_id: "g1",
+      p_paid_by: "u1",
+      p_paid_to: "u2",
+      p_amount: 5,
+      p_note: null,
+      p_currency: null,
     });
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
   });
 
-  it("propagates insert errors", async () => {
-    const builder = queryBuilder({ data: null, error: new Error("insert failed") });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("propagates RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You can only record payments you are part of" },
+    });
 
     const { result } = await renderHook(() => useCreatePayment(), {
       wrapper: createWrapper(),
@@ -119,14 +123,13 @@ describe("useCreatePayment", () => {
           amount: 5,
         })
       )
-    ).rejects.toThrow("insert failed");
+    ).rejects.toThrow("You can only record payments you are part of");
   });
 });
 
 describe("useUpdatePayment", () => {
-  it("updates a payment with mapped direction, amount, and note", async () => {
-    const builder = queryBuilder({ data: { id: "p1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("edits a payment through the RPC", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "p1" }, error: null });
 
     const { result } = await renderHook(() => useUpdatePayment(), {
       wrapper: createWrapper(),
@@ -144,20 +147,42 @@ describe("useUpdatePayment", () => {
     );
 
     expect(updated).toEqual({ id: "p1" });
-    expect(mockedSupabase.from).toHaveBeenCalledWith("payments");
-    expect(builder.update).toHaveBeenCalledWith({
-      paid_by: "u2",
-      paid_to: "u1",
-      amount: 7,
-      note: "venmo",
-      base_amount: 7,
+    // base_amount is recomputed server-side from the booked rate.
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("update_payment", {
+      p_payment_id: "p1",
+      p_paid_by: "u2",
+      p_paid_to: "u1",
+      p_amount: 7,
+      p_note: "venmo",
     });
-    expect(builder.eq).toHaveBeenCalledWith("id", "p1");
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it("propagates RPC errors", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You can only edit payments you are part of" },
+    });
+
+    const { result } = await renderHook(() => useUpdatePayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({
+          paymentId: "p1",
+          groupId: "g1",
+          paidBy: "u2",
+          paidTo: "u1",
+          amount: 7,
+        })
+      )
+    ).rejects.toThrow("You can only edit payments you are part of");
   });
 
   it("invalidates the group pairwise roster so it live-refreshes on edit", async () => {
-    const builder = queryBuilder({ data: { id: "p1" }, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "p1" }, error: null });
     const invalidateSpy = jest.spyOn(
       QueryClient.prototype,
       "invalidateQueries"
@@ -188,9 +213,8 @@ describe("useUpdatePayment", () => {
 });
 
 describe("useDeletePayment", () => {
-  it("deletes by payment id", async () => {
-    const builder = queryBuilder({ data: [{ id: "p1" }], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("deletes through the RPC by payment id", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
 
     const { result } = await renderHook(() => useDeletePayment(), {
       wrapper: createWrapper(),
@@ -200,21 +224,26 @@ describe("useDeletePayment", () => {
       result.current.mutateAsync({ paymentId: "p1", groupId: "g1" })
     );
 
-    expect(mockedSupabase.from).toHaveBeenCalledWith("payments");
-    expect(builder.delete).toHaveBeenCalled();
-    expect(builder.eq).toHaveBeenCalledWith("id", "p1");
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("delete_payment", {
+      p_payment_id: "p1",
+    });
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
   });
 
-  it("rejects when the delete removes no rows", async () => {
-    const builder = queryBuilder({ data: [], error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("rejects when the RPC refuses the delete", async () => {
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "You are not a member of this group" },
+    });
 
     const { result } = await renderHook(() => useDeletePayment(), {
       wrapper: createWrapper(),
     });
 
-    await expect(result.current.mutateAsync({ paymentId: "p1", groupId: "g1" })).rejects.toThrow(
-      "You can't delete this payment."
-    );
+    await expect(
+      actAsync(() =>
+        result.current.mutateAsync({ paymentId: "p1", groupId: "g1" })
+      )
+    ).rejects.toThrow("You are not a member of this group");
   });
 });

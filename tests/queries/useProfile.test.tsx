@@ -1,17 +1,18 @@
 import { renderHook } from "@testing-library/react-native";
 import { QueryClient } from "@tanstack/react-query";
-import { actAsync, createWrapper, queryBuilder } from "../helpers/testUtils";
+import { actAsync, createWrapper } from "../helpers/testUtils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useUpdateProfile } from "@/lib/queries/useProfile";
 
 jest.mock("@/lib/supabase", () => ({
-  supabase: { from: jest.fn(), auth: { updateUser: jest.fn() } },
+  supabase: { from: jest.fn(), rpc: jest.fn(), auth: { updateUser: jest.fn() } },
 }));
 jest.mock("@/lib/auth", () => ({ useAuth: jest.fn() }));
 
 const mockedSupabase = supabase as unknown as {
   from: jest.Mock;
+  rpc: jest.Mock;
   auth: { updateUser: jest.Mock };
 };
 const mockedUseAuth = useAuth as unknown as jest.Mock;
@@ -24,9 +25,8 @@ beforeEach(() => {
 });
 
 describe("useUpdateProfile", () => {
-  it("updates the profile row and the auth user metadata", async () => {
-    const builder = queryBuilder({ data: null, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+  it("updates the profile through the RPC and the auth user metadata", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
     mockedSupabase.auth.updateUser.mockResolvedValue({ data: {}, error: null });
 
     const { result } = await renderHook(() => useUpdateProfile(), {
@@ -35,9 +35,12 @@ describe("useUpdateProfile", () => {
 
     await actAsync(() => result.current.mutateAsync({ fullName: "New Name" }));
 
-    expect(mockedSupabase.from).toHaveBeenCalledWith("profiles");
-    expect(builder.update).toHaveBeenCalledWith({ full_name: "New Name" });
-    expect(builder.eq).toHaveBeenCalledWith("id", "user-1");
+    // The row is written by a SECURITY DEFINER RPC that scopes the update to
+    // the caller, so the client no longer sends its own user id.
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith("update_profile", {
+      p_full_name: "New Name",
+    });
+    expect(mockedSupabase.from).not.toHaveBeenCalled();
     expect(mockedSupabase.auth.updateUser).toHaveBeenCalledWith({
       data: { full_name: "New Name" },
     });
@@ -45,8 +48,10 @@ describe("useUpdateProfile", () => {
   });
 
   it("propagates a profile update error before touching auth", async () => {
-    const builder = queryBuilder({ data: null, error: new Error("db down") });
-    mockedSupabase.from.mockReturnValue(builder);
+    mockedSupabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "Name is required" },
+    });
 
     const { result } = await renderHook(() => useUpdateProfile(), {
       wrapper: createWrapper(),
@@ -54,14 +59,13 @@ describe("useUpdateProfile", () => {
 
     await expect(
       actAsync(() => result.current.mutateAsync({ fullName: "New Name" }))
-    ).rejects.toThrow("db down");
+    ).rejects.toThrow("Name is required");
 
     expect(mockedSupabase.auth.updateUser).not.toHaveBeenCalled();
   });
 
   it("propagates an auth metadata update error", async () => {
-    const builder = queryBuilder({ data: null, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
     mockedSupabase.auth.updateUser.mockResolvedValue({
       data: {},
       error: new Error("auth down"),
@@ -77,8 +81,7 @@ describe("useUpdateProfile", () => {
   });
 
   it("invalidates every list that denormalises the display name", async () => {
-    const builder = queryBuilder({ data: null, error: null });
-    mockedSupabase.from.mockReturnValue(builder);
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null });
     mockedSupabase.auth.updateUser.mockResolvedValue({ data: {}, error: null });
     const invalidateSpy = jest.spyOn(
       QueryClient.prototype,

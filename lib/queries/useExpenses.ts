@@ -159,16 +159,10 @@ export function useDeleteExpense() {
       expenseId: string;
       groupId: string;
     }) => {
-      const { data, error } = await supabase
-        .from("expenses")
-        .delete()
-        .eq("id", expenseId)
-        .select("id");
-
-      if (error) throw error;
-      if (!data?.length) {
-        throw new Error("You can't delete this expense.");
-      }
+      const { error } = await supabase.rpc("delete_expense", {
+        p_expense_id: expenseId,
+      });
+      if (error) throw new Error(error.message);
     },
     onSuccess: (_, variables) => {
       invalidateGroupQueries(queryClient, variables.groupId);

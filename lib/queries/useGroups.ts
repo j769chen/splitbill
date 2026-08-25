@@ -84,7 +84,6 @@ export function useGroup(groupId: string) {
 
 export function useCreateGroup() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -96,47 +95,20 @@ export function useCreateGroup() {
       memberEmails: string[];
       currency?: string;
     }) => {
-      const uniqueEmails = Array.from(
-        new Set(memberEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))
-      ).filter((e) => e !== user!.email?.toLowerCase());
-
-      let inviteeIds: string[] = [];
-
-      if (uniqueEmails.length > 0) {
-        const { data: matches, error: lookupError } = await supabase.rpc(
-          "get_user_ids_by_email",
-          { emails: uniqueEmails }
-        );
-
-        if (lookupError) throw lookupError;
-
-        const rows = matches ?? [];
-        const resolvedEmails = new Set(
-          rows.map((r) => r.email.toLowerCase())
-        );
-        const unresolved = uniqueEmails.filter(
-          (e) => !resolvedEmails.has(e)
-        );
-
-        if (unresolved.length > 0) {
-          throw new Error(
-            `No SplitBill account found for: ${unresolved.join(", ")}`
-          );
-        }
-
-        // Dedupe and exclude the creator so a duplicate id can't fail the
-        // UNIQUE(group_id, user_id) batch insert.
-        inviteeIds = Array.from(new Set(rows.map((r) => r.id))).filter(
-          (id) => id !== user!.id
-        );
-      }
-
-      const { data: group, error: groupError } = await supabase.rpc(
+      // The RPC takes emails and resolves them itself, so the client never
+      // handles a user id for an address the signed-in user just typed, and
+      // the "does this account exist" check runs in the same transaction as
+      // the insert instead of racing it.
+      const { data: group, error } = await supabase.rpc(
         "create_group_with_members",
-        { p_name: name, p_member_ids: inviteeIds, p_currency: currency ?? "USD" }
+        {
+          p_name: name,
+          p_member_emails: memberEmails,
+          p_currency: currency ?? "USD",
+        }
       );
 
-      if (groupError) throw groupError;
+      if (error) throw new Error(error.message);
 
       return group;
     },
@@ -148,61 +120,20 @@ export function useCreateGroup() {
 
 export function useAddGroupMembers() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
       groupId,
       memberEmails,
-      existingMemberIds = [],
     }: {
       groupId: string;
       memberEmails: string[];
-      existingMemberIds?: string[];
     }) => {
-      const uniqueEmails = Array.from(
-        new Set(memberEmails.map((e) => e.trim().toLowerCase()).filter(Boolean))
-      ).filter((e) => e !== user!.email?.toLowerCase());
-
-      if (uniqueEmails.length === 0) {
-        throw new Error("Add at least one other person's email");
-      }
-
-      const { data: matches, error: lookupError } = await supabase.rpc(
-        "get_user_ids_by_email",
-        { emails: uniqueEmails }
-      );
-      if (lookupError) throw lookupError;
-
-      const rows = matches ?? [];
-      const resolvedEmails = new Set(rows.map((r) => r.email.toLowerCase()));
-      const unresolved = uniqueEmails.filter((e) => !resolvedEmails.has(e));
-
-      if (unresolved.length > 0) {
-        throw new Error(
-          `No SplitBill account found for: ${unresolved.join(", ")}`
-        );
-      }
-
-      // Block people who already belong to the group before hitting the RPC so
-      // the user gets a clear, named error instead of a silent no-op.
-      const existing = new Set(existingMemberIds);
-      const alreadyMembers = rows.filter((r) => existing.has(r.id));
-      if (alreadyMembers.length > 0) {
-        throw new Error(
-          `Already in this group: ${alreadyMembers
-            .map((r) => r.email)
-            .join(", ")}`
-        );
-      }
-
-      const memberIds = Array.from(new Set(rows.map((r) => r.id))).filter(
-        (id) => id !== user!.id
-      );
-
+      // Unregistered addresses and people already in the group are reported by
+      // the RPC, by email, so the caller still gets a named error.
       const { error } = await supabase.rpc("add_group_members", {
         p_group_id: groupId,
-        p_member_ids: memberIds,
+        p_member_emails: memberEmails,
       });
       if (error) throw new Error(error.message);
     },
@@ -300,8 +231,8 @@ export function useSetGroupSimplifyDebts() {
 export function useCheckEmailExists() {
   return useMutation({
     mutationFn: async (email: string) => {
-      const { data, error } = await supabase.rpc("get_user_ids_by_email", {
-        emails: [email],
+      const { data, error } = await supabase.rpc("check_emails_registered", {
+        p_emails: [email],
       });
       if (error) throw error;
       return (data?.length ?? 0) > 0;
@@ -309,14 +240,24 @@ export function useCheckEmailExists() {
   });
 }
 
-export function useLookupUserByEmail() {
+// Whether an email can be invited to this group: 'ok', 'not_registered', or
+// 'already_member'. The group is passed to the server rather than comparing
+// ids on the client, because the lookup no longer returns a user id.
+export function useCheckGroupMemberEmail() {
   return useMutation({
-    mutationFn: async (email: string) => {
-      const { data, error } = await supabase.rpc("get_user_ids_by_email", {
-        emails: [email],
+    mutationFn: async ({
+      groupId,
+      email,
+    }: {
+      groupId: string;
+      email: string;
+    }) => {
+      const { data, error } = await supabase.rpc("check_group_member_email", {
+        p_group_id: groupId,
+        p_email: email,
       });
-      if (error) throw error;
-      return data?.[0] ?? null;
+      if (error) throw new Error(error.message);
+      return data;
     },
   });
 }
