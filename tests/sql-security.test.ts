@@ -172,7 +172,7 @@ describe("SQL security guards", () => {
     // Takes an email and resolves it server-side, so the client never handles
     // a user id for an address it just typed.
     expect(body).toMatch(/lower\(au\.email\) = v_email/i);
-    expect(body).toMatch(/No SplitBill account found for/i);
+    expect(body).toMatch(/No Evenpot account found for/i);
     // Cannot request yourself, and cannot duplicate an existing contact.
     expect(body).toMatch(/v_recipient = v_uid/i);
     expect(body).toMatch(
@@ -252,7 +252,7 @@ describe("SQL security guards", () => {
     // Re-adding an existing member is rejected rather than silently skipped,
     // and unknown addresses are named back to the caller.
     expect(body).toMatch(/Already in this group/i);
-    expect(body).toMatch(/No SplitBill account found for/i);
+    expect(body).toMatch(/No Evenpot account found for/i);
   });
 
   it("restricts renaming to members and rejects blank names", () => {
@@ -422,6 +422,34 @@ describe("SQL security guards", () => {
         /revoke insert, update, delete, truncate, references, trigger on table[\s\S]*?from anon, authenticated;/i
       );
     }
+  });
+
+  it("lets only group members and the contact pair read recurring schedules", () => {
+    const policies = readSchema("05_policies.sql");
+    const core = readSchema("02_tables_core.sql");
+
+    expect(policies).toMatch(
+      /create policy "Members can view group recurring schedules"[\s\S]*?on public\.recurring_schedules for select[\s\S]*?using \(public\.is_group_member\(group_id, auth\.uid\(\)\)\)/i
+    );
+    expect(policies).toMatch(
+      /create policy "Participants can view contact recurring schedules"[\s\S]*?on public\.recurring_schedules for select[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
+    );
+    const scheduleCommands = [
+      ...policies.matchAll(/on public\.recurring_schedules for (\w+)/gi),
+    ].map((m) => m[1].toLowerCase());
+    expect(scheduleCommands).toEqual(["select", "select"]);
+
+    // Schedules are written only by the RPCs and the engine, so the table has
+    // RLS on, a SELECT-only client grant and the remainder revoked.
+    expect(core).toMatch(
+      /alter table public\.recurring_schedules enable row level security;/i
+    );
+    expect(core).toMatch(
+      /grant select on table[^;]*public\.recurring_schedules[^;]*to anon, authenticated;/i
+    );
+    expect(core).toMatch(
+      /revoke insert, update, delete, truncate, references, trigger on table[^;]*public\.recurring_schedules[^;]*from anon, authenticated;/i
+    );
   });
 
   it("scopes profile visibility to shared context", () => {
