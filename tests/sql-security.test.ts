@@ -172,7 +172,7 @@ describe("SQL security guards", () => {
     // Takes an email and resolves it server-side, so the client never handles
     // a user id for an address it just typed.
     expect(body).toMatch(/lower\(au\.email\) = v_email/i);
-    expect(body).toMatch(/No SplitBill account found for/i);
+    expect(body).toMatch(/No Evenpot account found for/i);
     // Cannot request yourself, and cannot duplicate an existing contact.
     expect(body).toMatch(/v_recipient = v_uid/i);
     expect(body).toMatch(
@@ -206,10 +206,31 @@ describe("SQL security guards", () => {
 
   it("gates one-on-one expense creation on an accepted contact", () => {
     const functions = readSchema("04_functions.sql");
-    const body = functionBody(functions, "create_contact_expense_with_splits");
+    const helper = functionBody(functions, "_insert_contact_expense");
+    const wrapper = functionBody(functions, "create_contact_expense_with_splits");
 
-    expect(body).toMatch(/You can only add expenses with accepted contacts/i);
-    expect(body).toMatch(/owner_id = v_uid and contact_user_id = p_contact_user_id/i);
+    expect(helper).toMatch(/You can only add expenses with accepted contacts/i);
+    expect(helper).toMatch(/owner_id = p_actor and contact_user_id = p_contact_user_id/i);
+    // The public RPC supplies the signed-in user as the actor, never a parameter.
+    expect(wrapper).toMatch(/raise exception 'Not authenticated'/i);
+    expect(wrapper).toMatch(/_insert_contact_expense\(\s*v_uid,/i);
+  });
+
+  it("revokes client execute on every private (underscore) function", () => {
+    const functions = readSchema("04_functions.sql");
+    const names = [
+      ...functions.matchAll(/create or replace function public\.(_\w+)\(/gi),
+    ].map((match) => match[1]);
+
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) {
+      expect(functions).toMatch(
+        new RegExp(
+          `revoke execute on function public\\.${name}\\([^;]*from public, anon, authenticated;`,
+          "i"
+        )
+      );
+    }
   });
 
   it("restricts contact_requests reads to the two participants", () => {
@@ -252,7 +273,7 @@ describe("SQL security guards", () => {
     // Re-adding an existing member is rejected rather than silently skipped,
     // and unknown addresses are named back to the caller.
     expect(body).toMatch(/Already in this group/i);
-    expect(body).toMatch(/No SplitBill account found for/i);
+    expect(body).toMatch(/No Evenpot account found for/i);
   });
 
   it("restricts renaming to members and rejects blank names", () => {
@@ -422,6 +443,34 @@ describe("SQL security guards", () => {
         /revoke insert, update, delete, truncate, references, trigger on table[\s\S]*?from anon, authenticated;/i
       );
     }
+  });
+
+  it("lets only group members and the contact pair read recurring schedules", () => {
+    const policies = readSchema("05_policies.sql");
+    const core = readSchema("02_tables_core.sql");
+
+    expect(policies).toMatch(
+      /create policy "Members can view group recurring schedules"[\s\S]*?on public\.recurring_schedules for select[\s\S]*?using \(public\.is_group_member\(group_id, auth\.uid\(\)\)\)/i
+    );
+    expect(policies).toMatch(
+      /create policy "Participants can view contact recurring schedules"[\s\S]*?on public\.recurring_schedules for select[\s\S]*?using \(auth\.uid\(\) = user_lo or auth\.uid\(\) = user_hi\)/i
+    );
+    const scheduleCommands = [
+      ...policies.matchAll(/on public\.recurring_schedules for (\w+)/gi),
+    ].map((m) => m[1].toLowerCase());
+    expect(scheduleCommands).toEqual(["select", "select"]);
+
+    // Schedules are written only by the RPCs and the engine, so the table has
+    // RLS on, a SELECT-only client grant and the remainder revoked.
+    expect(core).toMatch(
+      /alter table public\.recurring_schedules enable row level security;/i
+    );
+    expect(core).toMatch(
+      /grant select on table[^;]*public\.recurring_schedules[^;]*to anon, authenticated;/i
+    );
+    expect(core).toMatch(
+      /revoke insert, update, delete, truncate, references, trigger on table[^;]*public\.recurring_schedules[^;]*from anon, authenticated;/i
+    );
   });
 
   it("scopes profile visibility to shared context", () => {
