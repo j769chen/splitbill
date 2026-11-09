@@ -158,6 +158,7 @@ begin
   join public.groups g on g.id = e.group_id
   join public.profiles pr on pr.id = e.paid_by
   where public.is_group_member(e.group_id, v_uid)
+    and e.date <= now()
     and (
       e.paid_by = v_uid
       or exists (
@@ -168,6 +169,73 @@ begin
       )
     )
   order by e.date desc
+  limit greatest(coalesce(p_limit, 50), 1);
+end;
+$$;
+
+-- The caller's future-dated group expenses (date after now()), soonest first.
+-- Same columns and "involved" rule as get_recent_activity, which leaves these
+-- rows out so they cannot crowd its row cap.
+create or replace function public.get_upcoming_expenses(p_limit int default 50)
+returns table (
+  id uuid,
+  description text,
+  amount numeric,
+  currency text,
+  date timestamptz,
+  paid_by uuid,
+  group_id uuid,
+  payer jsonb,
+  groups jsonb,
+  expense_splits jsonb
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return query
+  select
+    e.id,
+    e.description,
+    e.amount,
+    e.currency,
+    e.date,
+    e.paid_by,
+    e.group_id,
+    to_jsonb(pr.*) as payer,
+    jsonb_build_object('name', g.name) as groups,
+    coalesce(
+      (
+        select jsonb_agg(
+          jsonb_build_object('user_id', es.user_id, 'amount', es.amount)
+        )
+        from public.expense_splits es
+        where es.expense_id = e.id
+      ),
+      '[]'::jsonb
+    ) as expense_splits
+  from public.expenses e
+  join public.groups g on g.id = e.group_id
+  join public.profiles pr on pr.id = e.paid_by
+  where public.is_group_member(e.group_id, v_uid)
+    and e.date > now()
+    and (
+      e.paid_by = v_uid
+      or exists (
+        select 1 from public.expense_splits es
+        where es.expense_id = e.id
+          and es.user_id = v_uid
+          and es.amount > 0
+      )
+    )
+  order by e.date asc
   limit greatest(coalesce(p_limit, 50), 1);
 end;
 $$;
@@ -188,7 +256,8 @@ begin
   end if;
 
   -- Sum base_amount (each row converted to the group's base currency at entry
-  -- time) so cross-currency expenses net out correctly within the group.
+  -- time) so cross-currency expenses net out correctly within the group. A row
+  -- dated in the future counts from its date.
   return query
   select
     gm.user_id,
@@ -202,27 +271,30 @@ begin
   join public.profiles p on p.id = gm.user_id
   left join (
     select e.paid_by as uid, sum(e.base_amount) as total_paid
-    from public.expenses e where e.group_id = p_group_id group by e.paid_by
+    from public.expenses e
+    where e.group_id = p_group_id and e.date <= now() group by e.paid_by
   ) paid on paid.uid = gm.user_id
   left join (
     select es.user_id as uid, sum(es.base_amount) as total_owed
     from public.expense_splits es
     join public.expenses e on e.id = es.expense_id
-    where e.group_id = p_group_id group by es.user_id
+    where e.group_id = p_group_id and e.date <= now() group by es.user_id
   ) owed on owed.uid = gm.user_id
   left join (
     select py.paid_to as uid, sum(py.base_amount) as total_received
-    from public.payments py where py.group_id = p_group_id group by py.paid_to
+    from public.payments py
+    where py.group_id = p_group_id and py.date <= now() group by py.paid_to
   ) received on received.uid = gm.user_id
   left join (
     select py.paid_by as uid, sum(py.base_amount) as total_sent
-    from public.payments py where py.group_id = p_group_id group by py.paid_by
+    from public.payments py
+    where py.group_id = p_group_id and py.date <= now() group by py.paid_by
   ) sent on sent.uid = gm.user_id
   where gm.group_id = p_group_id;
 end;
 $$;
 
--- Which of the given emails have a SplitBill account.
+-- Which of the given emails have an Evenpot account.
 --
 -- Returns the emails only, never user ids. The client needs the "no account
 -- for x@y.com" message when inviting someone, but handing back a stable uuid
@@ -348,6 +420,33 @@ begin
     raise exception 'Settle your outstanding balance before leaving this group';
   end if;
 
+  -- Future-dated rows are not in the balance above yet but will be on their
+  -- date, so the caller cannot leave while one involves them. "Involves" is
+  -- get_upcoming_expenses' rule, so whatever blocks is listed there to cancel.
+  -- The recurring piece adds "or an active schedule involves them" to this
+  -- same condition.
+  if exists (
+    select 1 from public.expenses e
+    where e.group_id = p_group_id
+      and e.date > now()
+      and (
+        e.paid_by = v_uid
+        or exists (
+          select 1 from public.expense_splits es
+          where es.expense_id = e.id
+            and es.user_id = v_uid
+            and es.amount > 0
+        )
+      )
+  ) or exists (
+    select 1 from public.payments py
+    where py.group_id = p_group_id
+      and py.date > now()
+      and v_uid in (py.paid_by, py.paid_to)
+  ) then
+    raise exception 'You have upcoming or repeating transactions in this group. Cancel or stop them before leaving.';
+  end if;
+
   select created_by into v_created_by from public.groups where id = p_group_id;
 
   if v_created_by = v_uid then
@@ -432,7 +531,7 @@ begin
   );
 
   if coalesce(array_length(v_missing, 1), 0) > 0 then
-    raise exception 'No SplitBill account found for: %',
+    raise exception 'No Evenpot account found for: %',
       array_to_string(v_missing, ', ');
   end if;
 
@@ -508,7 +607,7 @@ begin
   );
 
   if coalesce(array_length(v_missing, 1), 0) > 0 then
-    raise exception 'No SplitBill account found for: %',
+    raise exception 'No Evenpot account found for: %',
       array_to_string(v_missing, ', ');
   end if;
 
@@ -889,7 +988,7 @@ begin
   where lower(au.email) = v_email;
 
   if v_recipient is null then
-    raise exception 'No SplitBill account found for %', v_email;
+    raise exception 'No Evenpot account found for %', v_email;
   end if;
 
   if v_recipient = v_uid then
@@ -1372,7 +1471,7 @@ begin
   into v_expense_balance
   from public.contact_expenses ce
   join public.contact_expense_splits ces on ces.expense_id = ce.id
-  where ce.user_lo = v_lo and ce.user_hi = v_hi;
+  where ce.user_lo = v_lo and ce.user_hi = v_hi and ce.date <= now();
 
   -- A 1-on-1 payment you make to the contact settles your debt (raises the
   -- balance); a payment they make to you lowers it. Same sign rules as the
@@ -1386,7 +1485,7 @@ begin
   ), 0)
   into v_payment_balance
   from public.contact_payments cp
-  where cp.user_lo = v_lo and cp.user_hi = v_hi;
+  where cp.user_lo = v_lo and cp.user_hi = v_hi and cp.date <= now();
 
   return coalesce(v_expense_balance, 0) + coalesce(v_payment_balance, 0);
 end;
@@ -1695,13 +1794,13 @@ begin
     select es.user_id as dr, e.paid_by as cr, es.base_amount as amt
     from public.expenses e
     join public.expense_splits es on es.expense_id = e.id
-    where e.group_id = p_group_id and es.user_id <> e.paid_by
+    where e.group_id = p_group_id and es.user_id <> e.paid_by and e.date <= now()
     union all
     -- Settle-up payment from paid_by to paid_to reduces paid_by's debt, i.e.
     -- it is equivalent to paid_to owing paid_by the paid amount.
     select pmt.paid_to as dr, pmt.paid_by as cr, pmt.base_amount as amt
     from public.payments pmt
-    where pmt.group_id = p_group_id
+    where pmt.group_id = p_group_id and pmt.date <= now()
   ),
   pair_net as (
     select
@@ -1928,6 +2027,7 @@ begin
     from public.expenses e
     join public.expense_splits es on es.expense_id = e.id
     where e.group_id in (select sg.gid from shared_groups sg where not simplify_debts)
+      and e.date <= now()
       and (
         (e.paid_by = v_uid and es.user_id = p_contact_user_id)
         or (e.paid_by = p_contact_user_id and es.user_id = v_uid)
@@ -1944,6 +2044,7 @@ begin
     ) as bal
     from public.payments pmt
     where pmt.group_id in (select sg.gid from shared_groups sg where not simplify_debts)
+      and pmt.date <= now()
       and (
         (pmt.paid_by = v_uid and pmt.paid_to = p_contact_user_id)
         or (pmt.paid_by = p_contact_user_id and pmt.paid_to = v_uid)
@@ -2032,7 +2133,8 @@ create or replace function public.create_payment(
   p_paid_to uuid,
   p_amount numeric,
   p_note text default null,
-  p_currency text default null
+  p_currency text default null,
+  p_date timestamptz default null
 )
 returns public.payments
 language plpgsql
@@ -2080,10 +2182,11 @@ begin
   v_amount := round(p_amount, 2);
 
   insert into public.payments (
-    group_id, paid_by, paid_to, amount, note, currency, exchange_rate, base_amount
+    group_id, paid_by, paid_to, amount, note, currency, exchange_rate, base_amount, date
   )
   values (
-    p_group_id, p_paid_by, p_paid_to, v_amount, p_note, v_currency, 1, v_amount
+    p_group_id, p_paid_by, p_paid_to, v_amount, p_note, v_currency, 1, v_amount,
+    coalesce(p_date, now())
   )
   returning * into v_payment;
 
@@ -2100,7 +2203,8 @@ create or replace function public.update_payment(
   p_paid_by uuid,
   p_paid_to uuid,
   p_amount numeric,
-  p_note text default null
+  p_note text default null,
+  p_date timestamptz default null
 )
 returns public.payments
 language plpgsql
@@ -2153,7 +2257,8 @@ begin
     paid_to = p_paid_to,
     amount = v_amount,
     note = p_note,
-    base_amount = round(v_amount * v_existing.exchange_rate, 2)
+    base_amount = round(v_amount * v_existing.exchange_rate, 2),
+    date = coalesce(p_date, date)
   where id = p_payment_id
   returning * into v_payment;
 
@@ -2230,7 +2335,8 @@ create or replace function public.create_contact_payment(
   p_paid_to uuid,
   p_amount numeric,
   p_note text default null,
-  p_currency text default null
+  p_currency text default null,
+  p_date timestamptz default null
 )
 returns public.contact_payments
 language plpgsql
@@ -2292,11 +2398,11 @@ begin
 
   insert into public.contact_payments (
     paid_by, paid_to, user_lo, user_hi, amount, note,
-    currency, exchange_rate, base_amount
+    currency, exchange_rate, base_amount, date
   )
   values (
     p_paid_by, p_paid_to, v_lo, v_hi, v_amount, p_note,
-    v_currency, 1, v_amount
+    v_currency, 1, v_amount, coalesce(p_date, now())
   )
   returning * into v_payment;
 
@@ -2305,13 +2411,14 @@ end;
 $$;
 
 -- Edits a one-on-one settle-up payment. The participant pair is immutable; only
--- direction, amount and note change, and only a participant may edit.
+-- direction, amount, note and date change, and only a participant may edit.
 create or replace function public.update_contact_payment(
   p_payment_id uuid,
   p_paid_by uuid,
   p_paid_to uuid,
   p_amount numeric,
-  p_note text default null
+  p_note text default null,
+  p_date timestamptz default null
 )
 returns public.contact_payments
 language plpgsql
@@ -2360,7 +2467,8 @@ begin
     paid_to = p_paid_to,
     amount = v_amount,
     note = p_note,
-    base_amount = round(v_amount * v_existing.exchange_rate, 2)
+    base_amount = round(v_amount * v_existing.exchange_rate, 2),
+    date = coalesce(p_date, date)
   where id = p_payment_id
   returning * into v_payment;
 

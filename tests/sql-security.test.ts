@@ -120,6 +120,29 @@ describe("SQL security guards", () => {
     );
   });
 
+  it("splits the activity feed from upcoming expenses under the same guards", () => {
+    const functions = readSchema("04_functions.sql");
+    const recent = functionBody(functions, "get_recent_activity");
+    const upcoming = functionBody(functions, "get_upcoming_expenses");
+
+    expect(recent).toMatch(/and e\.date <= now\(\)/i);
+    expect(upcoming).toMatch(/raise exception 'Not authenticated'/i);
+    expect(upcoming).toMatch(/public\.is_group_member\(e\.group_id, v_uid\)/i);
+    expect(upcoming).toMatch(/and e\.date > now\(\)/i);
+    expect(upcoming).toMatch(/e\.paid_by = v_uid/i);
+    expect(upcoming).toMatch(/es\.user_id = v_uid\s+and es\.amount > 0/i);
+    expect(upcoming).toMatch(/order by e\.date asc/i);
+    expect(upcoming.indexOf("limit greatest")).toBeGreaterThan(
+      upcoming.indexOf("es.user_id = v_uid")
+    );
+    expect(functions).toMatch(
+      /function public\.get_upcoming_expenses\([^)]*\)[\s\S]*?security definer\s+set search_path = public, pg_temp/i
+    );
+    // Same execute grants as get_recent_activity: neither is revoked or
+    // granted explicitly, both keep the defaults.
+    expect(functions).not.toMatch(/(grant|revoke)[^;]*get_(upcoming_expenses|recent_activity)/i);
+  });
+
   it("pins search_path on every SECURITY DEFINER function", () => {
     const functions = readSchema("04_functions.sql");
     const lines = functions.split("\n");
@@ -172,7 +195,7 @@ describe("SQL security guards", () => {
     // Takes an email and resolves it server-side, so the client never handles
     // a user id for an address it just typed.
     expect(body).toMatch(/lower\(au\.email\) = v_email/i);
-    expect(body).toMatch(/No SplitBill account found for/i);
+    expect(body).toMatch(/No Evenpot account found for/i);
     // Cannot request yourself, and cannot duplicate an existing contact.
     expect(body).toMatch(/v_recipient = v_uid/i);
     expect(body).toMatch(
@@ -252,7 +275,7 @@ describe("SQL security guards", () => {
     // Re-adding an existing member is rejected rather than silently skipped,
     // and unknown addresses are named back to the caller.
     expect(body).toMatch(/Already in this group/i);
-    expect(body).toMatch(/No SplitBill account found for/i);
+    expect(body).toMatch(/No Evenpot account found for/i);
   });
 
   it("restricts renaming to members and rejects blank names", () => {
