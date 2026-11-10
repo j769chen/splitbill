@@ -51,9 +51,13 @@ must be maintained there by hand:
 - **The `on_auth_user_created` trigger** on `auth.users` (calls
   `public.handle_new_user()`). Triggers on the `auth` schema are not tracked.
   The function itself lives in `04_functions.sql`; only the trigger is manual.
+- **The `on_auth_user_deleted` trigger** on `auth.users` (AFTER DELETE, calls
+  `public._tombstone_deleted_auth_user()`). Same rule: the function is in
+  `04_functions.sql`, the trigger is manual.
 - **The `supabase_realtime` publication** membership
   (`alter publication supabase_realtime add table ...` for expenses,
-  expense_splits, payments, group_members). Publications are not tracked.
+  expense_splits, payments, group_members, contact_requests,
+  recurring_schedules). Publications are not tracked.
 - **Seed / backfill data** (`insert`/`update`/`delete`). DML is never captured
   by the diff tool; see `supabase/seed.sql`.
 
@@ -78,6 +82,10 @@ The migration history has been baselined for the declarative workflow:
   replayed). They are kept for git history only.
 
 ### Remaining one-time step (linking the remote)
+
+> Only for the original project, which was provisioned by hand. **On a new,
+> empty project do not run `migration repair`**: it skips the baseline and the
+> next `supabase db push` fails partway. See [`SETUP.md`](../../SETUP.md).
 
 The remote project was provisioned by running `000_full_setup.sql` in the SQL
 editor, not through CLI migration tracking. So the first time you link the CLI,
