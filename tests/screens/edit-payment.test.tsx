@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { renderWithPaper } from "../helpers/testUtils";
+import { freezeNow, renderWithPaper } from "../helpers/testUtils";
+import { startOfLocalDayISO } from "@/lib/dates";
 import EditPayment from "@/app/group-edit-payment";
 
 const mockBack = jest.fn();
@@ -40,6 +41,7 @@ const payment = {
   amount: 20,
   note: "Venmo",
   created_at: "2024-01-02",
+  date: new Date(2026, 10, 5, 15).toISOString(),
 };
 
 beforeEach(() => {
@@ -75,6 +77,65 @@ describe("EditPayment screen", () => {
       note: "Venmo",
     });
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+  });
+
+  it("keeps a member who deleted their account, by name (settlements to or from them are allowed)", async () => {
+    (useGroup as jest.Mock).mockReturnValue({
+      data: {
+        ...group,
+        group_members: [
+          ...group.group_members,
+          {
+            user_id: "u3",
+            profiles: { full_name: "Deleted user", deleted_at: "2026-11-01T00:00:00Z" },
+          },
+        ],
+      },
+    });
+    (useGroupPayments as jest.Mock).mockReturnValue({
+      data: [{ ...payment, paid_to: "u3" }],
+    });
+    await renderWithPaper(<EditPayment />);
+
+    expect(screen.getByDisplayValue("Deleted user")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Save Changes"));
+
+    await waitFor(() =>
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ paidBy: "u1", paidTo: "u3" })
+      )
+    );
+  });
+
+  describe("date", () => {
+    beforeEach(() => freezeNow(new Date(2026, 10, 9, 15, 0)));
+    afterEach(() => jest.useRealTimers());
+
+    it("prefills the stored day and keeps it when unchanged", async () => {
+      await renderWithPaper(<EditPayment />);
+
+      expect(screen.getByTestId("date-field")).toHaveProp("value", "11/05/2026");
+      await fireEvent.press(screen.getByText("Save Changes"));
+
+      await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledTimes(1));
+      expect(mockMutateAsync.mock.calls[0][0].date).toBeUndefined();
+    });
+
+    it("sends the start of a newly picked day", async () => {
+      await renderWithPaper(<EditPayment />);
+
+      await fireEvent.changeText(screen.getByTestId("date-field"), "11/12/2026");
+      await fireEvent.press(screen.getByText("Save Changes"));
+
+      await waitFor(() =>
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            paymentId: "p1",
+            date: startOfLocalDayISO(new Date(2026, 10, 12)),
+          })
+        )
+      );
+    });
   });
 
   it("rejects an invalid amount", async () => {
