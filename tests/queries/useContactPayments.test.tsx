@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 
 import {
   useContactPayments,
+  useRecentContactPayments,
   useCreateContactPayment,
   useUpdateContactPayment,
   useDeleteContactPayment,
@@ -26,8 +27,27 @@ beforeEach(() => {
   mockedUseAuth.mockReturnValue({ user: { id: "user-1", email: "me@x.com" } });
 });
 
+describe("useRecentContactPayments", () => {
+  it("selects each payment's date and orders the feed by it, newest first", async () => {
+    const builder = queryBuilder({ data: [], error: null });
+    mockedSupabase.from.mockReturnValue(builder);
+
+    const { result } = await renderHook(() => useRecentContactPayments(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
+    expect(builder.select).toHaveBeenCalledWith(
+      expect.stringMatching(/^\s*id,[\s\S]*\bdate,/)
+    );
+    expect(builder.order).toHaveBeenCalledWith("date", { ascending: false });
+    expect(builder.order).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("useContactPayments", () => {
-  it("queries the normalized participant pair ordered by created_at", async () => {
+  it("queries the normalized participant pair ordered by date", async () => {
     const rows = [{ id: "cp-1" }];
     const builder = queryBuilder({ data: rows, error: null });
     mockedSupabase.from.mockReturnValue(builder);
@@ -40,7 +60,7 @@ describe("useContactPayments", () => {
     expect(mockedSupabase.from).toHaveBeenCalledWith("contact_payments");
     expect(builder.eq).toHaveBeenCalledWith("user_lo", "user-1");
     expect(builder.eq).toHaveBeenCalledWith("user_hi", "user-2");
-    expect(builder.order).toHaveBeenCalledWith("created_at", {
+    expect(builder.order).toHaveBeenCalledWith("date", {
       ascending: false,
     });
     expect(result.current.data).toEqual(rows);
@@ -74,8 +94,32 @@ describe("useCreateContactPayment", () => {
       p_amount: 20,
       p_note: null,
       p_currency: null,
+      p_date: null,
     });
     expect(mockedSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it("sends the picked date when one is given", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "cp1" }, error: null });
+
+    const { result } = await renderHook(() => useCreateContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({
+        contactUserId: "user-2",
+        paidBy: "user-1",
+        paidTo: "user-2",
+        amount: 20,
+        date: "2026-11-12T00:00:00-05:00",
+      })
+    );
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "create_contact_payment",
+      expect.objectContaining({ p_date: "2026-11-12T00:00:00-05:00" })
+    );
   });
 
   it("rejects a payment with someone who is not an accepted contact", async () => {
@@ -126,8 +170,33 @@ describe("useUpdateContactPayment", () => {
       p_paid_to: "user-1",
       p_amount: 12,
       p_note: "cash",
+      p_date: null,
     });
     expect(mockedSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it("sends the picked date when one is given", async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: { id: "cp1" }, error: null });
+
+    const { result } = await renderHook(() => useUpdateContactPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await actAsync(() =>
+      result.current.mutateAsync({
+        paymentId: "cp1",
+        contactUserId: "user-2",
+        paidBy: "user-2",
+        paidTo: "user-1",
+        amount: 12,
+        date: "2026-11-12T00:00:00-05:00",
+      })
+    );
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      "update_contact_payment",
+      expect.objectContaining({ p_date: "2026-11-12T00:00:00-05:00" })
+    );
   });
 
   it("rejects an edit from someone outside the pair", async () => {
