@@ -222,7 +222,7 @@ begin
 end;
 $$;
 
--- Which of the given emails have a SplitBill account.
+-- Which of the given emails have an Evenpot account.
 --
 -- Returns the emails only, never user ids. The client needs the "no account
 -- for x@y.com" message when inviting someone, but handing back a stable uuid
@@ -432,7 +432,7 @@ begin
   );
 
   if coalesce(array_length(v_missing, 1), 0) > 0 then
-    raise exception 'No SplitBill account found for: %',
+    raise exception 'No Evenpot account found for: %',
       array_to_string(v_missing, ', ');
   end if;
 
@@ -508,7 +508,7 @@ begin
   );
 
   if coalesce(array_length(v_missing, 1), 0) > 0 then
-    raise exception 'No SplitBill account found for: %',
+    raise exception 'No Evenpot account found for: %',
       array_to_string(v_missing, ', ');
   end if;
 
@@ -572,7 +572,12 @@ begin
 end;
 $$;
 
-create or replace function public.create_expense_with_splits(
+-- Internal: the body of create_expense_with_splits, run on behalf of p_actor
+-- instead of auth.uid() so the recurring engine (no JWT) can reuse it. Not
+-- callable by clients; p_schedule_id / p_occurrence_date link the row to a
+-- recurring schedule.
+create or replace function public._insert_group_expense(
+  p_actor uuid,
   p_group_id uuid,
   p_paid_by uuid,
   p_amount numeric,
@@ -582,15 +587,16 @@ create or replace function public.create_expense_with_splits(
   p_splits jsonb,
   p_date timestamptz default null,
   p_currency text default 'USD',
-  p_exchange_rate numeric default 1
+  p_exchange_rate numeric default 1,
+  p_schedule_id uuid default null,
+  p_occurrence_date date default null
 )
 returns public.expenses
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
-  v_uid uuid := auth.uid();
   v_expense public.expenses;
   v_split jsonb;
   v_split_user uuid;
@@ -603,11 +609,7 @@ declare
   v_rate numeric := coalesce(p_exchange_rate, 1);
   v_base_amount numeric(12, 2);
 begin
-  if v_uid is null then
-    raise exception 'Not authenticated';
-  end if;
-
-  if not public.is_group_member(p_group_id, v_uid) then
+  if not public.is_group_member(p_group_id, p_actor) then
     raise exception 'You are not a member of this group';
   end if;
 
@@ -672,7 +674,9 @@ begin
     date,
     currency,
     exchange_rate,
-    base_amount
+    base_amount,
+    schedule_id,
+    occurrence_date
   )
   values (
     p_group_id,
@@ -684,7 +688,9 @@ begin
     coalesce(p_date, now()),
     v_currency,
     v_rate,
-    v_base_amount
+    v_base_amount,
+    p_schedule_id,
+    p_occurrence_date
   )
   returning * into v_expense;
 
@@ -705,11 +711,11 @@ begin
 end;
 $$;
 
--- Edits an existing group expense and replaces its splits atomically. Any group
--- member may edit (mirrors the relaxed delete policy); the SECURITY DEFINER
--- context bypasses the payer-only UPDATE RLS. Validations match create.
-create or replace function public.update_expense_with_splits(
-  p_expense_id uuid,
+revoke execute on function public._insert_group_expense(uuid, uuid, uuid, numeric, text, text, public.split_type, jsonb, timestamptz, text, numeric, uuid, date)
+  from public, anon, authenticated;
+
+create or replace function public.create_expense_with_splits(
+  p_group_id uuid,
   p_paid_by uuid,
   p_amount numeric,
   p_description text,
@@ -727,6 +733,52 @@ set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return public._insert_group_expense(
+    v_uid,
+    p_group_id,
+    p_paid_by,
+    p_amount,
+    p_description,
+    p_category,
+    p_split_type,
+    p_splits,
+    p_date,
+    p_currency,
+    p_exchange_rate
+  );
+end;
+$$;
+
+-- Internal: the body of update_expense_with_splits, run on behalf of p_actor
+-- instead of auth.uid() so the recurring update (no JWT) can reuse it. Not
+-- callable by clients. p_mark_hand_edited flags a schedule-linked row as
+-- edited by hand; the recurring update passes false so rewriting a series
+-- does not freeze it, and an existing mark is never cleared.
+create or replace function public._update_group_expense(
+  p_actor uuid,
+  p_expense_id uuid,
+  p_paid_by uuid,
+  p_amount numeric,
+  p_description text,
+  p_category text,
+  p_split_type public.split_type,
+  p_splits jsonb,
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1,
+  p_mark_hand_edited boolean default true
+)
+returns public.expenses
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
   v_group_id uuid;
   v_expense public.expenses;
   v_split jsonb;
@@ -740,17 +792,13 @@ declare
   v_rate numeric := coalesce(p_exchange_rate, 1);
   v_base_amount numeric(12, 2);
 begin
-  if v_uid is null then
-    raise exception 'Not authenticated';
-  end if;
-
   select group_id into v_group_id from public.expenses where id = p_expense_id;
 
   if v_group_id is null then
     raise exception 'Expense not found';
   end if;
 
-  if not public.is_group_member(v_group_id, v_uid) then
+  if not public.is_group_member(v_group_id, p_actor) then
     raise exception 'You are not a member of this group';
   end if;
 
@@ -815,7 +863,11 @@ begin
     date = coalesce(p_date, date),
     currency = v_currency,
     exchange_rate = v_rate,
-    base_amount = v_base_amount
+    base_amount = v_base_amount,
+    hand_edited = case
+      when p_mark_hand_edited and schedule_id is not null then true
+      else hand_edited
+    end
   where id = p_expense_id
   returning * into v_expense;
 
@@ -835,6 +887,54 @@ begin
   end loop;
 
   return v_expense;
+end;
+$$;
+
+revoke execute on function public._update_group_expense(uuid, uuid, uuid, numeric, text, text, public.split_type, jsonb, timestamptz, text, numeric, boolean)
+  from public, anon, authenticated;
+
+-- Edits an existing group expense and replaces its splits atomically. Any group
+-- member may edit (mirrors the relaxed delete policy); the SECURITY DEFINER
+-- context bypasses the payer-only UPDATE RLS. Validations match create. A row
+-- that belongs to a recurring schedule is marked hand_edited.
+create or replace function public.update_expense_with_splits(
+  p_expense_id uuid,
+  p_paid_by uuid,
+  p_amount numeric,
+  p_description text,
+  p_category text,
+  p_split_type public.split_type,
+  p_splits jsonb,
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1
+)
+returns public.expenses
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return public._update_group_expense(
+    v_uid,
+    p_expense_id,
+    p_paid_by,
+    p_amount,
+    p_description,
+    p_category,
+    p_split_type,
+    p_splits,
+    p_date,
+    p_currency,
+    p_exchange_rate,
+    true
+  );
 end;
 $$;
 
@@ -889,7 +989,7 @@ begin
   where lower(au.email) = v_email;
 
   if v_recipient is null then
-    raise exception 'No SplitBill account found for %', v_email;
+    raise exception 'No Evenpot account found for %', v_email;
   end if;
 
   if v_recipient = v_uid then
@@ -1045,7 +1145,12 @@ begin
 end;
 $$;
 
-create or replace function public.create_contact_expense_with_splits(
+-- Internal: the body of create_contact_expense_with_splits, run on behalf of p_actor
+-- instead of auth.uid() so the recurring engine (no JWT) can reuse it. Not
+-- callable by clients; p_schedule_id / p_occurrence_date link the row to a
+-- recurring schedule.
+create or replace function public._insert_contact_expense(
+  p_actor uuid,
   p_contact_user_id uuid,
   p_paid_by uuid,
   p_amount numeric,
@@ -1055,15 +1160,16 @@ create or replace function public.create_contact_expense_with_splits(
   p_splits jsonb,
   p_date timestamptz default null,
   p_currency text default 'USD',
-  p_exchange_rate numeric default 1
+  p_exchange_rate numeric default 1,
+  p_schedule_id uuid default null,
+  p_occurrence_date date default null
 )
 returns public.contact_expenses
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
-  v_uid uuid := auth.uid();
   v_lo uuid;
   v_hi uuid;
   v_expense public.contact_expenses;
@@ -1078,22 +1184,18 @@ declare
   v_rate numeric := coalesce(p_exchange_rate, 1);
   v_base_amount numeric(12, 2);
 begin
-  if v_uid is null then
-    raise exception 'Not authenticated';
-  end if;
-
-  if p_contact_user_id is null or p_contact_user_id = v_uid then
+  if p_contact_user_id is null or p_contact_user_id = p_actor then
     raise exception 'Invalid contact';
   end if;
 
   if not exists (
     select 1 from public.contacts
-    where owner_id = v_uid and contact_user_id = p_contact_user_id
+    where owner_id = p_actor and contact_user_id = p_contact_user_id
   ) then
     raise exception 'You can only add expenses with accepted contacts';
   end if;
 
-  if p_paid_by <> v_uid and p_paid_by <> p_contact_user_id then
+  if p_paid_by <> p_actor and p_paid_by <> p_contact_user_id then
     raise exception 'Expense payer must be you or the contact';
   end if;
 
@@ -1109,12 +1211,12 @@ begin
     raise exception 'Expense description is required';
   end if;
 
-  if v_uid < p_contact_user_id then
-    v_lo := v_uid;
+  if p_actor < p_contact_user_id then
+    v_lo := p_actor;
     v_hi := p_contact_user_id;
   else
     v_lo := p_contact_user_id;
-    v_hi := v_uid;
+    v_hi := p_actor;
   end if;
 
   v_base_amount := round(p_amount * v_rate, 2);
@@ -1163,7 +1265,9 @@ begin
     date,
     currency,
     exchange_rate,
-    base_amount
+    base_amount,
+    schedule_id,
+    occurrence_date
   )
   values (
     p_paid_by,
@@ -1176,7 +1280,9 @@ begin
     coalesce(p_date, now()),
     v_currency,
     v_rate,
-    v_base_amount
+    v_base_amount,
+    p_schedule_id,
+    p_occurrence_date
   )
   returning * into v_expense;
 
@@ -1197,12 +1303,11 @@ begin
 end;
 $$;
 
--- Edits an existing one-on-one contact expense and replaces its splits. Either
--- participant may edit (SECURITY DEFINER bypasses the payer-only UPDATE RLS).
--- The participant pair (user_lo/user_hi) is immutable; only payer/amount/
--- description/category/split/date and the splits change.
-create or replace function public.update_contact_expense_with_splits(
-  p_expense_id uuid,
+revoke execute on function public._insert_contact_expense(uuid, uuid, uuid, numeric, text, text, public.split_type, jsonb, timestamptz, text, numeric, uuid, date)
+  from public, anon, authenticated;
+
+create or replace function public.create_contact_expense_with_splits(
+  p_contact_user_id uuid,
   p_paid_by uuid,
   p_amount numeric,
   p_description text,
@@ -1220,6 +1325,52 @@ set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return public._insert_contact_expense(
+    v_uid,
+    p_contact_user_id,
+    p_paid_by,
+    p_amount,
+    p_description,
+    p_category,
+    p_split_type,
+    p_splits,
+    p_date,
+    p_currency,
+    p_exchange_rate
+  );
+end;
+$$;
+
+-- Internal: the body of update_contact_expense_with_splits, run on behalf of
+-- p_actor instead of auth.uid() so the recurring update (no JWT) can reuse it.
+-- Not callable by clients. p_mark_hand_edited flags a schedule-linked row as
+-- edited by hand; the recurring update passes false so rewriting a series
+-- does not freeze it, and an existing mark is never cleared.
+create or replace function public._update_contact_expense(
+  p_actor uuid,
+  p_expense_id uuid,
+  p_paid_by uuid,
+  p_amount numeric,
+  p_description text,
+  p_category text,
+  p_split_type public.split_type,
+  p_splits jsonb,
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1,
+  p_mark_hand_edited boolean default true
+)
+returns public.contact_expenses
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
   v_lo uuid;
   v_hi uuid;
   v_expense public.contact_expenses;
@@ -1234,10 +1385,6 @@ declare
   v_rate numeric := coalesce(p_exchange_rate, 1);
   v_base_amount numeric(12, 2);
 begin
-  if v_uid is null then
-    raise exception 'Not authenticated';
-  end if;
-
   select user_lo, user_hi into v_lo, v_hi
   from public.contact_expenses where id = p_expense_id;
 
@@ -1245,7 +1392,7 @@ begin
     raise exception 'Expense not found';
   end if;
 
-  if v_uid <> v_lo and v_uid <> v_hi then
+  if p_actor is distinct from v_lo and p_actor is distinct from v_hi then
     raise exception 'You are not a participant in this expense';
   end if;
 
@@ -1310,7 +1457,11 @@ begin
     date = coalesce(p_date, date),
     currency = v_currency,
     exchange_rate = v_rate,
-    base_amount = v_base_amount
+    base_amount = v_base_amount,
+    hand_edited = case
+      when p_mark_hand_edited and schedule_id is not null then true
+      else hand_edited
+    end
   where id = p_expense_id
   returning * into v_expense;
 
@@ -1330,6 +1481,55 @@ begin
   end loop;
 
   return v_expense;
+end;
+$$;
+
+revoke execute on function public._update_contact_expense(uuid, uuid, uuid, numeric, text, text, public.split_type, jsonb, timestamptz, text, numeric, boolean)
+  from public, anon, authenticated;
+
+-- Edits an existing one-on-one contact expense and replaces its splits. Either
+-- participant may edit (SECURITY DEFINER bypasses the payer-only UPDATE RLS).
+-- The participant pair (user_lo/user_hi) is immutable; only payer/amount/
+-- description/category/split/date and the splits change. A row that belongs to
+-- a recurring schedule is marked hand_edited.
+create or replace function public.update_contact_expense_with_splits(
+  p_expense_id uuid,
+  p_paid_by uuid,
+  p_amount numeric,
+  p_description text,
+  p_category text,
+  p_split_type public.split_type,
+  p_splits jsonb,
+  p_date timestamptz default null,
+  p_currency text default 'USD',
+  p_exchange_rate numeric default 1
+)
+returns public.contact_expenses
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return public._update_contact_expense(
+    v_uid,
+    p_expense_id,
+    p_paid_by,
+    p_amount,
+    p_description,
+    p_category,
+    p_split_type,
+    p_splits,
+    p_date,
+    p_currency,
+    p_exchange_rate,
+    true
+  );
 end;
 $$;
 
@@ -2467,3 +2667,351 @@ begin
   return v_profile;
 end;
 $$;
+
+-- Recurring engine. The n-th occurrence date is start + n * step, computed from
+-- the start date and never chained from the previous one, so a monthly series
+-- on the 31st clamps to the month end and returns to the 31st. Postgres does
+-- the clamping when a month or year interval lands on a missing day.
+create or replace function public._occurrence_date(
+  p_start date,
+  p_frequency text,
+  p_n int
+)
+returns date
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select case p_frequency
+    when 'daily' then p_start + p_n
+    when 'weekly' then p_start + 7 * p_n
+    when 'biweekly' then p_start + 14 * p_n
+    when 'monthly' then (p_start + p_n * interval '1 month')::date
+    when 'yearly' then (p_start + p_n * interval '1 year')::date
+  end
+$$;
+
+revoke execute on function public._occurrence_date(date, text, int)
+  from public, anon, authenticated;
+
+-- The exchange rate an occurrence converts at. Until a server-side rate source
+-- exists this is the schedule's last known rate; same-currency schedules never
+-- ask (the engine uses rate 1).
+create or replace function public._schedule_rate(p_schedule public.recurring_schedules)
+returns numeric
+language sql
+stable
+set search_path = public, pg_temp
+as $$
+  select p_schedule.last_exchange_rate
+$$;
+
+revoke execute on function public._schedule_rate(public.recurring_schedules)
+  from public, anon, authenticated;
+
+-- Port of the client's convertSplitsToBase (lib/utils.ts): each split's base
+-- amount is round(amount * rate, 2) and the rounding remainder against
+-- p_base_total goes to the first largest split, so the base amounts add up to
+-- the converted total exactly. Any stored baseAmount in p_splits is ignored.
+create or replace function public._convert_splits_to_base(
+  p_splits jsonb,
+  p_rate numeric,
+  p_base_total numeric
+)
+returns jsonb
+language plpgsql
+immutable
+set search_path = public, pg_temp
+as $$
+declare
+  v_n int := jsonb_array_length(p_splits);
+  v_amounts numeric[] := '{}';
+  v_bases numeric[] := '{}';
+  v_sum numeric := 0;
+  v_remainder numeric;
+  v_target int := 1;
+  v_out jsonb := '[]'::jsonb;
+  i int;
+begin
+  for i in 1..v_n loop
+    v_amounts[i] := round((p_splits->(i - 1)->>'amount')::numeric, 2);
+    v_bases[i] := round(v_amounts[i] * p_rate, 2);
+    v_sum := v_sum + v_bases[i];
+  end loop;
+
+  v_remainder := p_base_total - v_sum;
+  if v_remainder <> 0 and v_n > 0 then
+    for i in 2..v_n loop
+      if v_bases[i] > v_bases[v_target] then
+        v_target := i;
+      end if;
+    end loop;
+    v_bases[v_target] := v_bases[v_target] + v_remainder;
+  end if;
+
+  for i in 1..v_n loop
+    v_out := v_out || jsonb_build_array(jsonb_build_object(
+      'userId', p_splits->(i - 1)->>'userId',
+      'amount', v_amounts[i],
+      'baseAmount', v_bases[i]
+    ));
+  end loop;
+
+  return v_out;
+end;
+$$;
+
+revoke execute on function public._convert_splits_to_base(jsonb, numeric, numeric)
+  from public, anon, authenticated;
+
+-- Creates the occurrences of one schedule that are due by p_horizon, walking
+-- from its cursor (next_index), which only ever grows: that is what makes a
+-- deleted occurrence stay skipped. An occurrence is due when the start of its
+-- local day (in the schedule's tz) is at or before p_horizon. Each expense is
+-- inserted for paid_by through the shared helper, dated its own local midnight;
+-- one that already exists (same schedule and date) counts as made. Stops the
+-- schedule as 'completed' once max_count or end_date is reached. Raises on any
+-- problem (EVNTM: someone left, EVNTI: invalid schedule, or the helper's own
+-- errors); _materialise_recurring decides what to do with the schedule.
+-- Returns the number of expenses created.
+-- Occurrences are created up to p_horizon (48 hours by default) ahead of their
+-- instant. That is safe only because balances ignore rows dated in the future
+-- (`date <= now()` in the balance functions, from the future-dated lane, PR #13):
+-- without it a row created early would count early.
+create or replace function public._materialise_one(
+  p_schedule_id uuid,
+  p_horizon timestamptz
+)
+returns int
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  c_cap constant int := 400;
+  v_s public.recurring_schedules;
+  v_base text;
+  v_other uuid;
+  v_member uuid;
+  v_rate numeric;
+  v_splits jsonb;
+  v_idx int;
+  v_steps int := 0;
+  v_made int := 0;
+  v_occ date;
+  v_at timestamptz;
+  v_done boolean := false;
+  v_constraint text;
+begin
+  select * into v_s from public.recurring_schedules where id = p_schedule_id for update;
+  if not found or v_s.stopped_at is not null then
+    return 0;
+  end if;
+
+  if v_s.kind = 'group' then
+    if not public.is_group_member(v_s.group_id, v_s.paid_by) then
+      raise exception 'schedule member left' using errcode = 'EVNTM';
+    end if;
+    for v_member in
+      select distinct (e->>'userId')::uuid from jsonb_array_elements(v_s.splits) e
+    loop
+      if not public.is_group_member(v_s.group_id, v_member) then
+        raise exception 'schedule member left' using errcode = 'EVNTM';
+      end if;
+    end loop;
+    select g.currency into v_base from public.groups g where g.id = v_s.group_id;
+    if not found then
+      raise exception 'schedule invalid' using errcode = 'EVNTI';
+    end if;
+  else
+    if v_s.paid_by <> v_s.user_lo and v_s.paid_by <> v_s.user_hi then
+      raise exception 'schedule invalid' using errcode = 'EVNTI';
+    end if;
+    v_other := case when v_s.paid_by = v_s.user_lo then v_s.user_hi else v_s.user_lo end;
+    if not exists (
+      select 1 from public.contacts c
+      where c.owner_id = v_s.paid_by and c.contact_user_id = v_other
+    ) then
+      raise exception 'schedule member left' using errcode = 'EVNTM';
+    end if;
+    select s.currency into v_base from public.contact_pair_settings s
+    where s.user_lo = v_s.user_lo and s.user_hi = v_s.user_hi;
+    v_base := coalesce(v_base, 'USD');
+  end if;
+
+  if upper(btrim(v_s.currency)) = upper(btrim(v_base)) then
+    v_rate := 1;
+  else
+    v_rate := public._schedule_rate(v_s);
+  end if;
+  v_splits := public._convert_splits_to_base(v_s.splits, v_rate, round(v_s.amount * v_rate, 2));
+
+  v_idx := v_s.next_index;
+  loop
+    exit when v_steps >= c_cap;
+
+    if v_s.max_count is not null and v_idx >= v_s.max_count then
+      v_done := true;
+      exit;
+    end if;
+
+    v_occ := public._occurrence_date(v_s.start_date, v_s.frequency, v_idx);
+    if v_occ is null then
+      raise exception 'schedule invalid' using errcode = 'EVNTI';
+    end if;
+    if v_s.end_date is not null and v_occ > v_s.end_date then
+      v_done := true;
+      exit;
+    end if;
+
+    v_at := v_occ::timestamp at time zone v_s.tz;
+    exit when v_at > p_horizon;
+
+    begin
+      if v_s.kind = 'group' then
+        perform public._insert_group_expense(
+          v_s.paid_by, v_s.group_id, v_s.paid_by, v_s.amount, v_s.description, v_s.category,
+          v_s.split_type, v_splits, v_at, v_s.currency, v_rate, v_s.id, v_occ
+        );
+      else
+        perform public._insert_contact_expense(
+          v_s.paid_by, v_other, v_s.paid_by, v_s.amount, v_s.description, v_s.category,
+          v_s.split_type, v_splits, v_at, v_s.currency, v_rate, v_s.id, v_occ
+        );
+      end if;
+      v_made := v_made + 1;
+    exception when unique_violation then
+      get stacked diagnostics v_constraint = constraint_name;
+      if v_constraint is distinct from 'idx_expenses_schedule_occurrence'
+        and v_constraint is distinct from 'idx_contact_expenses_schedule_occurrence' then
+        raise;
+      end if;
+    end;
+
+    v_idx := v_idx + 1;
+    v_steps := v_steps + 1;
+  end loop;
+
+  -- Write only what changed: a run with nothing due must leave the row alone (an
+  -- update is WAL, a row lock and a realtime event for the whole group).
+  update public.recurring_schedules s
+  set
+    next_index = v_idx,
+    last_exchange_rate = case
+      when v_made > 0 and upper(btrim(v_s.currency)) <> upper(btrim(v_base)) then v_rate
+      else s.last_exchange_rate
+    end,
+    stopped_at = case when v_done then now() end,
+    stop_reason = case when v_done then 'completed' end,
+    failed_runs = 0,
+    last_error = null
+  where s.id = v_s.id
+    and (
+      v_idx is distinct from v_s.next_index
+      or v_done
+      or v_s.failed_runs <> 0
+      or v_s.last_error is not null
+      or (
+        v_made > 0
+        and upper(btrim(v_s.currency)) <> upper(btrim(v_base))
+        and v_rate is distinct from v_s.last_exchange_rate
+      )
+    );
+
+  return v_made;
+end;
+$$;
+
+revoke execute on function public._materialise_one(uuid, timestamptz)
+  from public, anon, authenticated;
+
+-- The runner behind cron and the app-open catch-up: every active schedule (or,
+-- with p_user_id, those that user is a member or participant of) goes through
+-- _materialise_one in its own sub-transaction, so one schedule's failure never
+-- blocks another. A deterministic problem (a member left, an invalid schedule)
+-- stops that schedule with a generic stop_reason and last_error; anything else
+-- (lock timeout, deadlock, serialization failure, and also SQLSTATEs such as
+-- 42501, 42883, XX000 or P0002 that point at a bug or a permissions problem)
+-- leaves it active, counts a failed run and is retried next time. There is
+-- deliberately no ceiling: failed_runs is a visible counter, the schedule is
+-- retried once per run and a failure never stops the series by itself. Raw error
+-- text is never stored: members can read these columns. Returns the number of
+-- expenses created.
+create or replace function public._materialise_recurring(
+  p_horizon timestamptz default now() + interval '48 hours',
+  p_user_id uuid default null
+)
+returns int
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_horizon timestamptz := coalesce(p_horizon, now() + interval '48 hours');
+  v_id uuid;
+  v_total int := 0;
+  v_state text;
+begin
+  for v_id in
+    select s.id
+    from public.recurring_schedules s
+    where s.stopped_at is null
+      and (
+        p_user_id is null
+        or (s.kind = 'group' and public.is_group_member(s.group_id, p_user_id))
+        or (s.kind = 'contact' and p_user_id in (s.user_lo, s.user_hi))
+      )
+    order by s.created_at, s.id
+  loop
+    begin
+      v_total := v_total + public._materialise_one(v_id, v_horizon);
+    exception when others then
+      get stacked diagnostics v_state = returned_sqlstate;
+      if v_state = 'EVNTM' then
+        update public.recurring_schedules
+        set stopped_at = now(), stop_reason = 'member left',
+          last_error = 'This repeating item was stopped.'
+        where id = v_id and stopped_at is null;
+      elsif v_state in ('EVNTI', 'P0001') or left(v_state, 2) in ('22', '23') then
+        update public.recurring_schedules
+        set stopped_at = now(), stop_reason = 'invalid',
+          last_error = 'This repeating item was stopped.'
+        where id = v_id and stopped_at is null;
+      else
+        update public.recurring_schedules
+        set failed_runs = failed_runs + 1,
+          last_error = 'Could not create the latest occurrence; it will be retried.'
+        where id = v_id and stopped_at is null;
+      end if;
+    end;
+  end loop;
+
+  return v_total;
+end;
+$$;
+
+revoke execute on function public._materialise_recurring(timestamptz, uuid)
+  from public, anon, authenticated;
+
+-- App-open catch-up for the signed-in user: the same runner cron uses, scoped
+-- to the schedules the caller belongs to, with the real clock. Idempotent, so it
+-- is safe to run on every app open; covers pg_cron being off or a paused project.
+create or replace function public.materialise_my_recurring()
+returns int
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  return public._materialise_recurring(now() + interval '48 hours', v_uid);
+end;
+$$;
+
+revoke execute on function public.materialise_my_recurring() from public, anon;
+grant execute on function public.materialise_my_recurring() to authenticated;
