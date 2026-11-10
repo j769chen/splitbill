@@ -137,6 +137,7 @@ export interface Database {
           currency: string;
           exchange_rate: number;
           base_amount: number;
+          date: string;
         };
         Insert: {
           id?: string;
@@ -148,6 +149,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Update: {
           paid_by?: string;
@@ -157,6 +159,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Relationships: [];
       };
@@ -251,6 +254,7 @@ export interface Database {
           currency: string;
           exchange_rate: number;
           base_amount: number;
+          date: string;
         };
         Insert: {
           id?: string;
@@ -263,6 +267,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Update: {
           paid_by?: string;
@@ -272,6 +277,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Relationships: [];
       };
@@ -386,6 +392,21 @@ export interface Database {
         }[];
       };
       get_recent_activity: {
+        Args: { p_limit?: number };
+        Returns: {
+          id: string;
+          description: string;
+          amount: number;
+          currency: string;
+          date: string;
+          paid_by: string;
+          group_id: string;
+          payer: Profile | null;
+          groups: { name: string } | null;
+          expense_splits: { user_id: string; amount: number }[];
+        }[];
+      };
+      get_upcoming_expenses: {
         Args: { p_limit?: number };
         Returns: {
           id: string;
@@ -566,6 +587,7 @@ export interface Database {
           p_amount: number;
           p_note?: string | null;
           p_currency?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["payments"]["Row"];
       };
@@ -576,6 +598,7 @@ export interface Database {
           p_paid_to: string;
           p_amount: number;
           p_note?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["payments"]["Row"];
       };
@@ -595,6 +618,7 @@ export interface Database {
           p_amount: number;
           p_note?: string | null;
           p_currency?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["contact_payments"]["Row"];
       };
@@ -605,6 +629,7 @@ export interface Database {
           p_paid_to: string;
           p_amount: number;
           p_note?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["contact_payments"]["Row"];
       };
@@ -763,7 +788,7 @@ export interface ActivityPayment {
   id: string;
   amount: number;
   currency: string;
-  created_at: string;
+  date: string;
   paid_by: string;
   paid_to: string;
   group_id: string;
@@ -792,7 +817,7 @@ export interface ActivityContactPayment {
   id: string;
   amount: number;
   currency: string;
-  created_at: string;
+  date: string;
   paid_by: string;
   paid_to: string;
   note: string | null;

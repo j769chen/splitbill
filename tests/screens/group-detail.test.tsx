@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen } from "@testing-library/react-native";
 import { renderWithPaper, actAsync } from "../helpers/testUtils";
 import GroupDetail from "@/app/(tabs)/groups/[id]";
 
@@ -111,6 +111,7 @@ const paymentsFixture = [
     payee: { full_name: "Bob" },
     note: "Venmo transfer",
     created_at: "2024-01-02",
+    date: "2024-01-02",
   },
 ];
 const owingBalances = [
@@ -230,6 +231,27 @@ describe("GroupDetail screen", () => {
 
     expect(screen.getByText("You paid Bob $20.00")).toBeTruthy();
     expect(screen.getByText("Venmo transfer")).toBeTruthy();
+  });
+
+  it("places and dates a payment by its date, not when it was recorded", async () => {
+    setup({
+      expenses: [{ ...expensesFixture[0], date: new Date(2024, 0, 15, 12).toISOString() }],
+      payments: [
+        {
+          ...paymentsFixture[0],
+          created_at: new Date(2023, 11, 1, 12).toISOString(),
+          date: new Date(2024, 1, 1, 12).toISOString(),
+        },
+      ],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    const rows = screen
+      .getAllByText(/^(You paid Bob \$20\.00|Dinner)$/)
+      .map((node) => [node.props.children].flat().join(""));
+    expect(rows).toEqual(["You paid Bob $20.00", "Dinner"]);
+    expect(screen.getByText("Feb 1")).toBeTruthy();
+    expect(screen.queryByText("Dec 1")).toBeNull();
   });
 
   it("asks for confirmation and deletes a payment on confirm", async () => {
@@ -608,5 +630,187 @@ describe("GroupDetail screen", () => {
       { paymentId: "p2", groupId: "g1" },
       expect.objectContaining({ onError: expect.any(Function) })
     );
+  });
+});
+
+describe("GroupDetail upcoming transactions", () => {
+  const NOW = new Date("2026-11-09T12:00:00.000Z");
+  const futureExpense = {
+    ...expensesFixture[0],
+    id: "e-future",
+    description: "Rent",
+    date: "2026-12-01T00:00:00.000Z",
+  };
+  const soonerPayment = {
+    ...paymentsFixture[0],
+    id: "p-future",
+    note: "Scheduled",
+    date: "2026-11-20T00:00:00.000Z",
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: NOW });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("lists future-dated expenses and payments under Upcoming, soonest first, each tagged", async () => {
+    setup({
+      expenses: [futureExpense, ...expensesFixture],
+      payments: [soonerPayment],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    // Section heading plus one tag per upcoming row.
+    expect(screen.getAllByText("Upcoming")).toHaveLength(3);
+    const order = screen
+      .getAllByText(/^(Rent|You paid Bob \$20\.00|Dinner)$/)
+      .map((node) => [node.props.children].flat().join(""));
+    expect(order).toEqual(["You paid Bob $20.00", "Rent", "Dinner"]);
+    expect(screen.getByText("History")).toBeTruthy();
+  });
+
+  it("keeps a future row out of the past list", async () => {
+    setup({ expenses: [futureExpense], payments: [] });
+    await renderWithPaper(<GroupDetail />);
+
+    expect(screen.getByText("Rent")).toBeTruthy();
+    expect(screen.queryByText("History")).toBeNull();
+    expect(screen.queryByText("No activity yet")).toBeNull();
+  });
+
+  it("shows no Upcoming section when nothing is future-dated", async () => {
+    await renderWithPaper(<GroupDetail />);
+
+    expect(screen.queryByText("Upcoming")).toBeNull();
+    expect(screen.queryByText("History")).toBeNull();
+    expect(screen.getByText("Dinner")).toBeTruthy();
+  });
+
+  it("treats a row dated exactly now as already counting", async () => {
+    setup({
+      expenses: [{ ...futureExpense, date: NOW.toISOString() }],
+      payments: [],
+    });
+    await renderWithPaper(<GroupDetail />);
+
+    expect(screen.getByText("Rent")).toBeTruthy();
+    expect(screen.queryByText("Upcoming")).toBeNull();
+  });
+
+  it("opens an upcoming expense for editing and offers to cancel it", async () => {
+    setup({ expenses: [futureExpense], payments: [] });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent.press(screen.getByText("Rent"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/group-add-expense",
+      params: { groupId: "g1", expenseId: "e-future" },
+    });
+
+    await fireEvent(screen.getByText("Rent"), "longPress");
+    expect(mockConfirm.mock.calls[0][0].title).toBe("Delete Expense");
+  });
+
+  it("opens an upcoming payment for editing", async () => {
+    setup({ expenses: [], payments: [soonerPayment] });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent.press(screen.getByText("You paid Bob $20.00"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/group-edit-payment",
+      params: { groupId: "g1", paymentId: "p-future" },
+    });
+  });
+
+  it("moves a row out of Upcoming and refetches balances when its date arrives", async () => {
+    setup({
+      expenses: [
+        { ...futureExpense, date: new Date(NOW.getTime() + 10_000).toISOString() },
+      ],
+      payments: [],
+    });
+    await renderWithPaper(<GroupDetail />);
+    expect(screen.getAllByText("Upcoming")).toHaveLength(2);
+    mockRefetchBalances.mockClear();
+
+    await act(async () => {
+      jest.advanceTimersByTime(12_000);
+    });
+
+    expect(screen.queryByText("Upcoming")).toBeNull();
+    expect(screen.getByText("Rent")).toBeTruthy();
+    expect(mockRefetchBalances).toHaveBeenCalled();
+    expect(mockRefetchExpenses).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["expense", "Fresh dinner"],
+    ["payment", "You paid Bob $20.00"],
+  ])(
+    "lists a %s created after minutes on screen as history, with no spurious refetch",
+    async (kind, label) => {
+      const view = await renderWithPaper(<GroupDetail />);
+      mockRefetchBalances.mockClear();
+      mockRefetchExpenses.mockClear();
+      mockRefetchPayments.mockClear();
+
+      // Ten minutes later the user adds a row; the server stamps its now().
+      jest.setSystemTime(new Date(NOW.getTime() + 10 * 60_000));
+      const created = new Date(Date.now() - 2_000).toISOString();
+      setup(
+        kind === "expense"
+          ? {
+              expenses: [
+                { ...futureExpense, id: "fresh", description: "Fresh dinner", date: created },
+              ],
+              payments: [],
+            }
+          : { expenses: [], payments: [{ ...soonerPayment, id: "fresh", date: created }] }
+      );
+      await act(async () => {
+        await view.rerender(<GroupDetail />);
+      });
+
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.queryByText("Upcoming")).toBeNull();
+
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(screen.queryByText("Upcoming")).toBeNull();
+      expect(mockRefetchBalances).not.toHaveBeenCalled();
+      expect(mockRefetchExpenses).not.toHaveBeenCalled();
+      expect(mockRefetchPayments).not.toHaveBeenCalled();
+    }
+  );
+
+  it("starts the timer from an upcoming payment's date", async () => {
+    setup({
+      expenses: [],
+      payments: [
+        { ...soonerPayment, date: new Date(NOW.getTime() + 10_000).toISOString() },
+      ],
+    });
+    await renderWithPaper(<GroupDetail />);
+    expect(screen.getAllByText("Upcoming")).toHaveLength(2);
+
+    await act(async () => {
+      jest.advanceTimersByTime(12_000);
+    });
+
+    expect(screen.queryByText("Upcoming")).toBeNull();
+  });
+
+  it("leaves balances to the server: a future expense does not change them", async () => {
+    setup({ expenses: [futureExpense], payments: [], balances: [] });
+    await renderWithPaper(<GroupDetail />);
+
+    await fireEvent.press(screen.getByText("Balances"));
+
+    expect(screen.getByText("All settled up!")).toBeTruthy();
   });
 });
