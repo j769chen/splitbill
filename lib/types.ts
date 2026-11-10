@@ -1,5 +1,24 @@
 export type SplitType = "equal" | "exact" | "percentage";
 
+export type RecurringFrequency =
+  | "daily"
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "yearly";
+
+export type RecurringStopReason =
+  | "completed"
+  | "member left"
+  | "invalid"
+  | "stopped";
+
+export interface RecurringScheduleSplit {
+  userId: string;
+  amount: number;
+  baseAmount?: number;
+}
+
 export type { CurrencyCode } from "./currency";
 
 export interface Database {
@@ -78,6 +97,9 @@ export interface Database {
           currency: string;
           exchange_rate: number;
           base_amount: number;
+          schedule_id: string | null;
+          occurrence_date: string | null;
+          hand_edited: boolean;
         };
         Insert: {
           id?: string;
@@ -137,6 +159,7 @@ export interface Database {
           currency: string;
           exchange_rate: number;
           base_amount: number;
+          date: string;
         };
         Insert: {
           id?: string;
@@ -148,6 +171,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Update: {
           paid_by?: string;
@@ -157,6 +181,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Relationships: [];
       };
@@ -190,6 +215,9 @@ export interface Database {
           currency: string;
           exchange_rate: number;
           base_amount: number;
+          schedule_id: string | null;
+          occurrence_date: string | null;
+          hand_edited: boolean;
         };
         Insert: {
           id?: string;
@@ -251,6 +279,7 @@ export interface Database {
           currency: string;
           exchange_rate: number;
           base_amount: number;
+          date: string;
         };
         Insert: {
           id?: string;
@@ -263,6 +292,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Update: {
           paid_by?: string;
@@ -272,6 +302,7 @@ export interface Database {
           currency?: string;
           exchange_rate?: number;
           base_amount?: number;
+          date?: string;
         };
         Relationships: [];
       };
@@ -315,6 +346,38 @@ export interface Database {
         };
         Relationships: [];
       };
+      recurring_schedules: {
+        Row: {
+          id: string;
+          kind: "group" | "contact";
+          group_id: string | null;
+          user_lo: string | null;
+          user_hi: string | null;
+          created_by: string | null;
+          paid_by: string;
+          description: string;
+          category: string | null;
+          amount: number;
+          currency: string;
+          last_exchange_rate: number;
+          split_type: SplitType;
+          splits: RecurringScheduleSplit[];
+          start_date: string;
+          tz: string;
+          frequency: RecurringFrequency;
+          end_date: string | null;
+          max_count: number | null;
+          next_index: number;
+          stopped_at: string | null;
+          stop_reason: RecurringStopReason | null;
+          created_at: string;
+          last_error: string | null;
+          failed_runs: number;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       group_simplify_debts_events: {
         Row: {
           id: string;
@@ -352,6 +415,13 @@ export interface Database {
           balance: number;
           currency: string;
         }[];
+      };
+      // Added by the DB side of account deletion (Engineer B's stack); kept
+      // here so this client PR typechecks on its own. Takes no arguments,
+      // returns nothing and raises on failure.
+      delete_my_account: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
       };
       check_emails_registered: {
         Args: { p_emails: string[] };
@@ -398,6 +468,27 @@ export interface Database {
           payer: Profile | null;
           groups: { name: string } | null;
           expense_splits: { user_id: string; amount: number }[];
+          schedule_id: string | null;
+          occurrence_date: string | null;
+          hand_edited: boolean;
+        }[];
+      };
+      get_upcoming_expenses: {
+        Args: { p_limit?: number };
+        Returns: {
+          id: string;
+          description: string;
+          amount: number;
+          currency: string;
+          date: string;
+          paid_by: string;
+          group_id: string;
+          payer: Profile | null;
+          groups: { name: string } | null;
+          expense_splits: { user_id: string; amount: number }[];
+          schedule_id: string | null;
+          occurrence_date: string | null;
+          hand_edited: boolean;
         }[];
       };
       get_group_simplified_edges: {
@@ -498,6 +589,34 @@ export interface Database {
         };
         Returns: Database["public"]["Tables"]["contact_expenses"]["Row"];
       };
+      create_recurring_schedule: {
+        Args: {
+          p_group_id: string | null;
+          p_contact_id: string | null;
+          p_paid_by: string;
+          p_amount: number;
+          p_description: string;
+          p_category: string | null;
+          p_split_type: SplitType;
+          p_splits: { userId: string; amount: number }[];
+          p_currency: string;
+          p_exchange_rate: number;
+          p_start_date: string;
+          p_tz: string;
+          p_frequency: RecurringFrequency;
+          p_end_date?: string | null;
+          p_max_count?: number | null;
+        };
+        Returns: Database["public"]["Tables"]["recurring_schedules"]["Row"];
+      };
+      stop_recurring_schedule: {
+        Args: { p_schedule_id: string };
+        Returns: Database["public"]["Tables"]["recurring_schedules"]["Row"];
+      };
+      materialise_my_recurring: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
       get_contact_balance: {
         Args: { p_contact_user_id: string };
         Returns: number;
@@ -566,6 +685,7 @@ export interface Database {
           p_amount: number;
           p_note?: string | null;
           p_currency?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["payments"]["Row"];
       };
@@ -576,6 +696,7 @@ export interface Database {
           p_paid_to: string;
           p_amount: number;
           p_note?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["payments"]["Row"];
       };
@@ -595,6 +716,7 @@ export interface Database {
           p_amount: number;
           p_note?: string | null;
           p_currency?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["contact_payments"]["Row"];
       };
@@ -605,6 +727,7 @@ export interface Database {
           p_paid_to: string;
           p_amount: number;
           p_note?: string | null;
+          p_date?: string | null;
         };
         Returns: Database["public"]["Tables"]["contact_payments"]["Row"];
       };
@@ -637,6 +760,8 @@ export type ContactExpenseSplit =
   Database["public"]["Tables"]["contact_expense_splits"]["Row"];
 export type ContactPayment =
   Database["public"]["Tables"]["contact_payments"]["Row"];
+export type RecurringSchedule =
+  Database["public"]["Tables"]["recurring_schedules"]["Row"];
 
 export interface ContactWithBalance {
   contact_user_id: string;
@@ -757,13 +882,16 @@ export interface ActivityExpense {
   payer: Profile | null;
   groups: { name: string } | null;
   expense_splits: { user_id: string; amount: number }[];
+  schedule_id?: string | null;
+  occurrence_date?: string | null;
+  hand_edited?: boolean;
 }
 
 export interface ActivityPayment {
   id: string;
   amount: number;
   currency: string;
-  created_at: string;
+  date: string;
   paid_by: string;
   paid_to: string;
   group_id: string;
@@ -786,13 +914,16 @@ export interface ActivityContactExpense {
   user_lo_profile: Profile | null;
   user_hi_profile: Profile | null;
   expense_splits: { user_id: string; amount: number }[];
+  schedule_id?: string | null;
+  occurrence_date?: string | null;
+  hand_edited?: boolean;
 }
 
 export interface ActivityContactPayment {
   id: string;
   amount: number;
   currency: string;
-  created_at: string;
+  date: string;
   paid_by: string;
   paid_to: string;
   note: string | null;
