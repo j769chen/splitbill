@@ -81,7 +81,7 @@ export default function Notifications() {
           }}
         >
           Notification preferences are stored on this device and control which
-          alerts SplitBill sends you.
+          alerts Splitfox sends you.
         </Text>
       </View>
     </ScrollView>

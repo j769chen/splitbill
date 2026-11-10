@@ -48,7 +48,7 @@ export default function SignUp() {
             variant="displaySmall"
             style={{ color: theme.colors.primary, textAlign: "center" }}
           >
-            SplitBill
+            Splitfox
           </Text>
           <Text
             variant="bodyLarge"
