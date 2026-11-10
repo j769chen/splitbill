@@ -5,8 +5,10 @@ import {
   useExpenses,
   useUpdateExpense,
 } from "@/lib/queries/useExpenses";
+import { useCreateRecurringSchedule } from "@/lib/queries/useRecurringSchedules";
 import { useAuth } from "@/lib/auth";
 import { ExpenseFormScreen } from "@/components/ExpenseFormScreen";
+import { payerMembers, splitMembers } from "@/lib/ghost-members";
 import type { MemberWithProfile } from "@/lib/types";
 
 export default function AddExpense() {
@@ -20,6 +22,7 @@ export default function AddExpense() {
   const { data: expenses } = useExpenses(groupId);
   const createExpense = useCreateExpense();
   const updateExpense = useUpdateExpense();
+  const createSchedule = useCreateRecurringSchedule();
 
   const existingExpense = isEdit
     ? expenses?.find((e) => e.id === expenseId)
@@ -31,19 +34,31 @@ export default function AddExpense() {
 
   return (
     <ExpenseFormScreen
-      members={group?.group_members ?? []}
+      members={splitMembers(group?.group_members ?? [], existingExpense)}
+      payerMembers={payerMembers(group?.group_members ?? [], existingExpense)}
       memberName={memberName}
       baseCurrency={group?.currency ?? "USD"}
       baseCurrencyLabel="group currency"
       existingExpense={existingExpense}
       isEdit={isEdit}
       noMembersError="Please select at least one member"
-      isPending={isEdit ? updateExpense.isPending : createExpense.isPending}
-      onSubmit={(submission) =>
-        isEdit && expenseId
-          ? updateExpense.mutateAsync({ expenseId, groupId, ...submission })
-          : createExpense.mutateAsync({ groupId, ...submission })
+      isPending={
+        isEdit
+          ? updateExpense.isPending
+          : createExpense.isPending || createSchedule.isPending
       }
+      onSubmit={({ repeat, ...submission }) => {
+        if (isEdit && expenseId) {
+          return updateExpense.mutateAsync({ expenseId, groupId, ...submission });
+        }
+        return repeat
+          ? createSchedule.mutateAsync({
+              scope: { kind: "group", groupId },
+              ...submission,
+              ...repeat,
+            })
+          : createExpense.mutateAsync({ groupId, ...submission });
+      }}
     />
   );
 }

@@ -3,11 +3,15 @@
 -- NOTE: append new columns at the END of each table. The diff tool emits
 -- positional ALTERs, so inserting a column mid-table produces a noisier diff.
 
+-- id matches auth.users.id but is deliberately not a foreign key to it: a profile
+-- outlives its auth user so deleting an account cannot cascade through the ledger.
 create table public.profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
+  id uuid primary key,
   full_name text not null,
   avatar_url text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Set on a tombstone: a profile whose person has deleted their account.
+  deleted_at timestamptz
 );
 
 create table public.groups (
@@ -31,6 +35,48 @@ create table public.group_members (
   unique (group_id, user_id)
 );
 
+-- A repeating expense, for a group (group_id) or a contact pair (user_lo <
+-- user_hi, as in contact_expenses). It holds the payload the create-expense
+-- RPCs take; each occurrence becomes an ordinary expense row linked back by
+-- (schedule_id, occurrence_date). Declared before expenses, which reference it.
+-- next_index is the n of the next occurrence to create and only ever grows.
+-- last_exchange_rate is the rate the latest occurrence converted at (the
+-- creation-day rate at first), kept unrounded; each occurrence converts at its
+-- own day's rate. created_by is audit only: if the creator leaves, the series stays.
+create table public.recurring_schedules (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('group', 'contact')),
+  group_id uuid references public.groups (id) on delete cascade,
+  user_lo uuid references public.profiles (id) on delete cascade,
+  user_hi uuid references public.profiles (id) on delete cascade,
+  created_by uuid references public.profiles (id) on delete set null,
+  paid_by uuid not null references public.profiles (id) on delete cascade,
+  description text not null,
+  category text,
+  amount numeric(12, 2) not null check (amount > 0),
+  currency text not null default 'USD',
+  last_exchange_rate numeric(24, 12) not null check (last_exchange_rate > 0),
+  split_type public.split_type not null default 'equal',
+  splits jsonb not null,
+  start_date date not null,
+  tz text not null,
+  frequency text not null check (frequency in ('daily', 'weekly', 'biweekly', 'monthly', 'yearly')),
+  end_date date,
+  max_count int check (max_count > 0),
+  next_index int not null default 0,
+  stopped_at timestamptz,
+  stop_reason text,
+  created_at timestamptz not null default now(),
+  last_error text,
+  failed_runs int not null default 0,
+  check (user_lo < user_hi),
+  constraint recurring_schedules_splits_array_check check (jsonb_typeof(splits) = 'array'),
+  constraint recurring_schedules_scope_check check (
+    (kind = 'group' and group_id is not null and user_lo is null and user_hi is null)
+    or (kind = 'contact' and group_id is null and user_lo is not null and user_hi is not null)
+  )
+);
+
 create table public.expenses (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.groups (id) on delete cascade,
@@ -46,7 +92,13 @@ create table public.expenses (
   -- balances never drift with the market.
   currency text not null default 'USD',
   exchange_rate numeric(18, 8) not null default 1 check (exchange_rate > 0),
-  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0),
+  -- Set when the row is an occurrence of a recurring schedule.
+  schedule_id uuid references public.recurring_schedules (id) on delete set null,
+  occurrence_date date,
+  -- A member edited this occurrence; schedule edits and stops leave it alone.
+  hand_edited boolean not null default false,
+  constraint expenses_schedule_occurrence_check check (schedule_id is null or occurrence_date is not null)
 );
 
 create table public.expense_splits (
@@ -73,7 +125,9 @@ create table public.payments (
   -- the columns mirror expenses so a foreign-currency payment can be recorded.
   currency text not null default 'USD',
   exchange_rate numeric(18, 8) not null default 1 check (exchange_rate > 0),
-  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0)
+  base_amount numeric(12, 2) not null default 0 check (base_amount >= 0),
+  -- When the payment counts toward balances; may be in the future.
+  date timestamptz not null default now()
 );
 
 create table public.group_simplify_debts_events (
@@ -95,6 +149,13 @@ create index idx_payments_group on public.payments (group_id);
 create index idx_payments_paid_by on public.payments (paid_by);
 create index idx_payments_paid_to on public.payments (paid_to);
 create index idx_group_simplify_debts_events_group on public.group_simplify_debts_events (group_id);
+create index idx_recurring_schedules_group on public.recurring_schedules (group_id);
+create index idx_recurring_schedules_pair on public.recurring_schedules (user_lo, user_hi);
+create index idx_recurring_schedules_active on public.recurring_schedules (start_date)
+  where stopped_at is null;
+-- One expense per schedule per occurrence date, whoever creates it.
+create unique index idx_expenses_schedule_occurrence on public.expenses (schedule_id, occurrence_date)
+  where schedule_id is not null;
 
 alter table public.profiles enable row level security;
 alter table public.groups enable row level security;
@@ -103,6 +164,7 @@ alter table public.expenses enable row level security;
 alter table public.expense_splits enable row level security;
 alter table public.payments enable row level security;
 alter table public.group_simplify_debts_events enable row level security;
+alter table public.recurring_schedules enable row level security;
 
 -- Grants.
 --
@@ -121,7 +183,8 @@ grant select on table
   public.expenses,
   public.expense_splits,
   public.payments,
-  public.group_simplify_debts_events
+  public.group_simplify_debts_events,
+  public.recurring_schedules
   to anon, authenticated;
 
 grant all on table
@@ -131,7 +194,8 @@ grant all on table
   public.expenses,
   public.expense_splits,
   public.payments,
-  public.group_simplify_debts_events
+  public.group_simplify_debts_events,
+  public.recurring_schedules
   to service_role;
 
 -- Supabase's default privileges hand anon/authenticated the remainder of `all`
@@ -145,5 +209,37 @@ revoke insert, update, delete, truncate, references, trigger on table
   public.expenses,
   public.expense_splits,
   public.payments,
-  public.group_simplify_debts_events
+  public.group_simplify_debts_events,
+  public.recurring_schedules
   from anon, authenticated;
+
+-- A server-side exchange-rate source for foreign-currency recurring schedules.
+-- exchange_rates holds one row per UTC day, USD-keyed, in the shape the app's
+-- lib/exchange-rates.ts already consumes (open.er-api.com/v6/latest/USD: units of
+-- each currency per 1 USD). Nothing reads or writes it from a client: only the
+-- SECURITY DEFINER engine and the refresh functions below (and the service role)
+-- touch it, so RLS is on with no policy and the client grants are revoked.
+
+create table public.exchange_rates (
+  day date primary key,
+  rates jsonb not null,
+  fetched_at timestamptz not null default now()
+);
+
+alter table public.exchange_rates enable row level security;
+
+revoke all on table public.exchange_rates from anon, authenticated;
+grant all on table public.exchange_rates to service_role;
+
+-- The pg_net request ids _refresh_exchange_rates_fire has issued, so the store
+-- step reads only responses to its own requests (net._http_response is shared
+-- with every other pg_net user). Same access rule as exchange_rates.
+create table public.exchange_rate_requests (
+  id bigint primary key,
+  requested_at timestamptz not null default now()
+);
+
+alter table public.exchange_rate_requests enable row level security;
+
+revoke all on table public.exchange_rate_requests from anon, authenticated;
+grant all on table public.exchange_rate_requests to service_role;
